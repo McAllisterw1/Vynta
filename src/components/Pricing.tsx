@@ -1,52 +1,57 @@
+import PricingButton from './PricingButton'
+
 const plans = [
   {
-    name: "Starter",
-    price: 149,
-    tagline: "For solo operators and single-location businesses.",
+    slug: 'starter',
+    name: 'Starter',
+    price: 99,
+    tagline: 'For solo operators and single-location businesses.',
     features: [
-      "1 business location",
-      "Up to 200 review requests / mo",
-      "AI response drafts",
-      "Google & Yelp monitoring",
-      "Weekly digest reports",
-      "Email support",
+      '1 business location',
+      'Up to 200 review requests / mo',
+      'AI response drafts',
+      'Google & Yelp monitoring',
+      'Weekly digest reports',
+      'Email support',
     ],
-    cta: "Get Started",
+    cta: 'Get Started',
     featured: false,
   },
   {
-    name: "Growth",
-    price: 297,
-    tagline: "Built for growing businesses that need more reach.",
+    slug: 'growth',
+    name: 'Growth',
+    price: 199,
+    tagline: 'Built for growing businesses that need more reach.',
     features: [
-      "Up to 5 locations",
-      "Unlimited review requests",
-      "AI auto-posting (4–5 stars)",
-      "50+ platform monitoring",
-      "Competitor benchmarking",
-      "Dashboard analytics",
-      "Priority support",
+      'Up to 5 locations',
+      'Unlimited review requests',
+      'AI auto-posting (4–5 stars)',
+      '50+ platform monitoring',
+      'Competitor benchmarking',
+      'Dashboard analytics',
+      'Priority support',
     ],
-    cta: "Start Free Trial",
+    cta: 'Start Free Trial',
     featured: true,
   },
   {
-    name: "Agency",
-    price: 497,
-    tagline: "For agencies and franchises managing many clients.",
+    slug: 'agency',
+    name: 'Agency',
+    price: 399,
+    tagline: 'For agencies and franchises managing many clients.',
     features: [
-      "Unlimited locations",
-      "White-label dashboard",
-      "Client sub-accounts",
-      "Custom AI brand voice",
-      "API access",
-      "Bulk reporting & exports",
-      "Dedicated account manager",
+      'Unlimited locations',
+      'White-label dashboard',
+      'Client sub-accounts',
+      'Custom AI brand voice',
+      'API access',
+      'Bulk reporting & exports',
+      'Dedicated account manager',
     ],
-    cta: "Contact Sales",
+    cta: 'Get Started',
     featured: false,
   },
-];
+]
 
 export default function Pricing() {
   return (
@@ -71,7 +76,6 @@ export default function Pricing() {
         <div className="grid items-stretch gap-6 md:grid-cols-3">
           {plans.map((plan) =>
             plan.featured ? (
-              /* Featured card — deep tobacco */
               <div
                 key={plan.name}
                 className="relative flex flex-col rounded-sm bg-tobacco p-8 shadow-xl"
@@ -103,15 +107,9 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <a
-                  href="#"
-                  className="block rounded-sm bg-teal py-3 text-center text-sm font-semibold text-cream transition-colors hover:bg-teal-dark"
-                >
-                  {plan.cta}
-                </a>
+                <PricingButton plan={plan.slug} featured>{plan.cta}</PricingButton>
               </div>
             ) : (
-              /* Standard cards — cream */
               <div
                 key={plan.name}
                 className="flex flex-col rounded-sm border border-cream-border bg-cream p-8"
@@ -137,12 +135,7 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <a
-                  href="#"
-                  className="block rounded-sm border border-cream-border py-3 text-center text-sm font-medium text-tobacco-mid transition-colors hover:border-tobacco-light hover:text-tobacco"
-                >
-                  {plan.cta}
-                </a>
+                <PricingButton plan={plan.slug}>{plan.cta}</PricingButton>
               </div>
             )
           )}
@@ -154,5 +147,5 @@ export default function Pricing() {
 
       </div>
     </section>
-  );
+  )
 }
