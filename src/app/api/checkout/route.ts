@@ -33,7 +33,10 @@ export async function POST(request: Request) {
         quantity: 1,
       },
     ],
-    ...(userId && { metadata: { userId } }),
+    metadata: { plan, ...(userId && { userId }) },
+    subscription_data: {
+      metadata: { plan, ...(userId && { userId }) },
+    },
     success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:  `${origin}/#pricing`,
   })

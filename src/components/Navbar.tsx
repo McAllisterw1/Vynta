@@ -1,4 +1,7 @@
-export default function Navbar() {
+import { auth } from "@clerk/nextjs/server";
+
+export default async function Navbar() {
+  const { userId } = await auth();
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-cream border-b border-cream-border shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -40,12 +43,31 @@ export default function Navbar() {
         </nav>
 
         {/* CTA */}
-        <a
-          href="/dashboard"
-          className="rounded bg-teal px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
-        >
-          Start Free Trial
-        </a>
+        <div className="flex items-center gap-3">
+          {userId ? (
+            <a
+              href="/dashboard"
+              className="rounded bg-teal px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
+            >
+              Go to Dashboard
+            </a>
+          ) : (
+            <>
+              <a
+                href="/sign-in"
+                className="rounded border border-cream-border px-5 py-2 text-sm font-medium text-tobacco-light transition-colors hover:border-tobacco-light hover:text-tobacco"
+              >
+                Sign In
+              </a>
+              <a
+                href="/sign-up"
+                className="rounded bg-teal px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
+              >
+                Start Free Trial
+              </a>
+            </>
+          )}
+        </div>
 
       </div>
     </header>
