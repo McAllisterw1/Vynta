@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 const PLANS = {
-  starter: { label: 'Vynta Starter', amount: 9900 },
+  starter: { label: 'Vynta Starter', amount: 14900 },
   growth:  { label: 'Vynta Growth',  amount: 19900 },
   agency:  { label: 'Vynta Agency',  amount: 39900 },
 } as const

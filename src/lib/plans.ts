@@ -1,7 +1,7 @@
 export const PLANS = {
   starter: {
     name: 'Starter',
-    price: 99,
+    price: 149,
     monthlyRequestLimit: 200,
     maxLocations: 1,
     aiAutoPosting: false,

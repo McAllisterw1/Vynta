@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useResponseHistory } from "@/lib/useResponseHistory";
+
+const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 
 export default function AIReviewResponder() {
   const [businessName, setBusinessName] = useState("");
@@ -12,7 +15,20 @@ export default function AIReviewResponder() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const canSubmit = businessName.trim() !== "" && reviewerName.trim() !== "" && rating > 0 && comment.trim() !== "";
+  const { addEntry } = useResponseHistory();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DEFAULT_BUSINESS_KEY);
+      if (saved) setBusinessName(saved);
+    } catch {}
+  }, []);
+
+  const canSubmit =
+    businessName.trim() !== "" &&
+    reviewerName.trim() !== "" &&
+    rating > 0 &&
+    comment.trim() !== "";
 
   async function fetchDraft() {
     setLoading(true);
@@ -34,8 +50,15 @@ export default function AIReviewResponder() {
         const json = await res.json().catch(() => ({}));
         throw new Error((json as { error?: string }).error ?? "Request failed");
       }
-      const json = await res.json() as { response: string };
+      const json = (await res.json()) as { response: string };
       setResponse(json.response);
+      addEntry({
+        businessName: businessName.trim(),
+        reviewerName: reviewerName.trim(),
+        rating,
+        comment: comment.trim(),
+        response: json.response,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -123,7 +146,9 @@ export default function AIReviewResponder() {
                 </button>
               ))}
               {rating > 0 && (
-                <span className="ml-2 text-xs text-tobacco-light">{rating} star{rating !== 1 ? "s" : ""}</span>
+                <span className="ml-2 text-xs text-tobacco-light">
+                  {rating} star{rating !== 1 ? "s" : ""}
+                </span>
               )}
             </div>
           </div>

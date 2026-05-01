@@ -54,10 +54,10 @@ export default function DashboardNav({ userName, plan, subscriptionStatus }: Pro
           </p>
 
           <a
-            href="/"
+            href="/dashboard/settings"
             className="rounded border border-cream-border px-4 py-1.5 text-sm text-tobacco-light transition-colors hover:border-tobacco-light hover:text-tobacco"
           >
-            Log out
+            Settings
           </a>
         </div>
 

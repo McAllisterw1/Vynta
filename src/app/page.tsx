@@ -1,8 +1,11 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import Pain from "@/components/Pain";
 import Features from "@/components/Features";
-import CustomReviews from "@/components/CustomReviews";
+import Results from "@/components/Results";
+import Trust from "@/components/Trust";
 import Pricing from "@/components/Pricing";
+import FAQ from "@/components/FAQ";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -10,9 +13,12 @@ export default function Home() {
     <main>
       <Navbar />
       <Hero />
+      <Pain />
       <Features />
-      <CustomReviews />
+      <Results />
+      <Trust />
       <Pricing />
+      <FAQ />
       <Footer />
     </main>
   );

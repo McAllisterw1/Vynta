@@ -3,36 +3,36 @@ import PricingButton from './PricingButton'
 const plans = [
   {
     slug: 'starter',
-    name: 'Starter',
-    price: 99,
-    tagline: 'For solo operators and single-location businesses.',
+    name: 'Vynta Starter',
+    price: 149,
+    tagline: 'Everything a local service business needs to grow reviews.',
     features: [
-      '1 business location',
-      'Up to 200 review requests / mo',
-      'AI response drafts',
-      'Google & Yelp monitoring',
-      'Weekly digest reports',
-      'Email support',
+      'Automated review requests (text & email)',
+      'AI-generated review replies',
+      'Review dashboard',
+      'Google review monitoring',
+      'Basic analytics',
+      'Cancel anytime',
     ],
-    cta: 'Get Started',
-    featured: false,
+    cta: 'Start for $149/month',
+    featured: true,
   },
   {
     slug: 'growth',
     name: 'Growth',
     price: 199,
-    tagline: 'Built for growing businesses that need more reach.',
+    tagline: 'For businesses managing multiple locations.',
     features: [
       'Up to 5 locations',
       'Unlimited review requests',
       'AI auto-posting (4–5 stars)',
-      '50+ platform monitoring',
+      'Multi-platform monitoring',
       'Competitor benchmarking',
       'Dashboard analytics',
       'Priority support',
     ],
-    cta: 'Start Free Trial',
-    featured: true,
+    cta: 'Get Started',
+    featured: false,
   },
   {
     slug: 'agency',
@@ -65,7 +65,8 @@ export default function Pricing() {
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-teal">Pricing</span>
           </div>
           <h2 className="font-display text-4xl font-bold text-tobacco leading-tight md:text-5xl">
-            Simple, transparent pricing
+            Simple pricing for{" "}
+            <em style={{ fontStyle: "italic" }}>growing local businesses</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed">
             No hidden fees. No long-term contracts. Cancel anytime.
@@ -81,7 +82,7 @@ export default function Pricing() {
                 className="relative flex flex-col rounded-sm bg-tobacco p-8 shadow-xl"
               >
                 <div className="absolute -top-3.5 left-8">
-                  <span className="rounded-sm bg-sand px-3 py-1 text-xs font-semibold uppercase tracking-wider text-tobacco">
+                  <span className="rounded-sm bg-teal px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cream">
                     Most Popular
                   </span>
                 </div>
@@ -99,7 +100,7 @@ export default function Pricing() {
                 <ul className="mb-8 flex-1 space-y-3">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
-                      <svg viewBox="0 0 16 16" fill="currentColor" className="mt-0.5 h-4 w-4 shrink-0 text-sand">
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="mt-0.5 h-4 w-4 shrink-0 text-teal-light">
                         <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
                       </svg>
                       <span className="text-sm text-sand-light/80">{feature}</span>
