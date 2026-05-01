@@ -22,7 +22,14 @@ export default function SendReviewRequest({ plan, requestsUsed = 14 }: Props) {
     e.preventDefault();
     if (!name.trim() || !contact.trim() || atLimit) return;
     setSending(true);
-    setTimeout(() => { setSending(false); setSent(true); }, 1000);
+    setTimeout(() => {
+      try {
+        const current = parseInt(localStorage.getItem("vynta_requests_sent") ?? "0", 10);
+        localStorage.setItem("vynta_requests_sent", String(current + 1));
+      } catch {}
+      setSending(false);
+      setSent(true);
+    }, 1000);
   }
 
   function handleReset() {
