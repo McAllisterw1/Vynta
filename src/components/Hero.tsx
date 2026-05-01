@@ -82,7 +82,7 @@ export default function Hero() {
             {/* CTAs */}
             <div className="flex flex-wrap items-center gap-6">
               <a
-                href="/dashboard"
+                href="/sign-up"
                 className="rounded bg-teal px-8 py-3.5 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
               >
                 Start Your Free Trial

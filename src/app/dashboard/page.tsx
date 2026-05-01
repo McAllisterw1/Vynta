@@ -5,6 +5,7 @@ import PlanBanner from "@/components/dashboard/PlanBanner";
 import StatCards from "@/components/dashboard/StatCards";
 import RecentReviews from "@/components/dashboard/RecentReviews";
 import SendReviewRequest from "@/components/dashboard/SendReviewRequest";
+import AIReviewResponder from "@/components/dashboard/AIReviewResponder";
 
 export const metadata = {
   title: "Dashboard — Vynta",
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
         <PlanBanner plan={plan} subscriptionStatus={subscriptionStatus} />
         <StatCards />
         <RecentReviews />
+        <AIReviewResponder />
         <SendReviewRequest plan={plan} />
       </main>
     </div>

@@ -112,7 +112,7 @@ export default function CustomReviews() {
           </div>
 
           <a
-            href="#pricing"
+            href="/sign-up"
             className="shrink-0 self-start md:self-auto rounded-sm bg-teal px-7 py-3 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
           >
             Start Free Trial

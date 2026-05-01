@@ -107,7 +107,7 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <PricingButton plan={plan.slug} featured>{plan.cta}</PricingButton>
+                <PricingButton featured>{plan.cta}</PricingButton>
               </div>
             ) : (
               <div
@@ -135,7 +135,7 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <PricingButton plan={plan.slug}>{plan.cta}</PricingButton>
+                <PricingButton>{plan.cta}</PricingButton>
               </div>
             )
           )}
