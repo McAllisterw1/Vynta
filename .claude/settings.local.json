@@ -20,7 +20,8 @@
       "Bash(xargs grep *)",
       "Bash(xargs cat *)",
       "Bash(git add *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit *)"
     ]
   }
 }

@@ -1,21 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useResponseHistory } from "@/lib/useResponseHistory";
+import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 
 export default function AIReviewResponder() {
+  const { user } = useUser();
+  const plan = (user?.publicMetadata?.plan as string | undefined) ?? null;
+
   const [businessName, setBusinessName] = useState("");
   const [reviewerName, setReviewerName] = useState("");
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [tone, setTone] = useState<"professional" | "friendly" | "apologetic" | "savage">("professional");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
   const { addEntry } = useResponseHistory();
+  const { count, limit, increment, atLimit } = useMonthlyUsage(plan);
 
   useEffect(() => {
     try {
@@ -31,6 +38,7 @@ export default function AIReviewResponder() {
     comment.trim() !== "";
 
   async function fetchDraft() {
+    if (atLimit && tone !== "savage") return;
     setLoading(true);
     setError("");
     setCopied(false);
@@ -44,6 +52,7 @@ export default function AIReviewResponder() {
           reviewerName: reviewerName.trim(),
           rating,
           comment: comment.trim(),
+          tone,
         }),
       });
       if (!res.ok) {
@@ -52,6 +61,7 @@ export default function AIReviewResponder() {
       }
       const json = (await res.json()) as { response: string };
       setResponse(json.response);
+      if (tone !== "savage") increment();
       addEntry({
         businessName: businessName.trim(),
         reviewerName: reviewerName.trim(),
@@ -67,13 +77,13 @@ export default function AIReviewResponder() {
   }
 
   function handleGenerate() {
-    if (!canSubmit || loading) return;
+    if (!canSubmit || loading || (atLimit && tone !== "savage")) return;
     setResponse("");
     fetchDraft();
   }
 
   function handleRegenerate() {
-    if (loading) return;
+    if (loading || (atLimit && tone !== "savage")) return;
     fetchDraft();
   }
 
@@ -83,12 +93,26 @@ export default function AIReviewResponder() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const usageLabel =
+    limit === null
+      ? "Unlimited responses this month"
+      : `${count} of ${limit} responses used this month`;
+
+  const upgradeMessage =
+    plan === "starter"
+      ? `You've used all ${limit} responses this month. Upgrade to Professional for more.`
+      : plan === "professional"
+      ? `You've used all ${limit} responses this month. Upgrade to Agency for unlimited responses.`
+      : `You've used all ${limit} responses this month. Upgrade your plan for more.`;
+
   return (
     <div className="mt-8">
-      <div className="mb-5 flex items-center gap-3">
+      <div className="mb-2 flex items-center gap-3">
         <div className="h-px w-8 bg-teal" />
         <h2 className="font-display text-xl font-semibold text-tobacco">AI Review Responder</h2>
       </div>
+
+      <p className="mb-4 text-xs text-tobacco-light/70">{usageLabel}</p>
 
       <div className="rounded-sm border border-cream-border bg-cream p-6">
         <p className="mb-5 text-sm text-tobacco-light">
@@ -154,6 +178,35 @@ export default function AIReviewResponder() {
           </div>
 
           <div>
+            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.1em] text-tobacco-light">
+              Tone
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  { value: "professional", label: "Professional" },
+                  { value: "friendly", label: "Friendly" },
+                  { value: "apologetic", label: "Apologetic" },
+                  { value: "savage", label: "Savage 🔥" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTone(value)}
+                  className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
+                    tone === value
+                      ? "border-teal bg-teal text-cream"
+                      : "border-cream-border bg-sand-pale text-tobacco-light hover:border-tobacco-light hover:text-tobacco"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.1em] text-tobacco-light">
               Customer Review
             </label>
@@ -170,7 +223,7 @@ export default function AIReviewResponder() {
             <button
               type="button"
               onClick={handleGenerate}
-              disabled={!canSubmit || loading}
+              disabled={!canSubmit || loading || (atLimit && tone !== "savage")}
               className="flex cursor-pointer items-center gap-2 rounded-sm bg-teal px-6 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-teal-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading && response === "" ? (
@@ -187,6 +240,12 @@ export default function AIReviewResponder() {
             </button>
           </div>
         </div>
+
+        {atLimit && (
+          <div className="mt-5 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-700">{upgradeMessage}</p>
+          </div>
+        )}
 
         {error !== "" && (
           <div className="mt-5 rounded-sm border border-red-200 bg-red-50 px-4 py-3">
@@ -223,7 +282,7 @@ export default function AIReviewResponder() {
                 <button
                   type="button"
                   onClick={handleRegenerate}
-                  disabled={loading}
+                  disabled={loading || (atLimit && tone !== "savage")}
                   className="cursor-pointer rounded-sm border border-cream-border px-4 py-1.5 text-xs font-medium text-tobacco-light transition-colors hover:border-tobacco-light hover:text-tobacco disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {loading ? "Regenerating…" : "Regenerate"}
