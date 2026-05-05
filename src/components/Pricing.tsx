@@ -1,10 +1,37 @@
 import PricingButton from './PricingButton'
 
-const plans = [
+type MonthlyPlan = {
+  slug: string
+  name: string
+  billing: 'monthly'
+  price: number
+  tagline: string
+  features: string[]
+  cta: string
+  featured: boolean
+}
+
+type YearlyPlan = {
+  slug: string
+  name: string
+  billing: 'yearly'
+  yearlyPrice: number
+  monthlyEquiv: number
+  savingsAmount: number
+  tagline: string
+  features: string[]
+  cta: string
+  featured: boolean
+}
+
+type Plan = MonthlyPlan | YearlyPlan
+
+const plans: Plan[] = [
   {
     slug: 'starter',
     name: 'Vynta Starter',
-    price: 149,
+    billing: 'monthly',
+    price: 49,
     tagline: 'Everything a local service business needs to grow reviews.',
     features: [
       'Automated review requests (text & email)',
@@ -14,13 +41,16 @@ const plans = [
       'Basic analytics',
       'Cancel anytime',
     ],
-    cta: 'Start for $149/month',
+    cta: 'Start for $49/month',
     featured: true,
   },
   {
-    slug: 'growth',
-    name: 'Growth',
-    price: 199,
+    slug: 'professional',
+    name: 'Professional',
+    billing: 'yearly',
+    yearlyPrice: 990,
+    monthlyEquiv: 83,
+    savingsAmount: 198,
     tagline: 'For businesses managing multiple locations.',
     features: [
       'Up to 5 locations',
@@ -37,7 +67,10 @@ const plans = [
   {
     slug: 'agency',
     name: 'Agency',
-    price: 399,
+    billing: 'yearly',
+    yearlyPrice: 1990,
+    monthlyEquiv: 166,
+    savingsAmount: 398,
     tagline: 'For agencies and franchises managing many clients.',
     features: [
       'Unlimited locations',
@@ -69,7 +102,7 @@ export default function Pricing() {
             <em style={{ fontStyle: "italic" }}>growing local businesses</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed">
-            No hidden fees. No long-term contracts. Cancel anytime.
+            No hidden fees. Starter is month-to-month. Professional and Agency billed annually — 2 months free.
           </p>
         </div>
 
@@ -77,6 +110,7 @@ export default function Pricing() {
         <div className="grid items-stretch gap-6 md:grid-cols-3">
           {plans.map((plan) =>
             plan.featured ? (
+              /* ── Featured (Starter) ── */
               <div
                 key={plan.name}
                 className="relative flex flex-col rounded-sm bg-tobacco p-8 shadow-xl"
@@ -93,7 +127,9 @@ export default function Pricing() {
                 </div>
 
                 <div className="mb-8 flex items-end gap-1.5 border-b border-tobacco-mid pb-8">
-                  <span className="font-display text-5xl font-bold text-cream leading-none">${plan.price}</span>
+                  <span className="font-display text-5xl font-bold text-cream leading-none">
+                    ${(plan as MonthlyPlan).price}
+                  </span>
                   <span className="mb-1 text-sm text-sand-light/60">/ month</span>
                 </div>
 
@@ -111,19 +147,44 @@ export default function Pricing() {
                 <PricingButton featured>{plan.cta}</PricingButton>
               </div>
             ) : (
+              /* ── Non-featured (Professional, Agency) — yearly billing ── */
               <div
                 key={plan.name}
-                className="flex flex-col rounded-sm border border-cream-border bg-cream p-8"
+                className="relative flex flex-col rounded-sm border border-cream-border bg-cream p-8"
               >
-                <div className="mb-6">
+                {plan.billing === 'yearly' && (
+                  <div className="absolute -top-3.5 left-8">
+                    <span className="rounded-sm bg-sand px-3 py-1 text-xs font-semibold uppercase tracking-wider text-tobacco">
+                      2 months free
+                    </span>
+                  </div>
+                )}
+
+                <div className="mb-6 pt-2">
                   <h3 className="font-display text-lg font-semibold text-tobacco">{plan.name}</h3>
                   <p className="mt-1 text-sm text-tobacco-light">{plan.tagline}</p>
                 </div>
 
-                <div className="mb-8 flex items-end gap-1.5 border-b border-cream-border pb-8">
-                  <span className="font-display text-5xl font-bold text-tobacco leading-none">${plan.price}</span>
-                  <span className="mb-1 text-sm text-tobacco-light">/ month</span>
-                </div>
+                {plan.billing === 'yearly' ? (
+                  <div className="mb-8 border-b border-cream-border pb-8">
+                    <div className="flex items-end gap-1.5">
+                      <span className="font-display text-5xl font-bold text-tobacco leading-none">
+                        ${(plan as YearlyPlan).yearlyPrice.toLocaleString()}
+                      </span>
+                      <span className="mb-1 text-sm text-tobacco-light">/ year</span>
+                    </div>
+                    <p className="mt-2 text-sm text-tobacco-light">
+                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · save ${(plan as YearlyPlan).savingsAmount}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-8 flex items-end gap-1.5 border-b border-cream-border pb-8">
+                    <span className="font-display text-5xl font-bold text-tobacco leading-none">
+                      ${(plan as MonthlyPlan).price}
+                    </span>
+                    <span className="mb-1 text-sm text-tobacco-light">/ month</span>
+                  </div>
+                )}
 
                 <ul className="mb-8 flex-1 space-y-3">
                   {plan.features.map((feature) => (

@@ -8,12 +8,21 @@ export default function Footer() {
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
 
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-tobacco-mid">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-sand">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-              </svg>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-auto">
+              <path
+                d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
+                stroke="#C4874A"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="5"  cy="3" r="2" fill="#C4874A" />
+              <circle cx="17" cy="3" r="2" fill="#C4874A" />
+              <circle cx="29" cy="3" r="2" fill="#C4874A" />
+              <circle cx="41" cy="3" r="2" fill="#C4874A" />
+              <circle cx="53" cy="3" r="2" fill="#C4874A" />
+            </svg>
             <span className="font-display text-base font-semibold text-cream tracking-tight">Vynta</span>
           </div>
 

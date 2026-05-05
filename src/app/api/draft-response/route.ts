@@ -5,13 +5,48 @@ export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
 
-type Tone = "professional" | "friendly" | "apologetic" | "savage";
+type Tone =
+  | "professional"
+  | "friendly"
+  | "apologetic"
+  | "savage"
+  | "hypeman"
+  | "unbothered"
+  | "storyteller"
+  | "bythenumbers"
+  | "neighbor"
+  | "corporate";
 
 const TONE_INSTRUCTIONS: Record<Tone, string> = {
-  professional: "Respond in a polished, professional tone.",
-  friendly: "Respond in a warm, friendly tone.",
-  apologetic: "Respond in an apologetic, empathetic tone.",
-  savage: "Write this response as someone who is clearly, effortlessly smarter than the reviewer and is taking a moment out of their busy day to gently explain reality to them. The tone is impeccably polite — almost patient — but every sentence should make the reviewer feel like a student who just said something embarrassing in a lecture hall. Correct their misunderstanding with the kind of calm, precise condescension that a professor uses when they already know the answer and are merely waiting for the class to catch up. Do not insult. Do not raise your voice. Simply be so thoroughly, quietly correct that the reviewer feels the weight of their own error. The sting comes not from aggression but from the implication that their complaint barely warranted a response — and yet here one is, graciously provided. Fully postable on Google.",
+  professional:
+    "Write this like a Fortune 500 PR team drafted it and legal signed off on it. Formal without being cold. Every sentence is load-bearing — no filler, no warmth for warmth's sake, no exclamation points. Use precise language that signals competence and accountability. Passive constructions are fine when they're deliberate. The response should sound like it was written by someone who has handled a press crisis before and found this situation relatively unremarkable. Controlled. Measured. Airtight.",
+
+  friendly:
+    "Write this like the owner themselves typed it on their phone after a long day — warm, genuine, and completely un-corporate. Use the reviewer's first name like you actually know them. Be specific about what they mentioned. Sound like a text from a friend who happens to run a great business. No buzzwords, no templates, no 'we strive to.' If they had a great experience, share in that joy like a real person would. If something went wrong, respond like someone who actually cares, not someone running damage control.",
+
+  apologetic:
+    "The owner is mortified this happened and needs the reviewer to know it. Lead with genuine remorse — not the hollow 'we're sorry you feel that way' kind, but real, human accountability. Do not pivot to positives. Do not list what normally goes right. Do not make excuses. Simply own it fully, express that this is not acceptable by the standards the business holds itself to, and make a sincere and specific offer to make it right. The reviewer should feel like they just received a handwritten apology note, not a customer service script.",
+
+  hypeman:
+    "Go completely over the top. This is the most enthusiastic review response the internet has ever seen. Use exclamation points liberally. If the review is positive, match their energy and then double it — celebrate them, celebrate the moment, make them feel like a VIP. Use casual capitalization for emphasis (SO glad, THANK YOU). The response should feel like the owner just pumped their fist reading this. Fun, loud, and genuinely infectious — the kind of response that makes other people want to visit just from reading it.",
+
+  unbothered:
+    "Short. Confident. The owner barely looked up from what they were doing. Acknowledge the review — whether good or bad — with the relaxed energy of someone who gets this feedback all the time and is completely at peace with it. No defensiveness. No over-explaining. No desperate warmth. Just a calm, easy response that radiates 'we know exactly who we are and we're doing great.' Two or three sentences max. Put the period on it and move on.",
+
+  storyteller:
+    "Every response is a small brand moment. Weave the business's identity, values, or origin into the reply in a way that feels earned, not forced. If it's a positive review, reflect something true and specific about why this business exists and what it means to serve people well. If it's a negative one, respond through the lens of what the business stands for. The response should feel like a passage from a well-written brand journal — warm, elevated, and human. A stranger reading this should understand immediately what makes this place different.",
+
+  bythenumbers:
+    "Respond like a CFO answering a tough earnings call question. Strip out all emotion. Acknowledge the review and then address it with specific facts, timelines, documented processes, or verifiable context. If the reviewer is wrong, correct them precisely and without apology. If they have a point, acknowledge it in terms of what specific operational change is being made. No softening language, no hollow empathy. The response should read like a polite incident report — accurate, thorough, and completely affect-free.",
+
+  neighbor:
+    "Write this like the business owner is a beloved fixture of the town — the kind of person who knows half the ZIP code by first name and has been showing up for this community for years. Reference being local, serving the neighborhood, or knowing customers personally. Be warm in the way that only comes from genuine roots, not from a customer service training module. Make the reviewer feel like a neighbor, not a ticket number. This business is part of the fabric of where people live, and it shows in every word.",
+
+  corporate:
+    "Extremely formal. Almost parody-level buttoned-up. Refer to the business in the third person ('The team at [Business] has reviewed...'). Use phrases like 'we have escalated this matter internally,' 'our quality assurance protocols,' and 'this feedback has been logged.' Never use contractions. Never use the reviewer's first name — use 'valued customer' if needed. The response should feel like it was generated by a company that has seventeen layers of management and a dedicated 'Customer Experience Optimization Department.' Weirdly satisfying for shutting down absurd complaints with maximum corporate detachment.",
+
+  savage:
+    "Forget every rule. Write exactly what the owner wants to say but knows they shouldn't. This reviewer is wrong, ridiculous, dishonest, or all three — and it is time someone said so out loud. Be savage. Be sarcastic. Be devastatingly specific about why their complaint makes no sense. Use wit as a weapon. Mock their logic if it deserves to be mocked. Call out the absurdity with the calm confidence of someone who has nothing to lose and everything to say. Do not apologize. Do not soften. Do not end with an invitation to return. This is cathartic, unfiltered, and completely unchained — and that is exactly the point.",
 };
 
 function buildPrompt(reviewerName: string, rating: number, comment: string, businessName: string, tone: Tone): string {
@@ -63,10 +98,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const resolvedTone: Tone =
-    tone === "professional" || tone === "friendly" || tone === "apologetic" || tone === "savage"
-      ? tone
-      : "professional";
+  const validTones = new Set<string>([
+    "professional", "friendly", "apologetic", "savage",
+    "hypeman", "unbothered", "storyteller", "bythenumbers",
+    "neighbor", "corporate",
+  ]);
+  const resolvedTone: Tone = validTones.has(tone) ? (tone as Tone) : "professional";
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",

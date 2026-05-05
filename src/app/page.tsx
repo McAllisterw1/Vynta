@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Pain from "@/components/Pain";
 import Features from "@/components/Features";
+import Voices from "@/components/Voices";
 import Results from "@/components/Results";
 import Trust from "@/components/Trust";
 import Pricing from "@/components/Pricing";
@@ -15,6 +16,7 @@ export default function Home() {
       <Hero />
       <Pain />
       <Features />
+      <Voices />
       <Results />
       <Trust />
       <Pricing />

@@ -78,7 +78,7 @@ export default function PlanBanner({ plan, subscriptionStatus }: Props) {
           href="/#pricing"
           className="text-sm font-medium text-teal transition-colors hover:text-teal-dark border-b border-teal/40 pb-px whitespace-nowrap"
         >
-          Upgrade to Growth →
+          Upgrade to Professional →
         </a>
       )}
     </div>

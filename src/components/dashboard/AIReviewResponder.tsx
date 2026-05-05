@@ -7,6 +7,21 @@ import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 
+const TONES = [
+  { value: "professional", emoji: "💼", name: "Professional",    description: "Polished and composed" },
+  { value: "friendly",     emoji: "😊", name: "Friendly",        description: "Warm and genuine" },
+  { value: "apologetic",   emoji: "🙏", name: "Apologetic",      description: "Empathetic and solution focused" },
+  { value: "savage",       emoji: "🔥", name: "Savage",          description: "Zero contrition, surgical precision" },
+  { value: "hypeman",      emoji: "🎉", name: "Hype Man",        description: "Over the top enthusiastic" },
+  { value: "unbothered",   emoji: "😎", name: "Unbothered",      description: "Responds like the review barely registered" },
+  { value: "storyteller",  emoji: "📖", name: "Storyteller",     description: "Turns the response into a brand moment" },
+  { value: "bythenumbers", emoji: "📊", name: "By The Numbers",  description: "Fact based, corrects with logic" },
+  { value: "neighbor",     emoji: "🤝", name: "Neighbor",        description: "Warm community pillar energy" },
+  { value: "corporate",    emoji: "🏢", name: "Corporate",        description: "Old money, slightly above it all" },
+] as const;
+
+type Tone = typeof TONES[number]["value"];
+
 export default function AIReviewResponder() {
   const { user } = useUser();
   const plan = (user?.publicMetadata?.plan as string | undefined) ?? null;
@@ -15,7 +30,7 @@ export default function AIReviewResponder() {
   const [reviewerName, setReviewerName] = useState("");
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [tone, setTone] = useState<"professional" | "friendly" | "apologetic" | "savage">("professional");
+  const [tone, setTone] = useState<Tone>("professional");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -178,31 +193,38 @@ export default function AIReviewResponder() {
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.1em] text-tobacco-light">
-              Tone
-            </label>
-            <div className="flex gap-2">
-              {(
-                [
-                  { value: "professional", label: "Professional" },
-                  { value: "friendly", label: "Friendly" },
-                  { value: "apologetic", label: "Apologetic" },
-                  { value: "savage", label: "Savage 🔥" },
-                ] as const
-              ).map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setTone(value)}
-                  className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                    tone === value
-                      ? "border-teal bg-teal text-cream"
-                      : "border-cream-border bg-sand-pale text-tobacco-light hover:border-tobacco-light hover:text-tobacco"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-tobacco-light">
+              Choose Your Voice
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {TONES.map(({ value, emoji, name, description }) => {
+                const selected = tone === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTone(value)}
+                    className={`flex cursor-pointer flex-col items-center gap-1 rounded-sm border p-3 text-center transition-colors ${
+                      selected
+                        ? "border-teal bg-teal"
+                        : "border-cream-border bg-sand-pale hover:border-tobacco-light"
+                    }`}
+                  >
+                    <span className="text-2xl leading-none">{emoji}</span>
+                    <span className={`text-xs font-semibold ${selected ? "text-cream" : "text-tobacco"}`}>
+                      {name}
+                    </span>
+                    <span className={`text-[10px] leading-tight ${selected ? "text-cream/70" : "text-tobacco-light/70"}`}>
+                      {description}
+                    </span>
+                    {value === "savage" && (
+                      <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-medium ${selected ? "bg-white/20 text-cream" : "bg-amber-100 text-amber-700"}`}>
+                        Free · Unhinged · You&apos;ve been warned
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
