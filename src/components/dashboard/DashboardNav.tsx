@@ -54,6 +54,13 @@ export default function DashboardNav({ userName, plan, subscriptionStatus }: Pro
           </p>
 
           <a
+            href="/dashboard/requests"
+            className="rounded border border-cream-border px-4 py-1.5 text-sm text-tobacco-light transition-colors hover:border-tobacco-light hover:text-tobacco"
+          >
+            Review Requests
+          </a>
+
+          <a
             href="/dashboard/settings"
             className="rounded border border-cream-border px-4 py-1.5 text-sm text-tobacco-light transition-colors hover:border-tobacco-light hover:text-tobacco"
           >
