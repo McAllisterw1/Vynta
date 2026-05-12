@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ReviewRequest {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  businessId  String
+  name        String
+  email       String?
+  phone       String?
+  channel     String
+  sentAt      DateTime?
+  clickedAt   DateTime?
+  reviewedAt  DateTime?
+  triggeredBy String    @default("MANUAL")
+  platform    String    @default("google")
+  platformUrl String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+}

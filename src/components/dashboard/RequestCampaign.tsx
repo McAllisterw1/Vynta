@@ -84,6 +84,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   useEffect(() => {
     try {
@@ -105,25 +106,54 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
   const templateParts = parseTemplate(template);
   const templateVars = [...new Set(templateParts.filter((p) => p.type === "var").map((p) => p.value))];
 
-  function handleSend() {
+  async function handleSend() {
     if (!validContacts.length) return;
-    const campaign: Campaign = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      businessName,
-      contacts: validContacts,
-      messageTemplate: template,
-    };
-    const updated = [campaign, ...campaigns];
-    setCampaigns(updated);
+    setSendError("");
+
+    const platformUrl = "https://g.page/r/PLACEHOLDER/review";
+    const businessId = "placeholder-business-id";
+
     try {
-      localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(updated));
-      const cur = parseInt(localStorage.getItem(REQUESTS_KEY) || "0", 10);
-      localStorage.setItem(REQUESTS_KEY, String(cur + validContacts.length));
-    } catch {}
-    setContacts([newContact()]);
-    setSent(true);
-    setTimeout(() => { setSent(false); setTab("history"); }, 1500);
+      await Promise.all(
+        validContacts.map((c) =>
+          fetch("/api/review-request/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              businessId,
+              name: c.name,
+              email: c.email,
+              phone: c.phone,
+              channel: c.channel.toUpperCase(),
+              platformUrl,
+              businessName,
+            }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Request failed for ${c.name || c.email}`);
+          })
+        )
+      );
+
+      const campaign: Campaign = {
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        businessName,
+        contacts: validContacts,
+        messageTemplate: template,
+      };
+      const updated = [campaign, ...campaigns];
+      setCampaigns(updated);
+      try {
+        localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(updated));
+        const cur = parseInt(localStorage.getItem(REQUESTS_KEY) || "0", 10);
+        localStorage.setItem(REQUESTS_KEY, String(cur + validContacts.length));
+      } catch {}
+      setContacts([newContact()]);
+      setSent(true);
+      setTimeout(() => { setSent(false); setTab("history"); }, 1500);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
   }
 
   return (
@@ -276,6 +306,9 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
 
           {/* Send button — rounded with horizontal margin */}
           <div style={{ paddingBottom: "120px", paddingLeft: "4px", paddingRight: "4px", flexShrink: 0 }}>
+            {sendError && (
+              <p style={{ fontSize: "12px", color: "#C0392B", marginBottom: "8px", textAlign: "center" }}>{sendError}</p>
+            )}
             <button
               type="button"
               onClick={handleSend}
