@@ -93,8 +93,8 @@ export default function AnalyticsScreen() {
   const stats = [
     { label: "Total Responses", value: String(history.length),      badge: "All time" },
     { label: "Average Rating",  value: avgRating ?? "—",            badge: "out of 5" },
-    { label: "Requests Sent",   value: String(requestsSent),        badge: "All time" },
-    { label: "This Month",      value: String(monthlyUsage),        badge: "Current month" },
+    { label: "Requests Sent",   value: String(requestsSent),        badge: "none yet" },
+    { label: "This Month",      value: String(monthlyUsage),        badge: "this period" },
     { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—", badge: "Most used" },
   ];
 
