@@ -10,30 +10,43 @@ const twilioClient = twilio(
 )
 
 export async function POST(req: NextRequest) {
-  const { businessId, name, email, phone, channel, platformUrl, businessName } = await req.json()
+  try {
+    const { businessId, name, email, phone, channel, platformUrl, businessName } = await req.json()
 
-  const token = nanoid(21)
-  const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL}/review/${token}`
+    console.log("[review-request/send] payload:", { businessId, name, email, phone, channel, platformUrl, businessName })
 
-  await prisma.reviewRequest.create({
-    data: {
-      token,
-      businessId,
-      name,
-      email,
-      phone,
-      channel,
-      platformUrl,
-      sentAt: new Date(),
-      expiresAt: addDays(new Date(), 30)
-    }
-  })
+    const token = nanoid(21)
+    const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL}/review/${token}`
 
-  await twilioClient.messages.create({
-    body: `Hi ${name}! Thanks for visiting ${businessName}. Would you mind leaving us a quick Google review? It means a lot 🙏 ${reviewLink}`,
-    from: process.env.TWILIO_PHONE_NUMBER,
-    to: phone!
-  })
+    console.log("[review-request/send] creating DB record...")
+    await prisma.reviewRequest.create({
+      data: {
+        token,
+        businessId,
+        name,
+        email,
+        phone,
+        channel,
+        platformUrl,
+        sentAt: new Date(),
+        expiresAt: addDays(new Date(), 30)
+      }
+    })
+    console.log("[review-request/send] DB record created, sending SMS...")
 
-  return NextResponse.json({ success: true, token })
+    await twilioClient.messages.create({
+      body: `Hi ${name}! Thanks for visiting ${businessName}. Would you mind leaving us a quick Google review? It means a lot 🙏 ${reviewLink}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone!
+    })
+    console.log("[review-request/send] SMS sent successfully")
+
+    return NextResponse.json({ success: true, token })
+  } catch (err) {
+    console.error("[review-request/send] ERROR:", err)
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    )
+  }
 }
