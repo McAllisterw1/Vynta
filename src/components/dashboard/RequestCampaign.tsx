@@ -190,7 +190,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
 
       {/* Send tab */}
       {tab === "send" && (
-        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
 
           {/* Branded identity pill */}
           <div style={{ background: "#F0E9D8", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0 }}>
@@ -219,17 +219,17 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
           </div>
 
           {/* Customer list */}
-          <div style={{ flex: 1, overflowY: "auto", marginBottom: "12px" }}>
+          <div style={{ flexShrink: 0, marginBottom: "12px" }}>
             <label style={LABEL}>Customers</label>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {contacts.map((c) => (
                 <div key={c.id} style={{ ...CARD, padding: "12px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
                     <input type="text" value={c.name} onChange={(e) => updateContact(c.id, "name", e.target.value)} placeholder="Name" style={FIELD} />
-                    <input type="email" value={c.email} onChange={(e) => updateContact(c.id, "email", e.target.value)} placeholder="Email" style={FIELD} />
+                    <input type="tel" value={c.phone} onChange={(e) => updateContact(c.id, "phone", e.target.value)} placeholder="Phone" style={FIELD} />
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "8px", alignItems: "center" }}>
-                    <input type="tel" value={c.phone} onChange={(e) => updateContact(c.id, "phone", e.target.value)} placeholder="Phone" style={FIELD} />
+                    <input type="email" value={c.email} onChange={(e) => updateContact(c.id, "email", e.target.value)} placeholder="Email (optional)" style={FIELD} />
                     <select
                       value={c.channel}
                       onChange={(e) => updateContact(c.id, "channel", e.target.value)}
