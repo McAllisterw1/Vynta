@@ -157,17 +157,7 @@ export default function ReviewTraining() {
   const formValid = !!form.businessType && !!form.currentReviews && !!form.competitorReviews;
 
   return (
-    <div
-      style={{
-        flex: "0 0 30%",
-        minHeight: 0,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        padding: "14px 24px 0",
-        borderBottom: "1px solid rgba(44,26,14,0.08)",
-      }}
-    >
+    <div>
       {/* Header */}
       <div
         style={{
@@ -175,7 +165,6 @@ export default function ReviewTraining() {
           alignItems: "flex-start",
           justifyContent: "space-between",
           marginBottom: "8px",
-          flexShrink: 0,
         }}
       >
         <div>
@@ -201,8 +190,7 @@ export default function ReviewTraining() {
             borderRadius: "99px",
             background: "rgba(44,26,14,0.1)",
             overflow: "hidden",
-            marginBottom: "10px",
-            flexShrink: 0,
+            marginBottom: "16px",
           }}
         >
           <div
@@ -217,8 +205,8 @@ export default function ReviewTraining() {
         </div>
       )}
 
-      {/* Scrollable body */}
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: "12px" }}>
+      {/* Body */}
+      <div>
 
         {/* Onboarding form */}
         {!training.profile && (
