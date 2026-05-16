@@ -7,6 +7,7 @@ import { useResponseHistory } from "@/lib/useResponseHistory";
 import { getPlan } from "@/lib/plans";
 
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
+const MESSAGE_TEMPLATE_KEY = "vynta_message_template";
 
 interface Props {
   name: string;
@@ -17,7 +18,7 @@ interface Props {
 }
 
 const CARD: React.CSSProperties = {
-  background: "#F0E9D8",
+  background: "#E8DCC8",
   borderRadius: "16px",
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
@@ -29,7 +30,7 @@ const DIVIDER: React.CSSProperties = {
 };
 
 const PLAN_COLORS: Record<string, { bg: string; text: string }> = {
-  starter: { bg: "#F0E9D8", text: "#A0856A" },
+  starter: { bg: "#E8DCC8", text: "#A0856A" },
   growth:  { bg: "#E8F5F2", text: "#2D9B8A" },
   agency:  { bg: "#F5EDE0", text: "#C4874A" },
 };
@@ -42,11 +43,15 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [defaultBusiness, setDefaultBusiness] = useState("");
   const [saved, setSaved] = useState(false);
   const [cleared, setCleared] = useState(false);
+  const [messageTemplate, setMessageTemplate] = useState("");
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(DEFAULT_BUSINESS_KEY);
       if (stored) setDefaultBusiness(stored);
+      const tpl = localStorage.getItem(MESSAGE_TEMPLATE_KEY);
+      if (tpl) setMessageTemplate(tpl);
     } catch {}
   }, []);
 
@@ -54,6 +59,12 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
     try { localStorage.setItem(DEFAULT_BUSINESS_KEY, defaultBusiness.trim()); } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleSaveTemplate() {
+    try { localStorage.setItem(MESSAGE_TEMPLATE_KEY, messageTemplate.trim()); } catch {}
+    setTemplateSaved(true);
+    setTimeout(() => setTemplateSaved(false), 2000);
   }
 
   function handleClearHistory() {
@@ -72,9 +83,9 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const planColors = plan ? (PLAN_COLORS[plan] ?? PLAN_COLORS.starter) : PLAN_COLORS.starter;
 
   return (
-    <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column", padding: "24px 24px 0" }}>
+    <div style={{ height: "100%", overflowY: "auto", padding: "28px 24px 0" }}>
 
-      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "20px", flexShrink: 0 }}>Settings</h1>
+      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "20px" }}>Settings</h1>
 
       {/* Combined Profile + Subscription */}
       <div style={{ ...CARD, padding: "20px", marginBottom: "12px", flexShrink: 0 }}>
@@ -137,20 +148,72 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           type="button"
           onClick={handleClearHistory}
           disabled={history.length === 0}
-          style={{ background: "white", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer", opacity: history.length === 0 ? 0.4 : 1 }}
+          style={{ background: "#E8DCC8", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer", opacity: history.length === 0 ? 0.4 : 1 }}
         >
           {cleared ? "Cleared!" : "Clear"}
         </button>
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+      {/* Default Message Template */}
+      <div style={{ ...CARD, padding: "20px", marginBottom: "12px" }}>
+        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "12px", fontWeight: 600 }}>
+          Default Message Template
+        </p>
+        <textarea
+          value={messageTemplate}
+          onChange={(e) => setMessageTemplate(e.target.value)}
+          rows={4}
+          placeholder={"Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}"}
+          style={{
+            width: "100%",
+            background: "white",
+            borderRadius: "10px",
+            border: "none",
+            boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
+            padding: "12px 16px",
+            fontSize: "14px",
+            color: "#2C1A0E",
+            outline: "none",
+            resize: "none",
+            lineHeight: 1.6,
+            boxSizing: "border-box",
+            display: "block",
+            marginBottom: "10px",
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+          <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.5, flex: 1 }}>
+            Available placeholders: <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
+            <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
+            <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{link}"}</code>
+          </p>
+          <button
+            type="button"
+            onClick={handleSaveTemplate}
+            disabled={!messageTemplate.trim()}
+            style={{
+              background: "#2D9B8A",
+              color: "white",
+              borderRadius: "10px",
+              padding: "10px 20px",
+              fontSize: "13px",
+              fontWeight: 600,
+              border: "none",
+              cursor: messageTemplate.trim() ? "pointer" : "not-allowed",
+              flexShrink: 0,
+              opacity: messageTemplate.trim() ? 1 : 0.5,
+            }}
+          >
+            {templateSaved ? "Saved!" : "Save"}
+          </button>
+        </div>
+      </div>
 
       {/* Sign out */}
       <button
         type="button"
         onClick={handleSignOut}
-        style={{ width: "100%", background: "transparent", border: "1.5px solid #FCA5A5", borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 600, color: "#EF4444", cursor: "pointer", marginBottom: "120px", flexShrink: 0 }}
+        style={{ width: "100%", background: "transparent", border: "1.5px solid #FCA5A5", borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 600, color: "#EF4444", cursor: "pointer", marginTop: "8px", marginBottom: "120px" }}
       >
         Sign out
       </button>

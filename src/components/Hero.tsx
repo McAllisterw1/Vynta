@@ -1,6 +1,6 @@
 const stats = [
   { value: "87%", label: "of customers check reviews before calling" },
-  { value: "3×", label: "more reviews with automated requests" },
+  { value: "3×", label: "more reviews just from asking the right way" },
   { value: "< 60s", label: "to generate a professional response" },
 ];
 
@@ -51,7 +51,7 @@ export default function Hero() {
             <div className="flex items-center gap-3 mb-8">
               <div className="h-px w-10 bg-teal" />
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-teal">
-                For HVAC · Plumbing · Roofing · Home Services
+                For any local business that runs on reputation
               </span>
             </div>
 
@@ -66,9 +66,9 @@ export default function Hero() {
 
             {/* Subheadline */}
             <p className="mb-10 max-w-xl text-base leading-relaxed text-tobacco-mid">
-              Vynta helps HVAC, plumbing, roofing, and home service businesses automatically
-              request, manage, and respond to reviews — so you build trust and win more
-              booked jobs.
+              Vynta helps local businesses quickly request, manage, and respond to
+              Google reviews — so you build trust online and turn your reputation into
+              real revenue.
             </p>
 
             {/* CTAs */}

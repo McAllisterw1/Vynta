@@ -11,6 +11,7 @@ const MODULES = [
   "How Google Decides Who Shows Up",
   "The Right Way to Ask",
   "Your 30 Day Playbook",
+  "How to Beat the Algorithm",
 ];
 
 interface TrainingProfile {
@@ -21,18 +22,18 @@ interface TrainingProfile {
 
 interface TrainingState {
   profile: TrainingProfile | null;
-  completed: [boolean, boolean, boolean, boolean];
-  content: [string | null, string | null, string | null, string | null];
+  completed: [boolean, boolean, boolean, boolean, boolean];
+  content: [string | null, string | null, string | null, string | null, string | null];
 }
 
 const INITIAL: TrainingState = {
   profile: null,
-  completed: [false, false, false, false],
-  content: [null, null, null, null],
+  completed: [false, false, false, false, false],
+  content: [null, null, null, null, null],
 };
 
 const CARD: React.CSSProperties = {
-  background: "#F0E9D8",
+  background: "#E8DCC8",
   borderRadius: "16px",
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
@@ -67,6 +68,7 @@ function buildPrompt(idx: number, p: TrainingProfile): { system: string; message
     `Write Module 2: How Google Decides Who Shows Up. Explain in plain terms how Google's local search ranking actually works — what signals it uses, why review count and recency matter, and what being at ${p.currentReviews} reviews versus a competitor at ${p.competitorReviews} actually costs in visibility and lost jobs. Make it feel urgent but not panicked.`,
     `Write Module 3: The Right Way to Ask. Give the exact moment, words, and approach a ${p.businessType} should use to ask a customer for a review right after a job. Include what to say, how to handle hesitation, and what to avoid. Make it feel natural, not pushy.`,
     `Write Module 4: A 30-Day Playbook. Give a concrete, week-by-week plan for this ${p.businessType} to grow their Google reviews starting from ${p.currentReviews}. Be specific about what to do each week. Make it feel achievable for someone running their own business.`,
+    `Write Module 5: How to Beat the Algorithm. Write this like an insider pulling back the curtain — not a textbook, but a mentor who actually knows how the game is rigged. Cover: how Google's local search algorithm actually works in plain English (the three pillars — relevance, distance, prominence — explained simply); what Google is really looking at when it decides who lands in the map pack; what competitors with more reviews are doing — intentionally or not — that makes Google favor them; the specific signals Google weighs: review volume, review recency, response rate, and keyword mentions in reviews; and what this ${p.businessType} with ${p.currentReviews} reviews can do right now to start winning those signals against a competitor at ${p.competitorReviews} reviews. Make it feel urgent and real, like they just learned something most business owners don't know. No bullet points — prose only. Around 350–400 words.`,
   ];
 
   return { system, message: prompts[idx] };
@@ -177,7 +179,7 @@ export default function ReviewTraining() {
         </div>
         {training.profile && (
           <span style={{ fontSize: "11px", color: "#A0856A", flexShrink: 0, paddingTop: "4px" }}>
-            {completedCount}/4 done
+            {completedCount}/5 done
           </span>
         )}
       </div>
@@ -198,7 +200,7 @@ export default function ReviewTraining() {
               height: "100%",
               borderRadius: "99px",
               background: "#2D9B8A",
-              width: `${(completedCount / 4) * 100}%`,
+              width: `${(completedCount / 5) * 100}%`,
               transition: "width 500ms",
             }}
           />
@@ -281,7 +283,7 @@ export default function ReviewTraining() {
                   style={{
                     ...CARD,
                     overflow: "hidden",
-                    background: isDone ? "#E8F5F2" : "#F0E9D8",
+                    background: isDone ? "#E8F5F2" : "#E8DCC8",
                   }}
                 >
                   <button

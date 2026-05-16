@@ -5,12 +5,13 @@ import { useState, useEffect } from "react";
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 const CAMPAIGNS_KEY = "vynta_campaigns";
 const REQUESTS_KEY = "vynta_requests_sent";
+const MESSAGE_TEMPLATE_KEY = "vynta_message_template";
 
-const DEFAULT_TEMPLATE =
-  "Hi {name}, thanks for being a customer of {business}! We'd love if you'd leave us a quick Google review: [your link here]";
+const FALLBACK_TEMPLATE =
+  "Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}";
 
 const CARD: React.CSSProperties = {
-  background: "#F0E9D8",
+  background: "#E8DCC8",
   borderRadius: "16px",
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
@@ -63,25 +64,12 @@ function channelsUsed(campaign: Campaign): string {
     .join(", ");
 }
 
-function parseTemplate(text: string): Array<{ type: "text" | "var"; value: string }> {
-  const parts: Array<{ type: "text" | "var"; value: string }> = [];
-  const regex = /\{(\w+)\}/g;
-  let lastIndex = 0;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
-    parts.push({ type: "var", value: match[1] });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) parts.push({ type: "text", value: text.slice(lastIndex) });
-  return parts;
-}
 
 export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}) {
   const [tab, setTab] = useState<"send" | "history">("send");
   const [businessName, setBusinessName] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([newContact()]);
-  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
+  const [template, setTemplate] = useState(FALLBACK_TEMPLATE);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -92,6 +80,8 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
       if (biz) setBusinessName(biz);
       const stored = localStorage.getItem(CAMPAIGNS_KEY);
       if (stored) setCampaigns(JSON.parse(stored));
+      const tpl = localStorage.getItem(MESSAGE_TEMPLATE_KEY);
+      if (tpl) setTemplate(tpl);
     } catch {}
   }, []);
 
@@ -103,8 +93,6 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
   }
 
   const validContacts = contacts.filter((c) => c.name || c.email || c.phone);
-  const templateParts = parseTemplate(template);
-  const templateVars = [...new Set(templateParts.filter((p) => p.type === "var").map((p) => p.value))];
 
   async function handleSend() {
     if (!validContacts.length) return;
@@ -160,7 +148,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
     <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
       {/* Styled tab bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "0 24px", flexShrink: 0, gap: "4px" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
         {(["send", "history"] as const).map((t) => {
           const active = tab === t;
           return (
@@ -193,7 +181,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
 
           {/* Branded identity pill */}
-          <div style={{ background: "#F0E9D8", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0 }}>
+          <div style={{ background: "#E8DCC8", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0 }}>
             <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#C4874A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg viewBox="0 0 62 19" fill="none" style={{ width: "20px", height: "auto" }}>
                 <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
@@ -266,42 +254,15 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
             </button>
           </div>
 
-          {/* Template textarea */}
-          <div style={{ flexShrink: 0, marginBottom: "10px" }}>
-            <label style={LABEL}>Message Template</label>
+          {/* Message */}
+          <div style={{ flexShrink: 0, marginBottom: "12px" }}>
+            <label style={LABEL}>Message</label>
             <textarea
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
-              rows={3}
+              rows={4}
               style={{ ...FIELD, resize: "none" }}
             />
-          </div>
-
-          {/* Message preview card */}
-          <div style={{ background: "white", borderRadius: "12px", border: "1px solid rgba(196,135,74,0.15)", padding: "14px", marginBottom: "12px", flexShrink: 0 }}>
-            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>
-              Message
-            </p>
-            <p style={{ fontSize: "13px", lineHeight: 1.6, color: "#5C3A1E" }}>
-              {templateParts.map((p, i) =>
-                p.type === "var" ? (
-                  <span key={i} style={{ background: "rgba(196,135,74,0.12)", color: "#C4874A", borderRadius: "6px", padding: "1px 6px", fontSize: "12px", fontWeight: 700, fontFamily: "monospace" }}>
-                    {`{${p.value}}`}
-                  </span>
-                ) : (
-                  <span key={i}>{p.value}</span>
-                )
-              )}
-            </p>
-            {templateVars.length > 0 && (
-              <div style={{ display: "flex", gap: "6px", marginTop: "10px", flexWrap: "wrap" }}>
-                {templateVars.map((v) => (
-                  <span key={v} style={{ background: "rgba(196,135,74,0.1)", color: "#C4874A", borderRadius: "20px", padding: "3px 10px", fontSize: "11px", fontWeight: 700, fontFamily: "monospace" }}>
-                    {`{${v}}`}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Send button — rounded with horizontal margin */}
@@ -340,7 +301,8 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 120px" }}>
           {campaigns.length === 0 ? (
             <div style={{ ...CARD, padding: "48px 24px", textAlign: "center" }}>
-              <p style={{ fontSize: "14px", color: "#A0856A" }}>No campaigns yet.</p>
+              <p style={{ fontSize: "14px", color: "#A0856A" }}>No campaigns sent yet.</p>
+              <p style={{ fontSize: "12px", color: "#A0856A", marginTop: "4px" }}>Add a customer above and send your first review request.</p>
               <button type="button" onClick={() => setTab("send")} style={{ marginTop: "12px", background: "none", border: "none", cursor: "pointer", fontSize: "13px", color: "#2D9B8A", fontWeight: 600 }}>
                 Send your first campaign →
               </button>

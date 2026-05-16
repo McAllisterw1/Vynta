@@ -34,7 +34,7 @@ const plans: Plan[] = [
     price: 49,
     tagline: 'Everything a local service business needs to grow reviews.',
     features: [
-      'Automated review requests (text & email)',
+      'One-click review requests (text & email)',
       'AI-generated review replies',
       'Review dashboard',
       'Google review monitoring',
@@ -55,7 +55,7 @@ const plans: Plan[] = [
     features: [
       'Up to 5 locations',
       'Unlimited review requests',
-      'AI auto-posting (4–5 stars)',
+      'AI-assisted review responses',
       'Multi-platform monitoring',
       'Competitor benchmarking',
       'Dashboard analytics',

@@ -6,7 +6,7 @@ import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 import { getPlan } from "@/lib/plans";
 
 const CARD: React.CSSProperties = {
-  background: "#F0E9D8",
+  background: "#E8DCC8",
   borderRadius: "16px",
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
@@ -130,6 +130,8 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ourReviewCount, setOurReviewCount] = useState<number | null>(null);
+  const [ourAvgRating, setOurAvgRating] = useState<number | null>(null);
 
   useEffect(() => {
     try {
@@ -137,23 +139,19 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
       if (biz) setBusinessName(biz);
       const req = localStorage.getItem("vynta_requests_sent");
       if (req) setRequestsSent(parseInt(req, 10) || 0);
+      const stats = localStorage.getItem("vynta_stats");
+      if (stats) {
+        const parsed = JSON.parse(stats) as { totalReviews?: number; avgRating?: number | null };
+        if (typeof parsed.totalReviews === "number") setOurReviewCount(parsed.totalReviews);
+        if (parsed.avgRating != null) setOurAvgRating(parsed.avgRating);
+      }
     } catch {}
   }, []);
 
   const planData = getPlan(plan);
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
 
-  const now = new Date();
-  const newReviews = history.filter((e) => {
-    const d = new Date(e.createdAt);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-  const avgRating =
-    history.length > 0
-      ? (history.reduce((s, e) => s + e.rating, 0) / history.length).toFixed(1)
-      : null;
-
-  const canSubmit = businessName.trim() && reviewerName.trim() && rating > 0 && comment.trim();
+  const canSubmit = businessName.trim().length > 0 && reviewerName.trim().length > 0 && comment.trim().length > 0;
 
   async function fetchDraft() {
     setLoading(true);
@@ -184,9 +182,9 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const usageLabel = limit === null ? "Unlimited" : `${count}/${limit} this month`;
 
   const statCards = [
-    { label: "New Reviews", value: String(newReviews), icon: "⭐" },
-    { label: "Avg Rating", value: avgRating ?? "—", icon: "📊" },
-    { label: "Pending", value: "0", icon: "💬" },
+    { label: "Total Reviews", value: ourReviewCount !== null ? String(ourReviewCount) : "—", icon: "⭐" },
+    { label: "Avg Rating", value: ourAvgRating !== null ? String(ourAvgRating) : "—", icon: "📊" },
+    { label: "Responses Used", value: String(history.length), icon: "💬" },
     { label: "Requests Sent", value: String(requestsSent), icon: "✉️" },
   ];
 
@@ -210,7 +208,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
           </span>
         </div>
         {planData && isActive ? (
-          <span style={{ background: "#F0E9D8", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#C4874A", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "0 1px 4px rgba(44,26,14,0.1)" }}>
+          <span style={{ background: "#E8DCC8", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#C4874A", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "0 1px 4px rgba(44,26,14,0.1)" }}>
             {planData.name}
           </span>
         ) : (
@@ -293,7 +291,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
                   padding: "6px 12px",
                   fontSize: "11px",
                   fontWeight: 500,
-                  background: tone === value ? "#2C1A0E" : "white",
+                  background: tone === value ? "#2C1A0E" : "#E8DCC8",
                   color: tone === value ? "white" : "#A0856A",
                   border: "none",
                   boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
@@ -310,22 +308,23 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
           <button
             type="button"
             onClick={() => { setResponse(""); fetchDraft(); }}
-            disabled={!canSubmit || loading || (atLimit && tone !== "savage")}
+            disabled={!canSubmit || loading}
             style={{
               width: "100%",
-              background: "#2C1A0E",
+              background: canSubmit && !loading ? "#2C1A0E" : "#A0856A",
               color: "white",
               borderRadius: "12px",
               padding: "14px",
               fontSize: "14px",
               fontWeight: 600,
               border: "none",
-              cursor: "pointer",
-              opacity: (!canSubmit || loading || (atLimit && tone !== "savage")) ? 0.5 : 1,
+              cursor: canSubmit && !loading ? "pointer" : "not-allowed",
+              opacity: canSubmit && !loading ? 1 : 0.6,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "8px",
+              transition: "background 150ms, opacity 150ms",
             }}
           >
             {loading && !response ? (

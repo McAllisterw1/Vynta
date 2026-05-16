@@ -1,11 +1,11 @@
 const faqs = [
   {
     q: "Who is Vynta for?",
-    a: "Vynta is built for home service businesses like HVAC, plumbing, roofing, electrical, landscaping, and similar local service companies.",
+    a: "Vynta is built for any local business that runs on reputation — restaurants, salons, contractors, auto shops, gyms, clinics, and more. If Google reviews affect whether customers choose you, Vynta is for you.",
   },
   {
     q: "How does Vynta help me get more reviews?",
-    a: "Vynta automates review requests after completed jobs, making it easier to turn happy customers into public 5-star reviews.",
+    a: "Vynta makes it fast and simple to send review requests by text or email right after a job — so happy customers actually leave reviews instead of forgetting.",
   },
   {
     q: "Can I respond to bad reviews?",

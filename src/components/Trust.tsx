@@ -1,12 +1,14 @@
 const industries = [
-  "HVAC",
-  "Plumbing",
-  "Roofing",
-  "Electrical",
-  "Landscaping",
-  "Pest Control",
-  "Cleaning Services",
-  "Garage Door Repair",
+  "Restaurants",
+  "Salons & Spas",
+  "Contractors",
+  "Auto Shops",
+  "Gyms & Studios",
+  "Clinics & Dental",
+  "Pet Services",
+  "Law Offices",
+  "Retail Shops",
+  "and more",
 ];
 
 export default function Trust() {
@@ -21,7 +23,7 @@ export default function Trust() {
             <div className="h-px w-10 bg-teal" />
           </div>
           <h2 className="font-display text-3xl font-bold text-tobacco md:text-4xl">
-            Built for home service businesses
+            Built for any business that runs on reputation
           </h2>
           <p className="mt-3 max-w-lg text-tobacco-light text-sm leading-relaxed">
             If your business runs on reputation and local trust, Vynta is built for you.
