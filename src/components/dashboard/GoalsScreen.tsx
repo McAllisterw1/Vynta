@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import ReviewTraining from "./ReviewTraining";
 
 const GOALS_KEY = "vynta_goals";
 const HISTORY_KEY = "vynta_response_history";
@@ -122,8 +123,8 @@ export default function GoalsScreen() {
   return (
     <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
-      {/* ── Goals section — top 35% ── */}
-      <div style={{ flex: "0 0 35%", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: "20px 24px 12px", borderBottom: "1px solid rgba(44,26,14,0.08)" }}>
+      {/* ── Goals section — top 24% ── */}
+      <div style={{ flex: "0 0 24%", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: "16px 24px 10px", borderBottom: "1px solid rgba(44,26,14,0.08)" }}>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexShrink: 0 }}>
           <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "#2C1A0E" }}>Goals</h2>
@@ -196,7 +197,10 @@ export default function GoalsScreen() {
         </div>
       </div>
 
-      {/* ── AI Consultant — bottom 65% ── */}
+      {/* ── Review Training — middle 30% ── */}
+      <ReviewTraining />
+
+      {/* ── AI Consultant — remaining ~46% ── */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
         {/* Chat header */}
