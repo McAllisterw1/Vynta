@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { canAccess } from "@/lib/plans";
+import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 const CAMPAIGNS_KEY = "vynta_campaigns";
@@ -65,7 +67,7 @@ function channelsUsed(campaign: Campaign): string {
 }
 
 
-export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}) {
+export default function RequestCampaign({ onBack, plan }: { onBack?: () => void; plan?: string | null } = {}) {
   const [tab, setTab] = useState<"send" | "history">("send");
   const [businessName, setBusinessName] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([newContact()]);
@@ -178,6 +180,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
 
       {/* Send tab */}
       {tab === "send" && (
+        <UpgradeTooltip locked={!canAccess(plan, "smsCampaigns")} requiredPlan="Pro">
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
 
           {/* Branded identity pill */}
@@ -294,10 +297,12 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
             </button>
           </div>
         </div>
+        </UpgradeTooltip>
       )}
 
       {/* History tab */}
       {tab === "history" && (
+        <UpgradeTooltip locked={!canAccess(plan, "requestHistory")} requiredPlan="Pro">
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 120px" }}>
           {campaigns.length === 0 ? (
             <div style={{ ...CARD, padding: "48px 24px", textAlign: "center" }}>
@@ -335,6 +340,7 @@ export default function RequestCampaign({ onBack }: { onBack?: () => void } = {}
             </div>
           )}
         </div>
+        </UpgradeTooltip>
       )}
     </div>
   );

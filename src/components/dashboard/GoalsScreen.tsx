@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { canAccess } from "@/lib/plans";
+import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const GOALS_KEY = "vynta_goals";
 const HISTORY_KEY = "vynta_response_history";
@@ -65,9 +67,10 @@ const BLANK = { title: "", target: "", current: "", deadline: "" };
 
 interface Props {
   onNavigate?: (tab: number) => void;
+  plan?: string | null;
 }
 
-export default function GoalsScreen({ onNavigate }: Props = {}) {
+export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(BLANK);
@@ -344,6 +347,7 @@ Generate 3 specific, coach-style next steps based on these exact numbers.`;
         </div>
 
         {/* ── Goals section ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "goals")} requiredPlan="Agency">
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
             <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "#2C1A0E" }}>Goals</h2>
@@ -413,6 +417,7 @@ Generate 3 specific, coach-style next steps based on these exact numbers.`;
             </div>
           )}
         </div>
+        </UpgradeTooltip>
 
         {/* ── Review Training card ── */}
         <div style={{ ...CARD, padding: "16px" }}>
@@ -435,6 +440,7 @@ Generate 3 specific, coach-style next steps based on these exact numbers.`;
         </div>
 
         {/* ── AI Consultant — fixed-height scrollable card ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
         <div style={{ ...CARD, height: "500px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
           {/* Chat header */}
@@ -538,6 +544,7 @@ Generate 3 specific, coach-style next steps based on these exact numbers.`;
             </form>
           </div>
         </div>
+        </UpgradeTooltip>
 
       </div>
     </div>

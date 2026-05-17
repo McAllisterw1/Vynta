@@ -11,6 +11,22 @@ datasource db {
   provider = "postgresql"
 }
 
+model MonthlyReport {
+  id                   String   @id @default(cuid())
+  userId               String
+  businessName         String
+  month                Int
+  year                 Int
+  totalReviews         Int
+  avgRating            Float
+  requestsSent         Int
+  aiResponsesGenerated Int
+  reviewsFromVynta     Int
+  competitorComparison String
+  aiSummary            String
+  createdAt            DateTime @default(now())
+}
+
 model ReviewRequest {
   id          String    @id @default(cuid())
   token       String    @unique

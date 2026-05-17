@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useResponseHistory, type HistoryEntry } from "@/lib/useResponseHistory";
 import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
-import { getPlan } from "@/lib/plans";
+import { getPlan, canAccess } from "@/lib/plans";
+import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
@@ -279,29 +280,35 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
           />
 
           {/* Tone pills */}
+          {/* Starter: Professional, Friendly, Apologetic, Savage free. All others locked. */}
           <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px", marginBottom: "14px", scrollbarWidth: "none" } as React.CSSProperties}>
-            {TONES.map(({ value, emoji, name }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTone(value)}
-                style={{
-                  flexShrink: 0,
-                  borderRadius: "20px",
-                  padding: "6px 12px",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  background: tone === value ? "#2C1A0E" : "#E8DCC8",
-                  color: tone === value ? "white" : "#A0856A",
-                  border: "none",
-                  boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
-                  cursor: "pointer",
-                  transition: "background 150ms, color 150ms",
-                }}
-              >
-                {emoji} {name}
-              </button>
-            ))}
+            {TONES.map(({ value, emoji, name }) => {
+              const FREE_TONES = new Set(["professional", "friendly", "apologetic", "savage"]);
+              const toneLocked = !canAccess(plan, "toneOptions") && !FREE_TONES.has(value);
+              return (
+                <UpgradeTooltip key={value} locked={toneLocked} requiredPlan="Pro">
+                  <button
+                    type="button"
+                    onClick={() => setTone(value)}
+                    style={{
+                      flexShrink: 0,
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      background: tone === value ? "#2C1A0E" : "#E8DCC8",
+                      color: tone === value ? "white" : "#A0856A",
+                      border: "none",
+                      boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
+                      cursor: "pointer",
+                      transition: "background 150ms, color 150ms",
+                    }}
+                  >
+                    {emoji} {name}
+                  </button>
+                </UpgradeTooltip>
+              );
+            })}
           </div>
 
           {/* Generate */}

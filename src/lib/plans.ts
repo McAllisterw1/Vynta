@@ -48,3 +48,68 @@ export function getPlan(key: string | null | undefined) {
   if (!key || !(key in PLANS)) return null
   return PLANS[key as PlanKey]
 }
+
+// ── Feature-gating ────────────────────────────────────────────────────────────
+
+export const PLAN_FEATURES = {
+  starter: {
+    reviewLogging: true,
+    aiResponder: true,
+    analyticsCharts: true,
+    recoveryMode: false,
+    toneOptions: false,
+    smsCampaigns: false,
+    requestHistory: false,
+    scorePredictor: false,
+    weeklyReport: false,
+    reviewTraining: false,
+    aiConsultant: false,
+    goals: false,
+    monthlyReports: false,
+    competitorComparison: false,
+  },
+  professional: {
+    reviewLogging: true,
+    aiResponder: true,
+    analyticsCharts: true,
+    recoveryMode: true,
+    toneOptions: true,
+    smsCampaigns: true,
+    requestHistory: true,
+    scorePredictor: true,
+    weeklyReport: false,
+    reviewTraining: true,
+    aiConsultant: true,
+    goals: false,
+    monthlyReports: false,
+    competitorComparison: false,
+  },
+  agency: {
+    reviewLogging: true,
+    aiResponder: true,
+    analyticsCharts: true,
+    recoveryMode: true,
+    toneOptions: true,
+    smsCampaigns: true,
+    requestHistory: true,
+    scorePredictor: true,
+    weeklyReport: true,
+    reviewTraining: true,
+    aiConsultant: true,
+    goals: true,
+    monthlyReports: true,
+    competitorComparison: true,
+  },
+} as const
+
+export type FeatureKey = keyof typeof PLAN_FEATURES.starter
+
+export function getPlanFeatures(plan: string | null | undefined) {
+  if (plan === 'agency') return PLAN_FEATURES.agency
+  if (plan === 'professional') return PLAN_FEATURES.professional
+  return PLAN_FEATURES.starter
+}
+
+export function canAccess(plan: string | null | undefined, feature: FeatureKey): boolean {
+  return getPlanFeatures(plan)[feature]
+}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { canAccess } from "@/lib/plans";
+import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const REVIEWS_KEY = "vynta_our_reviews";
 const STATS_KEY = "vynta_stats";
@@ -127,7 +129,7 @@ function blankForm() {
   };
 }
 
-export default function OurReviewsScreen() {
+export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
   const [reviews, setReviews] = useState<LoggedReview[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -780,18 +782,20 @@ ${businessName ? `Business: ${businessName}` : ""}`;
                           }}>
                             ⚠️ This review may hurt conversions. Consider responding within 24 hours.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => openRecoveryMode(review)}
-                            style={{
-                              background: "#7B3F1A", color: "white",
-                              border: "none", borderRadius: "8px",
-                              padding: "6px 12px", fontSize: "11px", fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            🛡️ Recovery Mode
-                          </button>
+                          <UpgradeTooltip locked={!canAccess(plan, "recoveryMode")} requiredPlan="Pro">
+                            <button
+                              type="button"
+                              onClick={() => openRecoveryMode(review)}
+                              style={{
+                                background: "#7B3F1A", color: "white",
+                                border: "none", borderRadius: "8px",
+                                padding: "6px 12px", fontSize: "11px", fontWeight: 600,
+                                cursor: "pointer",
+                              }}
+                            >
+                              🛡️ Recovery Mode
+                            </button>
+                          </UpgradeTooltip>
                         </div>
                       )}
                     </div>

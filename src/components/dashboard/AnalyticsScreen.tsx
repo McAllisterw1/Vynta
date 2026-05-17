@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { canAccess } from "@/lib/plans";
+import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const HISTORY_KEY = "vynta_response_history";
 const REQUESTS_KEY = "vynta_requests_sent";
@@ -64,7 +66,7 @@ function isThisWeek(dateStr: string): boolean {
   }
 }
 
-export default function AnalyticsScreen() {
+export default function AnalyticsScreen({ plan }: { plan?: string | null } = {}) {
   const [history, setHistory] = useState<Entry[]>([]);
   const [requestsSent, setRequestsSent] = useState(0);
   const [monthlyUsage, setMonthlyUsage] = useState(0);
@@ -295,6 +297,7 @@ export default function AnalyticsScreen() {
         </div>
 
         {/* ── Google Review Score Predictor ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "scorePredictor")} requiredPlan="Pro">
         <div style={{ ...CARD, padding: "18px" }}>
           <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "14px" }}>
             Score Predictor
@@ -363,8 +366,10 @@ export default function AnalyticsScreen() {
             </p>
           )}
         </div>
+        </UpgradeTooltip>
 
         {/* ── Weekly Reputation Report ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "weeklyReport")} requiredPlan="Agency">
         <div style={{ ...CARD, padding: "18px" }}>
           <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "14px" }}>
             This Week
@@ -416,6 +421,7 @@ export default function AnalyticsScreen() {
             </p>
           ) : null}
         </div>
+        </UpgradeTooltip>
 
       </div>
     </div>

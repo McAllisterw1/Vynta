@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import ReviewTraining from "@/components/dashboard/ReviewTraining";
+import { canAccess } from "@/lib/plans";
 
 export const metadata = {
   title: "Review Training — Vynta",
@@ -36,7 +37,40 @@ export default async function TrainingPage() {
           </svg>
           Back to Dashboard
         </a>
-        <ReviewTraining />
+        {canAccess(plan, "reviewTraining") ? (
+          <ReviewTraining />
+        ) : (
+          <div style={{
+            background: "#E8DCC8",
+            borderRadius: "20px",
+            padding: "48px 32px",
+            textAlign: "center",
+            boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+          }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "16px" }}>🔒</div>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+              Review Training is available on Pro and Agency plans
+            </h2>
+            <p style={{ fontSize: "13px", color: "#A0856A", marginBottom: "24px", lineHeight: 1.6 }}>
+              Upgrade to unlock 5 modules of personalised, AI-powered training<br />on how to grow your Google reputation.
+            </p>
+            <a
+              href="/pricing"
+              style={{
+                display: "inline-block",
+                background: "#2D9B8A",
+                color: "white",
+                borderRadius: "12px",
+                padding: "12px 28px",
+                fontSize: "14px",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              Upgrade to Pro
+            </a>
+          </div>
+        )}
       </main>
     </div>
   );

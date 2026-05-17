@@ -87,6 +87,39 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
       <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "20px" }}>Settings</h1>
 
+      {/* Upgrade card — hidden for Agency */}
+      {plan !== "agency" && (
+        <div style={{
+          borderRadius: "16px",
+          border: "1.5px solid #C4874A",
+          padding: "16px 20px",
+          marginBottom: "12px",
+          background: "rgba(196,135,74,0.06)",
+        }}>
+          <p className="font-display" style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+            {plan ? `You're on the ${planData?.name ?? plan} plan` : "No active plan"}
+          </p>
+          <p style={{ fontSize: "12px", color: "#A0856A", marginBottom: "12px" }}>
+            Unlock more features by upgrading
+          </p>
+          <a
+            href="/pricing"
+            style={{
+              display: "inline-block",
+              background: "#2D9B8A",
+              color: "white",
+              borderRadius: "10px",
+              padding: "8px 18px",
+              fontSize: "13px",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            View Upgrade Options
+          </a>
+        </div>
+      )}
+
       {/* Combined Profile + Subscription */}
       <div style={{ ...CARD, padding: "20px", marginBottom: "12px", flexShrink: 0 }}>
         <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "14px", fontWeight: 600 }}>Account</p>
