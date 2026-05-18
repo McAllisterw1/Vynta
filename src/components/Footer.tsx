@@ -1,4 +1,10 @@
-const links = ["Features", "Pricing", "Blog", "Privacy", "Terms"];
+const links = [
+  { label: "Features", href: "/#features" },
+  { label: "Pricing",  href: "/#pricing" },
+  { label: "Blog",     href: "#" },
+  { label: "Privacy",  href: "/privacy" },
+  { label: "Terms",    href: "/terms" },
+];
 
 export default function Footer() {
   return (
@@ -29,8 +35,8 @@ export default function Footer() {
           {/* Nav */}
           <nav className="flex flex-wrap justify-center gap-6">
             {links.map((link) => (
-              <a key={link} href="#" className="text-sm text-sand-light/50 transition-colors hover:text-sand-light">
-                {link}
+              <a key={link.label} href={link.href} className="text-sm text-sand-light/50 transition-colors hover:text-sand-light">
+                {link.label}
               </a>
             ))}
           </nav>
