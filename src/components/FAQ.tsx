@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Vynta is month-to-month with no long-term contract.",
+    a: "Yes. Monthly plans can be cancelled anytime with no penalty. Annual plans are billed upfront and are non-refundable, but you keep access until the end of your billing period.",
   },
 ];
 
