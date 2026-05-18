@@ -135,9 +135,17 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
 
     setWeeklyStats(weekly);
 
+    let weeklyCompetitorContext = "";
+    try {
+      const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+      if (comps.length > 0) {
+        weeklyCompetitorContext = ` Competitor context: ${comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")}.`;
+      }
+    } catch {}
+
     // Claude tip for the week
     const system = "You are a reputation growth coach. Based on a business's weekly activity data, write exactly one short, specific, actionable next-step sentence (max 25 words). Be direct, coach-like, no fluff. Return plain text only — no JSON, no bullet points.";
-    const msg = `This week: ${weekly.reviews} reviews logged, ${weekly.requests} review requests sent, ${weekly.responses} AI responses generated, ${weekly.unresponded} reviews still awaiting a response. What is the single most impactful thing they should do next?`;
+    const msg = `This week: ${weekly.reviews} reviews logged, ${weekly.requests} review requests sent, ${weekly.responses} AI responses generated, ${weekly.unresponded} reviews still awaiting a response.${weeklyCompetitorContext} What is the single most impactful thing they should do next?`;
 
     fetch("/api/consultant", {
       method: "POST",

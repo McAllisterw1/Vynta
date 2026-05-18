@@ -22,10 +22,26 @@ interface MonthlyReport {
 }
 
 interface Competitor {
+  id: string;
   name: string;
   rating: number;
   reviewCount: number;
 }
+
+const COMPETITORS_KEY = "vynta_competitors";
+const BLANK_COMPETITOR = { name: "", rating: "", reviewCount: "" };
+const INPUT: React.CSSProperties = {
+  background: "white",
+  borderRadius: "10px",
+  border: "none",
+  boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
+  padding: "10px 14px",
+  fontSize: "13px",
+  color: "#2C1A0E",
+  outline: "none",
+  width: "100%",
+  boxSizing: "border-box" as const,
+};
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -84,6 +100,36 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState<MonthlyReport | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Competitor manager
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [competitorsOpen, setCompetitorsOpen] = useState(false);
+  const [newComp, setNewComp] = useState(BLANK_COMPETITOR);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COMPETITORS_KEY);
+      if (raw) setCompetitors(JSON.parse(raw) as Competitor[]);
+    } catch {}
+  }, []);
+
+  function persistCompetitors(next: Competitor[]) {
+    setCompetitors(next);
+    try { localStorage.setItem(COMPETITORS_KEY, JSON.stringify(next)); } catch {}
+  }
+
+  function addCompetitor() {
+    const name = newComp.name.trim();
+    const rating = parseFloat(newComp.rating);
+    const reviewCount = parseInt(newComp.reviewCount, 10);
+    if (!name || isNaN(rating) || rating < 1 || rating > 5 || isNaN(reviewCount) || reviewCount < 0) return;
+    persistCompetitors([...competitors, { id: crypto.randomUUID(), name, rating, reviewCount }]);
+    setNewComp(BLANK_COMPETITOR);
+  }
+
+  function deleteCompetitor(id: string) {
+    persistCompetitors(competitors.filter((c) => c.id !== id));
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -327,6 +373,157 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
               AGENCY
             </span>
           </div>
+        </div>
+
+        {/* ── Competitor Manager ── */}
+        <div style={{ marginBottom: "16px" }}>
+          {/* Toggle row */}
+          <button
+            type="button"
+            onClick={() => setCompetitorsOpen((v) => !v)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              background: "#E8DCC8",
+              borderRadius: competitorsOpen ? "16px 16px 0 0" : "16px",
+              border: "none",
+              borderLeft: "3px solid #2D9B8A",
+              padding: "13px 16px",
+              cursor: "pointer",
+              boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+              transition: "border-radius 200ms",
+            }}
+          >
+            <span style={{ flex: 1, textAlign: "left", fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>
+              Manage Competitors
+            </span>
+            <span style={{ fontSize: "11px", color: "#A0856A", marginRight: "10px" }}>
+              {competitors.length > 0 ? `${competitors.length} tracked` : "None added"}
+            </span>
+            <svg
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              style={{
+                width: "14px", height: "14px", color: "#A0856A", flexShrink: 0,
+                transform: competitorsOpen ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 200ms",
+              }}
+            >
+              <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          {/* Expanded panel */}
+          {competitorsOpen && (
+            <div style={{
+              background: "#E8DCC8",
+              borderRadius: "0 0 16px 16px",
+              borderLeft: "3px solid #2D9B8A",
+              padding: "0 16px 16px",
+              boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+            }}>
+              <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "14px" }} />
+
+              {/* Competitor list */}
+              {competitors.length === 0 ? (
+                <p style={{ fontSize: "12px", color: "#A0856A", textAlign: "center", padding: "8px 0 14px" }}>
+                  No competitors added yet.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                  {competitors.map((c) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "10px",
+                        background: "rgba(44,26,14,0.05)", borderRadius: "10px", padding: "10px 12px",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {c.name}
+                        </p>
+                        <p style={{ fontSize: "11px", color: "#7B5E45", marginTop: "2px" }}>
+                          ⭐ {c.rating.toFixed(1)} &nbsp;·&nbsp; 📝 {c.reviewCount.toLocaleString()} reviews
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteCompetitor(c.id)}
+                        aria-label="Delete competitor"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#D32323", padding: "4px", lineHeight: 0, flexShrink: 0 }}
+                      >
+                        <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
+                          <path d="M6.5 1.75a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V3h-3V1.75Zm4.5 0V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15H5.405a1.748 1.748 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15Z" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add form */}
+              {competitors.length >= 5 ? (
+                <p style={{ fontSize: "12px", color: "#A0856A", textAlign: "center", padding: "4px 0" }}>
+                  Maximum 5 competitors reached.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <input
+                    type="text"
+                    value={newComp.name}
+                    onChange={(e) => setNewComp((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Business name (e.g. Joe's Plumbing)"
+                    style={INPUT}
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <input
+                      type="number"
+                      value={newComp.rating}
+                      onChange={(e) => setNewComp((p) => ({ ...p, rating: e.target.value }))}
+                      placeholder="Rating (e.g. 4.2)"
+                      min={1} max={5} step={0.1}
+                      style={INPUT}
+                    />
+                    <input
+                      type="number"
+                      value={newComp.reviewCount}
+                      onChange={(e) => setNewComp((p) => ({ ...p, reviewCount: e.target.value }))}
+                      placeholder="Reviews (e.g. 142)"
+                      min={0}
+                      style={INPUT}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addCompetitor}
+                    disabled={
+                      !newComp.name.trim() ||
+                      !newComp.rating ||
+                      !newComp.reviewCount ||
+                      parseFloat(newComp.rating) < 1 ||
+                      parseFloat(newComp.rating) > 5
+                    }
+                    style={{
+                      background: "#2D9B8A",
+                      color: "white",
+                      borderRadius: "10px",
+                      padding: "10px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      border: "none",
+                      cursor: "pointer",
+                      opacity: (!newComp.name.trim() || !newComp.rating || !newComp.reviewCount) ? 0.5 : 1,
+                      transition: "opacity 150ms",
+                    }}
+                  >
+                    + Add Competitor
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Report list */}

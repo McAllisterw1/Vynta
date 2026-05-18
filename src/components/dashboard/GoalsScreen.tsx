@@ -57,7 +57,11 @@ function buildSystemPrompt(): string {
     const goalsText = goals.length > 0
       ? goals.map((g) => `"${g.title}" — ${g.current}/${g.target} (${g.completed ? "done" : "in progress"})`).join("; ")
       : "No goals set yet.";
-    return `You are Vynta's AI Review Consultant — a sharp, friendly reputation coach for small business owners. You have access to this user's real data:\n\nGoals: ${goalsText}\nTotal responses generated: ${history.length}\nAverage rating: ${avg}\nReview requests sent: ${requestsSent}\nMonthly usage: ${usage} responses this month\nCampaigns: ${campaigns.length} sent\n\nGive specific, actionable advice based on their actual numbers. Be concise, direct, and encouraging. Reference their data naturally in responses.`;
+    const competitors = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+    const competitorText = competitors.length > 0
+      ? competitors.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")
+      : "none added";
+    return `You are Vynta's AI Review Consultant — a sharp, friendly reputation coach for small business owners. You have access to this user's real data:\n\nGoals: ${goalsText}\nTotal responses generated: ${history.length}\nAverage rating: ${avg}\nReview requests sent: ${requestsSent}\nMonthly usage: ${usage} responses this month\nCampaigns: ${campaigns.length} sent\nCompetitors: ${competitorText}\n\nGive specific, actionable advice based on their actual numbers. Factor competitor context into your advice where relevant. Be concise, direct, and encouraging.`;
   } catch {
     return "You are Vynta's AI Review Consultant — a sharp, friendly reputation coach for small business owners. Give specific, actionable advice. Be concise, direct, and encouraging.";
   }
@@ -162,6 +166,14 @@ Each item in the array must have exactly these keys:
 - action_label: 2-3 words (e.g. "Send Request", "Reply Now", "Start Training")
 - action_tab: exactly one of "requests", "reviews", "training", "home", "stats"`;
 
+    let competitorContext = "No competitor data available.";
+    try {
+      const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+      if (comps.length > 0) {
+        competitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+      }
+    } catch {}
+
     const userMessage = `User data:
 - Total logged reviews: ${totalReviews}
 - Average rating: ${avgRating ?? "no data yet"}
@@ -169,8 +181,9 @@ Each item in the array must have exactly these keys:
 - Reviews with no response logged: ${unrespondedCount}
 - Training modules completed: ${trainingCount} of 5
 - AI responses generated: ${responseHistoryCount}
+- Competitor context: ${competitorContext}
 
-Generate 3 specific, coach-style next steps based on these exact numbers.`;
+Generate 3 specific, coach-style next steps. Where relevant, reference how this business compares to its competitors.`;
 
     fetch("/api/consultant", {
       method: "POST",

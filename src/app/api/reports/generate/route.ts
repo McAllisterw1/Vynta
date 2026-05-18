@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const monthName = monthNames[(month - 1) % 12];
 
     const competitorText = competitors.length > 0
-      ? competitors.map((c) => `${c.name}: ${c.rating} stars, ${c.reviewCount} reviews`).join("; ")
+      ? competitors.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")
       : "No competitor data available";
 
     const system = `You are a business reputation analyst generating a monthly report for a local business. Return only valid JSON, no markdown, no explanation. The JSON must have exactly two keys: "competitorComparison" (string) and "aiSummary" (string).`;

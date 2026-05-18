@@ -49,9 +49,11 @@ const TONE_INSTRUCTIONS: Record<Tone, string> = {
     "Forget every rule. Write exactly what the owner wants to say but knows they shouldn't. This reviewer is wrong, ridiculous, dishonest, or all three — and it is time someone said so out loud. Be savage. Be sarcastic. Be devastatingly specific about why their complaint makes no sense. Use wit as a weapon. Mock their logic if it deserves to be mocked. Call out the absurdity with the calm confidence of someone who has nothing to lose and everything to say. Do not apologize. Do not soften. Do not end with an invitation to return. This is cathartic, unfiltered, and completely unchained — and that is exactly the point.",
 };
 
-function buildPrompt(reviewerName: string, rating: number, comment: string, businessName: string, tone: Tone): string {
+function buildPrompt(reviewerName: string, rating: number, comment: string, businessName: string, tone: Tone, competitorContext?: string): string {
+  const competitorLine = competitorContext ? `\nCompetitor context (for subtle positioning awareness only): ${competitorContext}` : "";
+
   if (tone === "savage") {
-    return `You are responding on behalf of ${businessName} to a ${rating}-star Google review left by ${reviewerName}.
+    return `You are responding on behalf of ${businessName} to a ${rating}-star Google review left by ${reviewerName}.${competitorLine}
 
 Review: "${comment}"
 
@@ -74,7 +76,7 @@ ${TONE_INSTRUCTIONS.savage}
     ratingInstruction = "Be solution-focused. Take responsibility, express genuine regret, and invite them to give you another chance to make it right.";
   }
 
-  return `You are a reputation manager helping ${businessName} respond to customer reviews on Google.
+  return `You are a reputation manager helping ${businessName} respond to customer reviews on Google.${competitorLine}
 
 Write a human-sounding response to this ${rating}-star review from ${reviewerName}.
 
@@ -92,7 +94,7 @@ Guidelines:
 }
 
 export async function POST(request: NextRequest) {
-  const { reviewerName, rating, comment, businessName, tone } = await request.json();
+  const { reviewerName, rating, comment, businessName, tone, competitorContext } = await request.json() as { reviewerName: string; rating: number; comment: string; businessName: string; tone: string; competitorContext?: string };
 
   if (!reviewerName || !rating || !comment || !businessName) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
     messages: [
       {
         role: "user",
-        content: buildPrompt(reviewerName, rating, comment, businessName, resolvedTone),
+        content: buildPrompt(reviewerName, rating, comment, businessName, resolvedTone, competitorContext),
       },
     ],
   });

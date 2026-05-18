@@ -163,7 +163,19 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName: businessName.trim(), reviewerName: reviewerName.trim(), rating, comment: comment.trim(), tone }),
+        body: JSON.stringify({
+          businessName: businessName.trim(),
+          reviewerName: reviewerName.trim(),
+          rating,
+          comment: comment.trim(),
+          tone,
+          competitorContext: (() => {
+            try {
+              const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+              return comps.length > 0 ? comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ") : "";
+            } catch { return ""; }
+          })(),
+        }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));

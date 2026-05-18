@@ -52,7 +52,7 @@ const INPUT: React.CSSProperties = {
   boxSizing: "border-box" as const,
 };
 
-function buildPrompt(idx: number, p: TrainingProfile): { system: string; message: string } {
+function buildPrompt(idx: number, p: TrainingProfile, competitorContext?: string): { system: string; message: string } {
   const gap = p.competitorReviews - p.currentReviews;
   const gapText =
     gap > 0
@@ -61,7 +61,8 @@ function buildPrompt(idx: number, p: TrainingProfile): { system: string; message
       ? `They actually have ${Math.abs(gap)} more reviews than their competitor — they are ahead.`
       : "They and their competitor are tied on reviews.";
 
-  const system = `You are a plain-spoken business coach writing a training module for a ${p.businessType}. They have ${p.currentReviews} Google reviews. Their nearest competitor has ${p.competitorReviews}. ${gapText} Write in a conversational coach voice — direct, warm, no jargon. Short punchy paragraphs of 2–3 sentences. Never use bullet points or numbered lists — always prose. Write specifically for their situation. Aim for 280–340 words.`;
+  const competitorLine = competitorContext ? ` Additional competitor landscape: ${competitorContext}.` : "";
+  const system = `You are a plain-spoken business coach writing a training module for a ${p.businessType}. They have ${p.currentReviews} Google reviews. Their nearest competitor has ${p.competitorReviews}. ${gapText}${competitorLine} Write in a conversational coach voice — direct, warm, no jargon. Short punchy paragraphs of 2–3 sentences. Never use bullet points or numbered lists — always prose. Write specifically for their situation. Aim for 280–340 words.`;
 
   const prompts = [
     `Write Module 1: Why Reviews Are Money. Open with a direct, specific statement about what more Google reviews actually mean in dollars and new customers for a ${p.businessType}. Make it concrete. End with something that makes them want to act right now.`,
@@ -120,7 +121,14 @@ export default function ReviewTraining() {
 
     setLoadingModule(idx);
     try {
-      const { system, message } = buildPrompt(idx, training.profile!);
+      let trainingCompetitorContext: string | undefined;
+      try {
+        const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+        if (comps.length > 0) {
+          trainingCompetitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+        }
+      } catch {}
+      const { system, message } = buildPrompt(idx, training.profile!, trainingCompetitorContext);
       const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
