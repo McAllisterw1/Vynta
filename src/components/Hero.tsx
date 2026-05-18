@@ -1,48 +1,34 @@
+import ReputationAuditWidget from "@/components/ReputationAuditWidget";
+
 const stats = [
   { value: "87%", label: "of customers check reviews before calling" },
   { value: "3×", label: "more reviews just from asking the right way" },
   { value: "< 60s", label: "to generate a professional response" },
 ];
 
-const Stars = () => (
-  <span className="text-sand tracking-tight" style={{ fontSize: "13px", letterSpacing: "1px" }}>★★★★★</span>
-);
-
-const reviews = [
-  {
-    text: "AC went out on a Friday night in July. They had someone here by 10am Saturday. Fair price, no surprises. Rare these days.",
-    author: "Kevin L.",
-    platform: "Google",
-    delay: "0s",
-    duration: "6s",
-    position: "top-4 right-0",
-    width: "w-64",
-  },
-  {
-    text: "Burst pipe on a Sunday morning. They answered, showed up, and had it fixed before noon. Saved Christmas.",
-    author: "Sarah M.",
-    platform: "Google",
-    delay: "1.8s",
-    duration: "5.5s",
-    position: "top-[210px] right-14",
-    width: "w-60",
-  },
-  {
-    text: "Got 3 quotes for a new roof. These guys were professional start to finish. Clean crew, on time, great price.",
-    author: "Marcus D.",
-    platform: "Google",
-    delay: "0.9s",
-    duration: "7s",
-    position: "top-[390px] right-2",
-    width: "w-62",
-  },
-];
-
 export default function Hero() {
   return (
     <section className="bg-cream pt-20 overflow-hidden">
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(45,155,138,0); }
+          50%       { box-shadow: 0 0 0 8px rgba(45,155,138,0.15); }
+        }
+        @keyframes bounce-x {
+          0%, 100% { transform: translateX(0); }
+          50%       { transform: translateX(4px); }
+        }
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .widget-pulse { animation: pulse-glow 2.8s ease-in-out infinite; border-radius: 20px; }
+        .bounce-x     { animation: bounce-x 1.4s ease-in-out infinite; display: inline-block; }
+        .fade-in-up   { animation: fade-in-up 0.7s ease both; }
+      `}</style>
+
       <div className="mx-auto w-full max-w-6xl px-6 pt-4 pb-20">
-        <div className="flex items-start gap-8">
+        <div className="flex items-start gap-12">
 
           {/* Left: text content */}
           <div className="flex-1 min-w-0">
@@ -107,53 +93,25 @@ export default function Hero() {
 
           </div>
 
-          {/* Right: floating review cards */}
-          <div
-            className="hidden xl:block shrink-0 w-[380px] relative h-[540px]"
-            aria-hidden="true"
-          >
-            <svg
-              viewBox="0 0 62 19"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] opacity-[0.07] text-sand-dark"
-              style={{ animation: "float-slow 9s ease-in-out infinite" }}
-            >
-              <path
-                d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              />
-              <circle cx="5"  cy="3" r="2" fill="currentColor" />
-              <circle cx="17" cy="3" r="2" fill="currentColor" />
-              <circle cx="29" cy="3" r="2" fill="currentColor" />
-              <circle cx="41" cy="3" r="2" fill="currentColor" />
-              <circle cx="53" cy="3" r="2" fill="currentColor" />
-            </svg>
+          {/* Right: live reputation audit widget */}
+          <div className="hidden xl:block shrink-0 w-[400px] fade-in-up" style={{ animationDelay: "0.3s" }}>
 
-            {reviews.map((r) => (
-              <div
-                key={r.author}
-                className={`absolute ${r.position} ${r.width} bg-cream rounded-2xl border border-cream-border shadow-md px-4 py-3.5`}
-                style={{ animation: `float ${r.duration} ease-in-out infinite`, animationDelay: r.delay }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Stars />
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-tobacco-light/70 bg-sand-pale px-2 py-0.5 rounded-full">
-                    {r.platform}
-                  </span>
-                </div>
-                <p className="text-sm text-tobacco leading-snug mb-2.5">"{r.text}"</p>
-                <p className="text-xs text-tobacco-light">— {r.author}</p>
-              </div>
-            ))}
-
-            <div
-              className="absolute top-[170px] left-0 flex items-center gap-2 bg-teal text-cream rounded-full pl-2.5 pr-3.5 py-1.5 text-xs font-medium shadow-md"
-              style={{ animation: "float 5s ease-in-out infinite", animationDelay: "2.4s" }}
-            >
-              <span className="text-[11px]">⭐</span>
-              <span>12 new reviews this month</span>
+            {/* Attention-grabber label */}
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="text-xs font-semibold text-teal uppercase tracking-[0.18em]">
+                Free audit — no signup
+              </span>
+              <span className="bounce-x text-teal">→</span>
             </div>
+
+            {/* Pulsing wrapper */}
+            <div className="widget-pulse">
+              <ReputationAuditWidget />
+            </div>
+
+            <p className="text-center text-xs text-tobacco-light/60 mt-3">
+              Takes 10 seconds · See your score instantly
+            </p>
           </div>
 
         </div>
