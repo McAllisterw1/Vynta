@@ -107,12 +107,92 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [competitorsOpen, setCompetitorsOpen] = useState(false);
   const [newComp, setNewComp] = useState(BLANK_COMPETITOR);
 
+  // Sentiment analysis
+  const [ourReviews, setOurReviews] = useState<Array<{ id?: string; text?: string; content?: string; body?: string }>>([]);
+  const [sentimentData, setSentimentData] = useState<{
+    positive: number; neutral: number; negative: number;
+    keywords: string[]; summary: string;
+  } | null>(null);
+  const [sentimentLoading, setSentimentLoading] = useState(false);
+  const [sentimentCacheKey, setSentimentCacheKey] = useState("");
+  const [cacheStatus, setCacheStatus] = useState<"match" | "stale" | null>(null);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(COMPETITORS_KEY);
       if (raw) setCompetitors(JSON.parse(raw) as Competitor[]);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("vynta_our_reviews");
+      if (!raw) return;
+      const reviews = JSON.parse(raw) as Array<{ id?: string; text?: string; content?: string; body?: string }>;
+      setOurReviews(reviews);
+      const key = computeSentimentCacheKey(reviews);
+      setSentimentCacheKey(key);
+      const storedKey = localStorage.getItem("vynta_sentiment_cache_key");
+      if (key && storedKey === key) {
+        const cached = localStorage.getItem("vynta_sentiment_cache");
+        if (cached) {
+          setSentimentData(JSON.parse(cached));
+          setCacheStatus("match");
+        }
+      } else if (storedKey && storedKey !== key) {
+        setCacheStatus("stale");
+      }
+    } catch {}
+  }, []);
+
+  function computeSentimentCacheKey(reviews: Array<{ id?: string; text?: string; content?: string; body?: string }>) {
+    if (reviews.length === 0) return "";
+    const ids = reviews.map((r) => r.id ?? "").filter(Boolean);
+    if (ids.length === reviews.length) return ids.join("|");
+    const first = reviews[0].text ?? reviews[0].content ?? reviews[0].body ?? "";
+    const last = reviews[reviews.length - 1].text ?? reviews[reviews.length - 1].content ?? reviews[reviews.length - 1].body ?? "";
+    return `${reviews.length}:${first.slice(0, 30)}:${last.slice(0, 30)}`;
+  }
+
+  async function analyzeSentiment() {
+    if (ourReviews.length < 3 || sentimentLoading) return;
+    setSentimentLoading(true);
+    const system = "You are a sentiment analysis engine. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.";
+    const reviewsText = ourReviews
+      .map((r, i) => `${i + 1}. ${r.text ?? r.content ?? r.body ?? ""}`)
+      .filter((line) => line.trim().length > 3)
+      .join("\n");
+    const msg = `Analyze the sentiment of these customer reviews and return ONLY a JSON object with no markdown or backticks:
+{
+  "positive": <integer percentage 0-100>,
+  "neutral": <integer percentage 0-100>,
+  "negative": <integer percentage 0-100>,
+  "keywords": [<array of 6 most mentioned words or themes, each a short string, no filler words like 'the' or 'and'>],
+  "summary": <one sentence describing the overall sentiment trend>
+}
+Reviews:
+${reviewsText}`;
+    try {
+      const res = await fetch("/api/consultant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+      });
+      const data = (await res.json()) as { response?: string };
+      const raw = (data.response ?? "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(raw) as { positive: number; neutral: number; negative: number; keywords: string[]; summary: string };
+      setSentimentData(parsed);
+      setCacheStatus("match");
+      try {
+        localStorage.setItem("vynta_sentiment_cache", JSON.stringify(parsed));
+        localStorage.setItem("vynta_sentiment_cache_key", sentimentCacheKey);
+      } catch {}
+    } catch {
+      // silently fail
+    } finally {
+      setSentimentLoading(false);
+    }
+  }
 
   function persistCompetitors(next: Competitor[]) {
     setCompetitors(next);
@@ -622,6 +702,133 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
             ) : "Generate This Month's Report"}
           </button>
         )}
+
+        {/* ── Sentiment Analysis ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "sentimentAnalysis")} requiredPlan="Agency">
+        <div style={{ ...CARD, padding: "18px", marginTop: "16px" }}>
+          {/* Header row */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "6px" }}>
+            <div>
+              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600 }}>
+                Sentiment Analysis
+              </p>
+              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
+                Powered by AI · based on your logged reviews
+              </p>
+            </div>
+            {sentimentData && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {cacheStatus === "stale" && (
+                  <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
+                )}
+                {cacheStatus === "match" && (
+                  <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
+                )}
+                <button
+                  type="button"
+                  onClick={analyzeSentiment}
+                  disabled={sentimentLoading || cacheStatus === "match"}
+                  aria-label="Refresh sentiment"
+                  style={{
+                    background: "none", border: "none",
+                    cursor: (sentimentLoading || cacheStatus === "match") ? "default" : "pointer",
+                    color: "#A0856A", padding: "2px", lineHeight: 0,
+                    opacity: (sentimentLoading || cacheStatus === "match") ? 0.4 : 1,
+                  }}
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
+                    <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {ourReviews.length < 3 ? (
+            <p style={{ fontSize: "12px", color: "#A0856A", marginTop: "10px" }}>
+              Log at least 3 reviews to unlock sentiment analysis.
+            </p>
+          ) : !sentimentData ? (
+            <button
+              type="button"
+              onClick={analyzeSentiment}
+              disabled={sentimentLoading}
+              style={{
+                marginTop: "10px",
+                width: "100%",
+                background: sentimentLoading ? "#A0856A" : "#2C1A0E",
+                color: "white",
+                borderRadius: "10px",
+                padding: "10px",
+                fontSize: "13px",
+                fontWeight: 600,
+                border: "none",
+                cursor: sentimentLoading ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+            >
+              {sentimentLoading ? (
+                <>
+                  <SpinIcon size={13} />
+                  Analysing…
+                </>
+              ) : "Analyse Sentiment"}
+            </button>
+          ) : (
+            <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {[
+                { label: "Positive", value: sentimentData.positive, color: "#2D9B8A" },
+                { label: "Neutral",  value: sentimentData.neutral,  color: "#C4874A" },
+                { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
+                  <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        borderRadius: "99px",
+                        background: color,
+                        width: `${value}%`,
+                        transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                      }}
+                    />
+                  </div>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>
+                    {value}%
+                  </span>
+                </div>
+              ))}
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {sentimentData.keywords.map((kw) => (
+                  <span
+                    key={kw}
+                    style={{
+                      background: "#E8DCC8",
+                      color: "#2C1A0E",
+                      borderRadius: "20px",
+                      padding: "4px 10px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+
+              <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>
+                {sentimentData.summary}
+              </p>
+            </div>
+          )}
+        </div>
+        </UpgradeTooltip>
+
       </div>
       </UpgradeTooltip>
     </div>

@@ -84,7 +84,7 @@ export const PLAN_FEATURES = {
     goals: false,
     monthlyReports: false,
     competitorComparison: false,
-    sentimentAnalysis: true,
+    sentimentAnalysis: false,
   },
   agency: {
     reviewLogging: true,
