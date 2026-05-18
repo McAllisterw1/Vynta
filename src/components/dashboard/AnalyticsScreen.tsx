@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 const HISTORY_KEY = "vynta_response_history";
 const REQUESTS_KEY = "vynta_requests_sent";
@@ -420,13 +421,14 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
               ))}
             </div>
           ) : weeklyTip ? (
-            <p style={{
-              fontSize: "12px", color: "#2C1A0E", marginTop: "12px", lineHeight: 1.65,
+            <div style={{
+              fontSize: "12px", color: "#2C1A0E", marginTop: "12px",
               background: "rgba(45,155,138,0.08)", padding: "10px 12px",
               borderRadius: "10px",
             }}>
-              💡 <strong>Suggested next step:</strong> {weeklyTip}
-            </p>
+              <span style={{ fontWeight: 600 }}>💡 Suggested next step: </span>
+              <MarkdownContent>{weeklyTip}</MarkdownContent>
+            </div>
           ) : null}
         </div>
         </UpgradeTooltip>

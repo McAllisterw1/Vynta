@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 const GOALS_KEY = "vynta_goals";
 const HISTORY_KEY = "vynta_response_history";
@@ -332,7 +333,7 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
                       {move.title}
                     </p>
                     <p style={{ fontSize: "11px", color: "#7B5E45", lineHeight: 1.55 }}>
-                      {move.description}
+                      <MarkdownContent>{move.description}</MarkdownContent>
                     </p>
                   </div>
                   <button
@@ -481,7 +482,7 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
                   color: m.role === "user" ? "white" : "#2C1A0E",
                   boxShadow: "0 1px 4px rgba(44,26,14,0.1)",
                 }}>
-                  {m.content}
+                  {m.role === "user" ? m.content : <MarkdownContent>{m.content}</MarkdownContent>}
                 </div>
               </div>
             ))}

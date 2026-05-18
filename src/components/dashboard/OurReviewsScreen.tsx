@@ -68,15 +68,24 @@ function Stars({
   onSelect?: (n: number) => void;
   size?: number;
 }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+
   return (
     <div style={{ display: "flex", gap: "2px" }}>
       {[1, 2, 3, 4, 5].map((s) => {
+        const active = interactive
+          ? s <= (hovered ?? rating)
+          : s <= rating;
+        const color = interactive
+          ? (active ? "#F5A623" : "#A0856A")
+          : (active ? "#C4874A" : "#E8DDD0");
+
         const star = (
           <svg
             key={s}
             viewBox="0 0 16 16"
             fill="currentColor"
-            style={{ width: size, height: size, color: s <= rating ? "#C4874A" : "#E8DDD0", display: "block" }}
+            style={{ width: size, height: size, color, display: "block" }}
           >
             <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
           </svg>
@@ -87,6 +96,8 @@ function Stars({
               key={s}
               type="button"
               onClick={() => onSelect?.(s)}
+              onMouseEnter={() => setHovered(s)}
+              onMouseLeave={() => setHovered(null)}
               style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", lineHeight: 0 }}
             >
               {star}

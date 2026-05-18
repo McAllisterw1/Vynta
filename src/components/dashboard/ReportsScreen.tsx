@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 interface MonthlyReport {
   id: string;
@@ -320,9 +321,9 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
                     AI Summary
                   </p>
                 </div>
-                <p style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
-                  {selectedReport.aiSummary}
-                </p>
+                <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
+                  <MarkdownContent>{selectedReport.aiSummary}</MarkdownContent>
+                </div>
               </div>
 
               {/* Competitor Comparison */}
@@ -334,9 +335,9 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
                       Competitor Comparison
                     </p>
                   </div>
-                  <p style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
-                    {selectedReport.competitorComparison}
-                  </p>
+                  <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
+                    <MarkdownContent>{selectedReport.competitorComparison}</MarkdownContent>
+                  </div>
                 </div>
               )}
 

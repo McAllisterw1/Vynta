@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 interface Message {
   role: "user" | "assistant";
@@ -192,7 +193,7 @@ export default function TrainingConsultant() {
                   boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
                 }}
               >
-                {m.content}
+                {m.role === "user" ? m.content : <MarkdownContent>{m.content}</MarkdownContent>}
               </div>
             </div>
           ))}
