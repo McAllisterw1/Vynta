@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import ReviewTraining from "@/components/dashboard/ReviewTraining";
+import TrainingConsultant from "@/components/dashboard/TrainingConsultant";
 import { canAccess } from "@/lib/plans";
 
 export const metadata = {
@@ -38,7 +39,10 @@ export default async function TrainingPage() {
           Back to Dashboard
         </a>
         {canAccess(plan, "reviewTraining") ? (
-          <ReviewTraining />
+          <>
+            <ReviewTraining />
+            <TrainingConsultant />
+          </>
         ) : (
           <div style={{
             background: "#E8DCC8",
