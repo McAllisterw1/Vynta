@@ -103,7 +103,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
             Unlock more features by upgrading
           </p>
           <a
-            href="/pricing"
+            href="/#pricing"
             style={{
               display: "inline-block",
               background: "#2D9B8A",

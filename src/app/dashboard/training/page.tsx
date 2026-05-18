@@ -55,7 +55,7 @@ export default async function TrainingPage() {
               Upgrade to unlock 5 modules of personalised, AI-powered training<br />on how to grow your Google reputation.
             </p>
             <a
-              href="/pricing"
+              href="/#pricing"
               style={{
                 display: "inline-block",
                 background: "#2D9B8A",
