@@ -8,6 +8,7 @@ import { getPlan } from "@/lib/plans";
 
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 const MESSAGE_TEMPLATE_KEY = "vynta_message_template";
+const GOOGLE_REVIEW_URL_KEY = "vynta_google_review_url";
 
 interface Props {
   name: string;
@@ -45,6 +46,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [cleared, setCleared] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState("");
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState("");
+  const [googleUrlSaved, setGoogleUrlSaved] = useState(false);
 
   useEffect(() => {
     try {
@@ -52,6 +55,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
       if (stored) setDefaultBusiness(stored);
       const tpl = localStorage.getItem(MESSAGE_TEMPLATE_KEY);
       if (tpl) setMessageTemplate(tpl);
+      const gUrl = localStorage.getItem(GOOGLE_REVIEW_URL_KEY);
+      if (gUrl) setGoogleReviewUrl(gUrl);
     } catch {}
   }, []);
 
@@ -65,6 +70,12 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
     try { localStorage.setItem(MESSAGE_TEMPLATE_KEY, messageTemplate.trim()); } catch {}
     setTemplateSaved(true);
     setTimeout(() => setTemplateSaved(false), 2000);
+  }
+
+  function handleSaveGoogleUrl() {
+    try { localStorage.setItem(GOOGLE_REVIEW_URL_KEY, googleReviewUrl.trim()); } catch {}
+    setGoogleUrlSaved(true);
+    setTimeout(() => setGoogleUrlSaved(false), 2000);
   }
 
   function handleClearHistory() {
@@ -240,6 +251,36 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
             {templateSaved ? "Saved!" : "Save"}
           </button>
         </div>
+      </div>
+
+      {/* Google Review Link */}
+      <div style={{ ...CARD, padding: "20px", marginBottom: "12px" }}>
+        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "4px", fontWeight: 600 }}>
+          Google Review Link
+        </p>
+        <p style={{ fontSize: "12px", color: "#A0856A", marginBottom: "12px" }}>
+          Paste your Google review URL so customers are sent to the right place.
+        </p>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+          <input
+            type="url"
+            value={googleReviewUrl}
+            onChange={(e) => setGoogleReviewUrl(e.target.value)}
+            placeholder="https://g.page/r/your-review-link"
+            style={{ flex: 1, background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "12px 16px", fontSize: "14px", color: "#2C1A0E", outline: "none" }}
+          />
+          <button
+            type="button"
+            onClick={handleSaveGoogleUrl}
+            disabled={!googleReviewUrl.trim()}
+            style={{ background: googleUrlSaved ? "#2D9B8A" : "#2D9B8A", color: "white", borderRadius: "10px", padding: "12px 20px", fontSize: "13px", fontWeight: 600, border: "none", cursor: googleReviewUrl.trim() ? "pointer" : "not-allowed", flexShrink: 0, opacity: googleReviewUrl.trim() ? 1 : 0.5 }}
+          >
+            {googleUrlSaved ? "Saved!" : "Save"}
+          </button>
+        </div>
+        <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.5 }}>
+          To find this: Google Business Profile → Get more reviews → copy the link.
+        </p>
       </div>
 
       {/* Sign out */}

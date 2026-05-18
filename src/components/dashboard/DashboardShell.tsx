@@ -56,7 +56,7 @@ export default function DashboardShell({
 
       <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
         {active === 0 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><AnalyticsScreen plan={plan} /></div>}
-        {active === 1 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><RequestCampaign onBack={() => navigate(3)} plan={plan} /></div>}
+        {active === 1 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><RequestCampaign onBack={() => navigate(3)} plan={plan} onNavigate={navigate} /></div>}
         {active === 2 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><OurReviewsScreen plan={plan} /></div>}
         {active === 3 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><HomeScreen plan={plan} subscriptionStatus={subscriptionStatus} /></div>}
         {active === 4 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><GoalsScreen onNavigate={navigate} plan={plan} /></div>}

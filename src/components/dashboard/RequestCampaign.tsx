@@ -67,7 +67,7 @@ function channelsUsed(campaign: Campaign): string {
 }
 
 
-export default function RequestCampaign({ onBack, plan }: { onBack?: () => void; plan?: string | null } = {}) {
+export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?: () => void; plan?: string | null; onNavigate?: (tab: number) => void } = {}) {
   const [tab, setTab] = useState<"send" | "history">("send");
   const [businessName, setBusinessName] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([newContact()]);
@@ -75,6 +75,7 @@ export default function RequestCampaign({ onBack, plan }: { onBack?: () => void;
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [googleReviewUrl, setGoogleReviewUrl] = useState("");
 
   useEffect(() => {
     try {
@@ -84,6 +85,8 @@ export default function RequestCampaign({ onBack, plan }: { onBack?: () => void;
       if (stored) setCampaigns(JSON.parse(stored));
       const tpl = localStorage.getItem(MESSAGE_TEMPLATE_KEY);
       if (tpl) setTemplate(tpl);
+      const gUrl = localStorage.getItem("vynta_google_review_url");
+      if (gUrl) setGoogleReviewUrl(gUrl);
     } catch {}
   }, []);
 
@@ -100,7 +103,7 @@ export default function RequestCampaign({ onBack, plan }: { onBack?: () => void;
     if (!validContacts.length) return;
     setSendError("");
 
-    const platformUrl = "https://g.page/r/PLACEHOLDER/review";
+    const platformUrl = googleReviewUrl.trim() || "https://g.page/r/PLACEHOLDER/review";
     const businessId = "placeholder-business-id";
 
     try {
@@ -182,6 +185,32 @@ export default function RequestCampaign({ onBack, plan }: { onBack?: () => void;
       {tab === "send" && (
         <UpgradeTooltip locked={!canAccess(plan, "smsCampaigns")} requiredPlan="Pro">
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
+
+          {/* No Google review URL warning */}
+          {!googleReviewUrl.trim() && (
+            <div style={{
+              background: "#C4874A", borderRadius: "12px",
+              padding: "12px 16px", marginBottom: "14px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: "10px", flexShrink: 0,
+            }}>
+              <p style={{ fontSize: "12px", color: "white", fontWeight: 500, lineHeight: 1.4, flex: 1 }}>
+                ⚠️ No Google review link set. Add it in Settings so customers are sent to the right place.
+              </p>
+              <button
+                type="button"
+                onClick={() => onNavigate?.(6)}
+                style={{
+                  background: "#2D9B8A", color: "white",
+                  borderRadius: "8px", padding: "7px 14px",
+                  fontSize: "12px", fontWeight: 600,
+                  border: "none", cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
+                }}
+              >
+                Go to Settings
+              </button>
+            </div>
+          )}
 
           {/* Branded identity pill */}
           <div style={{ background: "#E8DCC8", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0 }}>
