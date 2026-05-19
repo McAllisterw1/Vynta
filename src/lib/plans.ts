@@ -68,6 +68,7 @@ export const PLAN_FEATURES = {
     monthlyReports: false,
     competitorComparison: false,
     sentimentAnalysis: false,
+    crisisDetection: false,
   },
   professional: {
     reviewLogging: true,
@@ -85,6 +86,7 @@ export const PLAN_FEATURES = {
     monthlyReports: false,
     competitorComparison: false,
     sentimentAnalysis: false,
+    crisisDetection: false,
   },
   agency: {
     reviewLogging: true,
@@ -102,6 +104,7 @@ export const PLAN_FEATURES = {
     monthlyReports: true,
     competitorComparison: true,
     sentimentAnalysis: true,
+    crisisDetection: true,
   },
 } as const
 

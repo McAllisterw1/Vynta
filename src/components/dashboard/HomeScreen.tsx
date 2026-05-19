@@ -5,6 +5,7 @@ import { useResponseHistory, type HistoryEntry } from "@/lib/useResponseHistory"
 import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 import { getPlan, canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
@@ -43,7 +44,7 @@ function Stars({ rating, size = "md" }: { rating: number; size?: "sm" | "md" }) 
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} viewBox="0 0 16 16" className={`${sz} ${s <= rating ? "text-[#C4874A]" : "text-[#E8DDD0]"}`} fill="currentColor">
+        <svg key={s} viewBox="0 0 16 16" className={`${sz} ${s <= rating ? "text-[#C4874A]" : "text-[#C8B49A]"}`} fill="currentColor">
           <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
         </svg>
       ))}
@@ -112,6 +113,16 @@ function CompactReviewCard({ entry }: { entry: HistoryEntry }) {
   );
 }
 
+interface CrisisReview {
+  id?: string;
+  text?: string;
+  content?: string;
+  body?: string;
+  rating: number;
+  date?: string;
+  createdAt?: string;
+}
+
 interface Props {
   plan: string | null;
   subscriptionStatus: string | null;
@@ -133,6 +144,11 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [copied, setCopied] = useState(false);
   const [ourReviewCount, setOurReviewCount] = useState<number | null>(null);
   const [ourAvgRating, setOurAvgRating] = useState<number | null>(null);
+  const [recentNegativeReviews, setRecentNegativeReviews] = useState<CrisisReview[]>([]);
+  const [crisisDetected, setCrisisDetected] = useState(false);
+  const [crisisActionPlan, setCrisisActionPlan] = useState<string | null>(null);
+  const [crisisLoading, setCrisisLoading] = useState(false);
+  const [crisisDismissed, setCrisisDismissed] = useState(false);
 
   useEffect(() => {
     try {
@@ -146,6 +162,30 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
         if (typeof parsed.totalReviews === "number") setOurReviewCount(parsed.totalReviews);
         if (parsed.avgRating != null) setOurAvgRating(parsed.avgRating);
       }
+
+      const reviewsRaw = localStorage.getItem("vynta_our_reviews");
+      if (reviewsRaw) {
+        const reviews = JSON.parse(reviewsRaw) as CrisisReview[];
+        const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+        const negatives = reviews.filter((r) => {
+          const dateStr = r.date ?? r.createdAt;
+          if (!dateStr) return false;
+          return new Date(dateStr).getTime() >= cutoff && r.rating <= 3;
+        });
+        setRecentNegativeReviews(negatives);
+        const detected = negatives.length >= 2;
+        setCrisisDetected(detected);
+        if (detected) {
+          const dismissedRaw = localStorage.getItem("vynta_crisis_dismissed");
+          if (dismissedRaw) {
+            const { dismissedAt, reviewCount } = JSON.parse(dismissedRaw) as { dismissedAt: number; reviewCount: number };
+            const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
+            if (negatives.length === reviewCount && hoursSince < 24) {
+              setCrisisDismissed(true);
+            }
+          }
+        }
+      }
     } catch {}
   }, []);
 
@@ -153,6 +193,52 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
 
   const canSubmit = businessName.trim().length > 0 && reviewerName.trim().length > 0 && comment.trim().length > 0;
+
+  async function fetchCrisisActionPlan() {
+    if (crisisLoading) return;
+    setCrisisLoading(true);
+    setCrisisActionPlan(null);
+    let competitorContext = "";
+    try {
+      const comps = JSON.parse(localStorage.getItem("vynta_competitors") ?? "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+      if (comps.length > 0) competitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+    } catch {}
+    const system = "You are a trusted reputation management advisor. Be direct, urgent, and practical.";
+    const msg = `A local service business is experiencing a reputation crisis. They have received ${recentNegativeReviews.length} negative reviews (3 stars or below) in the last 48 hours. Here are the reviews:
+${recentNegativeReviews.map((r, i) => `${i + 1}. "${r.text ?? r.content ?? r.body ?? ""}" — ${r.rating} stars`).join("\n")}
+Business competitors: ${competitorContext || "None tracked"}
+
+Generate a specific, urgent action plan for this business owner. Be direct and practical. Include:
+1. What to do in the next 2 hours
+2. How to respond to these specific reviews
+3. What systemic issue might be causing this
+4. How to prevent it from happening again
+
+Format with clear headers and bullet points. Be a trusted advisor, not a corporate chatbot.`;
+    try {
+      const res = await fetch("/api/consultant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+      });
+      const data = (await res.json()) as { response?: string };
+      setCrisisActionPlan(data.response?.trim() ?? "");
+    } catch {
+      // silently fail
+    } finally {
+      setCrisisLoading(false);
+    }
+  }
+
+  function dismissCrisis() {
+    try {
+      localStorage.setItem("vynta_crisis_dismissed", JSON.stringify({
+        dismissedAt: Date.now(),
+        reviewCount: recentNegativeReviews.length,
+      }));
+    } catch {}
+    setCrisisDismissed(true);
+  }
 
   async function fetchDraft() {
     setLoading(true);
@@ -203,6 +289,14 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
 
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
+      <style>{`
+        @keyframes crisis-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .crisis-md p, .crisis-md li, .crisis-md h1, .crisis-md h2, .crisis-md h3, .crisis-md h4, .crisis-md strong, .crisis-md em { color: rgba(255,255,255,0.88) !important; }
+        .crisis-md ul, .crisis-md ol { padding-left: 18px; margin: 6px 0; }
+        .crisis-md li { margin-bottom: 4px; }
+        .crisis-md h1, .crisis-md h2, .crisis-md h3 { margin: 12px 0 4px; }
+      `}</style>
 
       {/* Sticky top bar */}
       <header style={{ position: "sticky", top: 0, zIndex: 10, background: "#FAF5E8", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -231,6 +325,133 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
 
       {/* Scrollable content */}
       <div style={{ padding: "24px 24px 120px" }}>
+
+        {/* ── Reputation Crisis Alert ── */}
+        {crisisDetected && !crisisDismissed && (
+          <UpgradeTooltip locked={!canAccess(plan, "crisisDetection")} requiredPlan="Agency">
+          <div style={{
+            background: "#1a0a0a",
+            border: "1px solid #C0392B",
+            borderRadius: "16px",
+            padding: "18px",
+            marginBottom: "16px",
+          }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+              <span style={{
+                width: "10px", height: "10px", borderRadius: "50%",
+                background: "#C0392B", flexShrink: 0, display: "inline-block",
+                animation: "crisis-pulse 1.5s ease-in-out infinite",
+              }} />
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "white", margin: 0 }}>
+                ⚠️ Reputation Crisis Detected
+              </p>
+            </div>
+            <p style={{ fontSize: "12px", color: "rgba(192,57,43,0.85)", marginBottom: "14px", paddingLeft: "20px" }}>
+              {recentNegativeReviews.length} negative review{recentNegativeReviews.length !== 1 ? "s" : ""} in the last 48 hours — act now
+            </p>
+
+            {/* Review list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "14px" }}>
+              {recentNegativeReviews.map((r, i) => (
+                <div key={r.id ?? i} style={{ background: "rgba(192,57,43,0.1)", borderRadius: "8px", padding: "8px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                    <Stars rating={r.rating} size="sm" />
+                    <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)" }}>{r.rating} star{r.rating !== 1 ? "s" : ""}</span>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.78)", margin: 0, lineHeight: 1.5 }}>
+                    &ldquo;{r.text ?? r.content ?? r.body ?? "(no review text)"}&rdquo;
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Action plan / button */}
+            {!crisisActionPlan ? (
+              <>
+                <button
+                  type="button"
+                  onClick={fetchCrisisActionPlan}
+                  disabled={crisisLoading}
+                  style={{
+                    width: "100%",
+                    background: crisisLoading ? "rgba(192,57,43,0.55)" : "#C0392B",
+                    color: "white",
+                    borderRadius: "10px",
+                    padding: "12px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: crisisLoading ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    marginBottom: "8px",
+                    transition: "background 150ms",
+                  }}
+                >
+                  {crisisLoading ? (
+                    <>
+                      <svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                      </svg>
+                      Building action plan…
+                    </>
+                  ) : "Get Action Plan"}
+                </button>
+                <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>
+                  Powered by Vynta AI
+                </p>
+              </>
+            ) : (
+              <>
+                <div style={{ height: "1px", background: "rgba(192,57,43,0.25)", margin: "4px 0 14px" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(192,57,43,0.85)", fontWeight: 600, margin: 0 }}>
+                    Action Plan
+                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchCrisisActionPlan}
+                    disabled={crisisLoading}
+                    aria-label="Regenerate action plan"
+                    style={{ background: "none", border: "none", cursor: crisisLoading ? "not-allowed" : "pointer", color: "rgba(255,255,255,0.35)", padding: "2px", lineHeight: 0 }}
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "13px", height: "13px" }}>
+                      <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="crisis-md">
+                  <MarkdownContent>{crisisActionPlan}</MarkdownContent>
+                </div>
+              </>
+            )}
+
+            {/* Dismiss */}
+            <button
+              type="button"
+              onClick={dismissCrisis}
+              style={{
+                width: "100%",
+                marginTop: "14px",
+                background: "none",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "8px",
+                padding: "8px",
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.3)",
+                cursor: "pointer",
+              }}
+            >
+              Dismiss until new reviews
+            </button>
+          </div>
+          </UpgradeTooltip>
+        )}
 
         {/* Stat cards — 2×2 mobile, 4-col desktop */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }} className="sm:grid-cols-4">
@@ -265,7 +486,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
             <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} type="button" onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
-                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#C4874A" : "#E8DDD0" }} fill="currentColor">
+                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#C4874A" : "#C8B49A" }} fill="currentColor">
                     <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
                   </svg>
                 </button>

@@ -78,7 +78,7 @@ function Stars({
           : s <= rating;
         const color = interactive
           ? (active ? "#F5A623" : "#A0856A")
-          : (active ? "#C4874A" : "#E8DDD0");
+          : (active ? "#C4874A" : "#C8B49A");
 
         const star = (
           <svg
