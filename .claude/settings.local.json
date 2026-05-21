@@ -23,7 +23,9 @@
       "Bash(git push *)",
       "Bash(git commit *)",
       "Bash(npm run *)",
-      "Bash(npx prisma *)"
+      "Bash(npx prisma *)",
+      "WebSearch",
+      "Bash(New-Item *)"
     ]
   }
 }
