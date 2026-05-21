@@ -36,7 +36,13 @@ export default function ReviewTrainingSection() {
             className="font-display text-4xl font-bold text-tobacco leading-tight mb-4 md:text-5xl"
           >
             We don&apos;t just manage your reputation.{" "}
-            <em style={{ fontStyle: "italic" }}>We teach you how to own it.</em>
+            <em style={{
+              fontStyle: "italic",
+              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>We teach you how to own it.</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed max-w-xl">
             Most business owners have no idea how Google actually decides who shows up

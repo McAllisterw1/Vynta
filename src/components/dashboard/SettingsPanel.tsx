@@ -9,6 +9,17 @@ import { getPlan } from "@/lib/plans";
 const DEFAULT_BUSINESS_KEY = "vynta_default_business";
 const MESSAGE_TEMPLATE_KEY = "vynta_message_template";
 const GOOGLE_REVIEW_URL_KEY = "vynta_google_review_url";
+const SMART_INBOX_KEY = "vynta_smart_inbox";
+
+interface SmartInboxConfig {
+  businessName: string;
+  zipCode: string;
+  setupDate: string;
+  baselineCount: number;
+  lastKnownCount: number;
+  lastChecked: string;
+  enabled: boolean;
+}
 
 interface Props {
   name: string;
@@ -49,6 +60,13 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [googleUrlSaved, setGoogleUrlSaved] = useState(false);
 
+  // Smart Inbox
+  const [inboxConfig, setInboxConfig] = useState<SmartInboxConfig | null>(null);
+  const [inboxName, setInboxName] = useState("");
+  const [inboxZip, setInboxZip] = useState("");
+  const [inboxActivating, setInboxActivating] = useState(false);
+  const [inboxError, setInboxError] = useState("");
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem(DEFAULT_BUSINESS_KEY);
@@ -57,6 +75,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
       if (tpl) setMessageTemplate(tpl);
       const gUrl = localStorage.getItem(GOOGLE_REVIEW_URL_KEY);
       if (gUrl) setGoogleReviewUrl(gUrl);
+      const inbox = localStorage.getItem(SMART_INBOX_KEY);
+      if (inbox) setInboxConfig(JSON.parse(inbox) as SmartInboxConfig);
     } catch {}
   }, []);
 
@@ -82,6 +102,44 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
     clearHistory();
     setCleared(true);
     setTimeout(() => setCleared(false), 2000);
+  }
+
+  async function activateSmartInbox() {
+    if (!inboxName.trim() || !inboxZip.trim() || inboxActivating) return;
+    setInboxActivating(true);
+    setInboxError("");
+    try {
+      const res = await fetch("/api/lookup-business", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessName: inboxName.trim(), zipCode: inboxZip.trim() }),
+      });
+      const data = await res.json() as { reviewCount?: number | null; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Couldn't find that business.");
+      const count = data.reviewCount ?? 0;
+      const config: SmartInboxConfig = {
+        businessName: inboxName.trim(),
+        zipCode: inboxZip.trim(),
+        setupDate: new Date().toISOString(),
+        baselineCount: count,
+        lastKnownCount: count,
+        lastChecked: new Date().toISOString(),
+        enabled: true,
+      };
+      localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(config));
+      setInboxConfig(config);
+    } catch (err) {
+      setInboxError(err instanceof Error ? err.message : "Activation failed. Check the business name and zip.");
+    } finally {
+      setInboxActivating(false);
+    }
+  }
+
+  function deactivateSmartInbox() {
+    try { localStorage.removeItem(SMART_INBOX_KEY); } catch {}
+    setInboxConfig(null);
+    setInboxName("");
+    setInboxZip("");
   }
 
   async function handleSignOut() {
@@ -281,6 +339,102 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.5 }}>
           To find this: Google Business Profile → Get more reviews → copy the link.
         </p>
+      </div>
+
+      {/* Smart Inbox */}
+      <div style={{ ...CARD, padding: "20px", marginBottom: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5", fontWeight: 700 }}>
+            Smart Inbox
+          </p>
+          {inboxConfig?.enabled && (
+            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4F46E5", display: "inline-block", flexShrink: 0 }} />
+          )}
+        </div>
+        <p style={{ fontSize: "12px", color: "#A0856A", marginBottom: "14px", lineHeight: 1.5 }}>
+          Monitors your Google reviews automatically. New reviews land directly in your New tab.
+        </p>
+
+        {inboxConfig?.enabled ? (
+          /* ── Active state ── */
+          <div>
+            <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "10px", padding: "12px 14px", marginBottom: "12px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "2px" }}>
+                {inboxConfig.businessName}
+              </p>
+              <p style={{ fontSize: "11px", color: "#A0856A" }}>
+                Zip {inboxConfig.zipCode} · Started {new Date(inboxConfig.setupDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {inboxConfig.baselineCount} reviews at setup
+              </p>
+            </div>
+            <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "12px" }}>
+              Last synced: {new Date(inboxConfig.lastChecked).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+            </p>
+            <button
+              type="button"
+              onClick={deactivateSmartInbox}
+              style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 16px", fontSize: "12px", fontWeight: 600, color: "#A0856A", cursor: "pointer" }}
+            >
+              Deactivate Smart Inbox
+            </button>
+          </div>
+        ) : (
+          /* ── Setup state ── */
+          <div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "10px" }}>
+              <input
+                type="text"
+                value={inboxName}
+                onChange={(e) => setInboxName(e.target.value)}
+                placeholder="Business name (e.g. Apex Plumbing)"
+                style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "11px 14px", fontSize: "13px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" as const }}
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={inboxZip}
+                onChange={(e) => setInboxZip(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="Zip code"
+                style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "11px 14px", fontSize: "13px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" as const }}
+              />
+            </div>
+            {inboxError && (
+              <p style={{ fontSize: "11px", color: "#DC2626", marginBottom: "8px" }}>{inboxError}</p>
+            )}
+            <button
+              type="button"
+              onClick={activateSmartInbox}
+              disabled={!inboxName.trim() || !inboxZip.trim() || inboxActivating}
+              style={{
+                width: "100%",
+                background: inboxActivating ? "rgba(79,70,229,0.5)" : "#4F46E5",
+                color: "white",
+                borderRadius: "10px",
+                padding: "11px",
+                fontSize: "13px",
+                fontWeight: 600,
+                border: "none",
+                cursor: (!inboxName.trim() || !inboxZip.trim() || inboxActivating) ? "not-allowed" : "pointer",
+                opacity: (!inboxName.trim() || !inboxZip.trim()) ? 0.5 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                transition: "opacity 150ms",
+              }}
+            >
+              {inboxActivating ? (
+                <>
+                  <svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                  </svg>
+                  Looking up business…
+                </>
+              ) : "Activate Smart Inbox"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sign out */}

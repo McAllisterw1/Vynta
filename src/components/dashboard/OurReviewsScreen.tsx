@@ -1,11 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
 const REVIEWS_KEY = "vynta_our_reviews";
 const STATS_KEY = "vynta_stats";
+const SMART_INBOX_KEY = "vynta_smart_inbox";
+
+interface SmartInboxConfig {
+  businessName: string;
+  zipCode: string;
+  setupDate: string;
+  baselineCount: number;
+  lastKnownCount: number;
+  lastChecked: string;
+  enabled: boolean;
+}
 
 type Platform = "Google" | "Yelp" | "Facebook" | "Other";
 
@@ -18,6 +29,7 @@ interface LoggedReview {
   date: string;
   responded: boolean;
   seen: boolean;
+  smartInbox?: boolean;
 }
 
 const PLATFORM_COLORS: Record<Platform, { bg: string; text: string }> = {
@@ -161,6 +173,9 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     recovery_checklist: string[];
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
+  const smartInboxSynced = useRef(false);
+  const [inlineEdits, setInlineEdits] = useState<Record<string, { name: string; text: string; rating: number }>>({});
 
   useEffect(() => {
     try {
@@ -170,12 +185,93 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         setReviews(parsed.map((r) => ({ ...r, seen: r.seen ?? false })));
       }
     } catch {}
+    setLoaded(true);
   }, []);
+
+  // Smart Inbox — sync on mount after reviews are loaded
+  useEffect(() => {
+    if (!loaded || smartInboxSynced.current) return;
+    smartInboxSynced.current = true;
+
+    try {
+      const raw = localStorage.getItem(SMART_INBOX_KEY);
+      if (!raw) return;
+      const config = JSON.parse(raw) as SmartInboxConfig;
+      if (!config.enabled || !config.businessName || !config.zipCode) return;
+
+      // Throttle: skip if checked within last 30 minutes
+      const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
+      if (minutesSince < 30) return;
+
+      fetch("/api/lookup-business", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
+      })
+        .then((res) => res.json())
+        .then((data: { reviewCount?: number | null; error?: string }) => {
+          if (data.error || data.reviewCount == null) return;
+
+          const currentCount = data.reviewCount;
+          const baseline = config.lastKnownCount ?? config.baselineCount;
+          const delta = currentCount - baseline;
+
+          if (delta > 0) {
+            const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
+              id: crypto.randomUUID(),
+              reviewerName: "Google Reviewer",
+              platform: "Google" as Platform,
+              rating: 0,
+              text: "",
+              date: new Date().toISOString().slice(0, 10),
+              responded: false,
+              seen: false,
+              smartInbox: true,
+            }));
+
+            setReviews((prev) => {
+              const updated = [...incomingReviews, ...prev];
+              try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
+              syncStats(updated);
+              return updated;
+            });
+            showToastMsg(`${delta} new Google review${delta !== 1 ? "s" : ""} detected!`);
+          }
+
+          const updatedConfig: SmartInboxConfig = {
+            ...config,
+            lastKnownCount: currentCount,
+            lastChecked: new Date().toISOString(),
+          };
+          try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
+        })
+        .catch(() => {});
+    } catch {}
+  }, [loaded]);
 
   function persist(next: LoggedReview[]) {
     setReviews(next);
     try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(next)); } catch {}
     syncStats(next);
+  }
+
+  function getInlineEdit(id: string) {
+    return inlineEdits[id] ?? { name: "", text: "", rating: 0 };
+  }
+
+  function updateInlineEdit(id: string, field: "name" | "text" | "rating", value: string | number) {
+    setInlineEdits((prev) => ({ ...prev, [id]: { ...getInlineEdit(id), [field]: value } }));
+  }
+
+  function saveInlineEdit(id: string) {
+    const edit = inlineEdits[id];
+    if (!edit || !edit.name.trim() || edit.rating === 0 || !edit.text.trim()) return;
+    persist(reviews.map((r) =>
+      r.id === id
+        ? { ...r, reviewerName: edit.name.trim(), rating: edit.rating, text: edit.text.trim(), smartInbox: false }
+        : r
+    ));
+    setInlineEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }
 
   function toggleSeen(id: string) {
@@ -745,8 +841,73 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                     </button>
                   </div>
 
-                  {/* Review text */}
-                  {review.text && (
+                  {/* ── Smart Inbox paste form ── */}
+                  {review.smartInbox ? (
+                    <div style={{ marginTop: "12px", paddingLeft: "51px" }}>
+                      <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.2)", borderRadius: "10px", padding: "12px" }}>
+                        <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5", marginBottom: "10px" }}>
+                          📋 Paste review from Google
+                        </p>
+
+                        {/* Reviewer name */}
+                        <input
+                          type="text"
+                          value={getInlineEdit(review.id).name}
+                          onChange={(e) => updateInlineEdit(review.id, "name", e.target.value)}
+                          placeholder="Reviewer name"
+                          style={{ width: "100%", background: "white", borderRadius: "8px", border: "none", boxShadow: "0 1px 3px rgba(44,26,14,0.08)", padding: "8px 11px", fontSize: "12px", color: "#2C1A0E", outline: "none", marginBottom: "8px", boxSizing: "border-box" as const }}
+                        />
+
+                        {/* Star rating */}
+                        <div style={{ marginBottom: "8px" }}>
+                          <Stars
+                            rating={getInlineEdit(review.id).rating}
+                            interactive
+                            onSelect={(n) => updateInlineEdit(review.id, "rating", n)}
+                            size={20}
+                          />
+                        </div>
+
+                        {/* Review text */}
+                        <textarea
+                          value={getInlineEdit(review.id).text}
+                          onChange={(e) => updateInlineEdit(review.id, "text", e.target.value)}
+                          rows={3}
+                          placeholder="Paste the review text here…"
+                          style={{ width: "100%", background: "white", borderRadius: "8px", border: "none", boxShadow: "0 1px 3px rgba(44,26,14,0.08)", padding: "8px 11px", fontSize: "12px", color: "#2C1A0E", outline: "none", resize: "none", boxSizing: "border-box" as const, marginBottom: "10px" }}
+                        />
+
+                        {/* Save button */}
+                        {(() => {
+                          const edit = getInlineEdit(review.id);
+                          const canSaveInline = edit.name.trim().length > 0 && edit.rating > 0 && edit.text.trim().length > 0;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => saveInlineEdit(review.id)}
+                              disabled={!canSaveInline}
+                              style={{
+                                width: "100%",
+                                background: canSaveInline ? "#4F46E5" : "rgba(79,70,229,0.3)",
+                                color: "white",
+                                borderRadius: "8px",
+                                padding: "9px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                border: "none",
+                                cursor: canSaveInline ? "pointer" : "not-allowed",
+                                transition: "background 150ms",
+                              }}
+                            >
+                              Log This Review
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  ) : (
+                  /* ── Normal review text ── */
+                  review.text ? (
                     <div style={{ marginTop: "10px", paddingLeft: "51px" }}>
                       <p style={{
                         fontSize: "13px", lineHeight: 1.65, color: "#5C3A1E",
@@ -763,7 +924,7 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                       )}
 
                       {/* Warning + recovery for low-star reviews */}
-                      {review.rating <= 3 && (
+                      {review.rating >= 1 && review.rating <= 3 && (
                         <div style={{ marginTop: "6px" }}>
                           <p style={{
                             fontSize: "11px", color: "#B45309",
@@ -781,10 +942,11 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                         </div>
                       )}
                     </div>
+                  ) : null
                   )}
 
-                  {/* Generate Reply button */}
-                  {review.text && (
+                  {/* Generate Reply button — hidden for Smart Inbox placeholders */}
+                  {review.text && !review.smartInbox && (
                     <>
                       <div style={{ display: "flex", gap: "6px", marginTop: "10px", paddingLeft: "51px" }}>
                         <button type="button" onClick={() => generateReply(review)} disabled={generatingReplyId === review.id}

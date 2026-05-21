@@ -26,7 +26,13 @@ export default function Results() {
           </div>
           <h2 className="font-display text-4xl font-bold text-tobacco leading-tight mb-4 md:text-5xl">
             More reviews. More trust.{" "}
-            <em style={{ fontStyle: "italic" }}>More booked jobs.</em>
+            <em style={{
+              fontStyle: "italic",
+              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>More booked jobs.</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed">
             Vynta is built for local service businesses where reputation directly affects revenue.
@@ -40,7 +46,12 @@ export default function Results() {
               key={stat.value}
               className="rounded-sm border border-cream-border bg-sand-pale px-8 py-8"
             >
-              <div className="font-display text-3xl font-bold text-teal mb-3 leading-tight">
+              <div className="font-display text-3xl font-bold mb-3 leading-tight" style={{
+                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>
                 {stat.value}
               </div>
               <p className="text-sm text-tobacco-mid leading-relaxed">{stat.label}</p>

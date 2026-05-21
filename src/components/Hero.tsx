@@ -46,8 +46,14 @@ export default function Hero() {
               className="font-display font-bold text-tobacco leading-[1.08] tracking-tight max-w-3xl mb-6"
               style={{ fontSize: "clamp(2.6rem, 6.5vw, 5rem)" }}
             >
-              Get More 5-Star Reviews{" "}
-              <em style={{ fontStyle: "italic" }}>Without Chasing Customers</em>
+              Win More Customers with a{" "}
+              <em style={{
+                fontStyle: "italic",
+                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>Reputation Built to Last</em>
             </h1>
 
             {/* Subheadline */}
@@ -81,7 +87,7 @@ export default function Hero() {
               {stats.map((stat, i) => (
                 <div key={stat.label} className="flex items-center gap-10">
                   <div>
-                    <div className="font-display text-3xl font-semibold text-tobacco">{stat.value}</div>
+                    <div className="font-display text-3xl font-semibold" style={{ color: "#4F46E5" }}>{stat.value}</div>
                     <div className="mt-0.5 text-sm text-tobacco-light">{stat.label}</div>
                   </div>
                   {i < stats.length - 1 && (

@@ -101,10 +101,19 @@ export default function Pricing() {
           </div>
           <h2 className="font-display text-4xl font-bold text-tobacco leading-tight md:text-5xl">
             Simple pricing for{" "}
-            <em style={{ fontStyle: "italic" }}>growing local businesses</em>
+            <em style={{
+              fontStyle: "italic",
+              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>growing local businesses</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed">
             No hidden fees. Starter is month-to-month. Professional and Agency billed annually — 2 months free.
+          </p>
+          <p className="text-sm font-medium text-teal">
+            Step into the mission control room for your online business reputation.
           </p>
         </div>
 
