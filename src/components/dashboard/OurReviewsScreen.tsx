@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
+import { useResponseHistory } from "@/lib/useResponseHistory";
 
 const REVIEWS_KEY = "vynta_our_reviews";
 const STATS_KEY = "vynta_stats";
@@ -152,6 +153,7 @@ function blankForm() {
 }
 
 export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
+  const { addEntry } = useResponseHistory();
   const [reviews, setReviews] = useState<LoggedReview[]>([]);
   const [activeTab, setActiveTab] = useState<"new" | "seen">("new");
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,6 +176,10 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [smartInboxActive, setSmartInboxActive] = useState(false);
+  const [cooldownSecs, setCooldownSecs] = useState(0);
+  const SYNC_COOLDOWN = 300; // 5 minutes
   const smartInboxSynced = useRef(false);
   const [inlineEdits, setInlineEdits] = useState<Record<string, { name: string; text: string; rating: number }>>({});
 
@@ -184,69 +190,98 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         const parsed = JSON.parse(raw) as Array<Omit<LoggedReview, "seen"> & { seen?: boolean }>;
         setReviews(parsed.map((r) => ({ ...r, seen: r.seen ?? false })));
       }
+      const inbox = localStorage.getItem(SMART_INBOX_KEY);
+      if (inbox) {
+        const cfg = JSON.parse(inbox) as SmartInboxConfig;
+        setSmartInboxActive(cfg.enabled === true);
+      }
+      const lastSync = localStorage.getItem("vynta_smart_inbox_last_sync");
+      if (lastSync) {
+        const elapsed = (Date.now() - parseInt(lastSync, 10)) / 1000;
+        const remaining = Math.floor(Math.max(0, SYNC_COOLDOWN - elapsed));
+        if (remaining > 0) setCooldownSecs(remaining);
+      }
     } catch {}
     setLoaded(true);
   }, []);
 
-  // Smart Inbox — sync on mount after reviews are loaded
+  // Countdown ticker
   useEffect(() => {
-    if (!loaded || smartInboxSynced.current) return;
-    smartInboxSynced.current = true;
+    if (cooldownSecs <= 0) return;
+    const timer = setTimeout(() => setCooldownSecs((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldownSecs]);
 
+  async function runSmartInboxSync(skipThrottle = false) {
     try {
       const raw = localStorage.getItem(SMART_INBOX_KEY);
       if (!raw) return;
       const config = JSON.parse(raw) as SmartInboxConfig;
       if (!config.enabled || !config.businessName || !config.zipCode) return;
 
-      // Throttle: skip if checked within last 30 minutes
-      const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
-      if (minutesSince < 30) return;
+      if (!skipThrottle) {
+        const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
+        if (minutesSince < 30) return;
+      }
 
-      fetch("/api/lookup-business", {
+      setSyncing(true);
+      const res = await fetch("/api/lookup-business", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
-      })
-        .then((res) => res.json())
-        .then((data: { reviewCount?: number | null; error?: string }) => {
-          if (data.error || data.reviewCount == null) return;
+      });
+      const data = await res.json() as { reviewCount?: number | null; error?: string };
+      if (data.error || data.reviewCount == null) return;
 
-          const currentCount = data.reviewCount;
-          const baseline = config.lastKnownCount ?? config.baselineCount;
-          const delta = currentCount - baseline;
+      const currentCount = data.reviewCount;
+      const baseline = config.lastKnownCount ?? config.baselineCount;
+      const delta = currentCount - baseline;
 
-          if (delta > 0) {
-            const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
-              id: crypto.randomUUID(),
-              reviewerName: "Google Reviewer",
-              platform: "Google" as Platform,
-              rating: 0,
-              text: "",
-              date: new Date().toISOString().slice(0, 10),
-              responded: false,
-              seen: false,
-              smartInbox: true,
-            }));
+      if (delta > 0) {
+        const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
+          id: crypto.randomUUID(),
+          reviewerName: "Google Reviewer",
+          platform: "Google" as Platform,
+          rating: 0,
+          text: "",
+          date: new Date().toISOString().slice(0, 10),
+          responded: false,
+          seen: false,
+          smartInbox: true,
+        }));
+        setReviews((prev) => {
+          const updated = [...incomingReviews, ...prev];
+          try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
+          syncStats(updated);
+          return updated;
+        });
+        showToastMsg(`${delta} new Google review${delta !== 1 ? "s" : ""} detected!`);
+      } else {
+        if (skipThrottle) showToastMsg("No new reviews yet.");
+      }
 
-            setReviews((prev) => {
-              const updated = [...incomingReviews, ...prev];
-              try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
-              syncStats(updated);
-              return updated;
-            });
-            showToastMsg(`${delta} new Google review${delta !== 1 ? "s" : ""} detected!`);
-          }
+      const updatedConfig: SmartInboxConfig = {
+        ...config,
+        lastKnownCount: currentCount,
+        lastChecked: new Date().toISOString(),
+      };
+      try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
+      if (skipThrottle) {
+        try { localStorage.setItem("vynta_smart_inbox_last_sync", String(Date.now())); } catch {}
+        setCooldownSecs(SYNC_COOLDOWN);
+      }
+    } catch {
+      if (skipThrottle) showToastMsg("Sync failed. Please try again.");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
-          const updatedConfig: SmartInboxConfig = {
-            ...config,
-            lastKnownCount: currentCount,
-            lastChecked: new Date().toISOString(),
-          };
-          try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
-        })
-        .catch(() => {});
-    } catch {}
+  // Auto-sync on mount (throttled)
+  useEffect(() => {
+    if (!loaded || smartInboxSynced.current) return;
+    smartInboxSynced.current = true;
+    void runSmartInboxSync(false);
   }, [loaded]);
 
   function persist(next: LoggedReview[]) {
@@ -354,7 +389,16 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
       });
       const data = await res.json() as { response?: string };
       const reply = data.response?.trim() ?? "";
-      if (reply) setGeneratedReplies((prev) => ({ ...prev, [review.id]: reply }));
+      if (reply) {
+        setGeneratedReplies((prev) => ({ ...prev, [review.id]: reply }));
+        addEntry({
+          businessName: businessName || "My Business",
+          reviewerName: review.reviewerName,
+          rating: review.rating,
+          comment: review.text,
+          response: reply,
+        });
+      }
     } catch {
       showToastMsg("Couldn't generate a reply. Please try again.");
     } finally {
@@ -652,17 +696,55 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                 : "Log your customer reviews to track your reputation."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            style={{
-              background: "#2C1A0E", color: "white", borderRadius: "20px",
-              padding: "9px 16px", fontSize: "13px", fontWeight: 600,
-              border: "none", cursor: "pointer", flexShrink: 0, marginTop: "4px", whiteSpace: "nowrap",
-            }}
-          >
-            + Log Review
-          </button>
+          <div style={{ display: "flex", gap: "8px", flexShrink: 0, marginTop: "4px" }}>
+            {smartInboxActive && (
+              <button
+                type="button"
+                onClick={() => void runSmartInboxSync(true)}
+                disabled={syncing || cooldownSecs > 0}
+                title={cooldownSecs > 0 ? `Available in ${Math.floor(cooldownSecs / 60)}:${String(cooldownSecs % 60).padStart(2, "0")}` : "Check for new Google reviews"}
+                style={{
+                  background: "rgba(79,70,229,0.1)",
+                  color: "#4F46E5",
+                  borderRadius: "20px",
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: (syncing || cooldownSecs > 0) ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  opacity: (syncing || cooldownSecs > 0) ? 0.5 : 1,
+                  transition: "opacity 150ms",
+                }}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  style={{ width: "13px", height: "13px", animation: syncing ? "spin 1s linear infinite" : "none" }}
+                >
+                  <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
+                </svg>
+                {syncing
+                  ? "Checking…"
+                  : cooldownSecs > 0
+                  ? `${Math.floor(cooldownSecs / 60)}:${String(cooldownSecs % 60).padStart(2, "0")}`
+                  : "Sync"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowModal(true)}
+              style={{
+                background: "#2C1A0E", color: "white", borderRadius: "20px",
+                padding: "9px 16px", fontSize: "13px", fontWeight: 600,
+                border: "none", cursor: "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              + Log Review
+            </button>
+          </div>
         </div>
       </div>
 

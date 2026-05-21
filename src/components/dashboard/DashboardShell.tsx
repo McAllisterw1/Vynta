@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AnalyticsScreen from "./AnalyticsScreen";
 import RequestCampaign from "./RequestCampaign";
 import OurReviewsScreen from "./OurReviewsScreen";
@@ -27,6 +27,14 @@ export default function DashboardShell({
 }: Props) {
   const [active, setActive] = useState(3); // Home
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
+  const [clientBusiness, setClientBusiness] = useState("");
+
+  useEffect(() => {
+    try {
+      const biz = localStorage.getItem("vynta_default_business");
+      if (biz) setClientBusiness(biz);
+    } catch {}
+  }, []);
 
   const navigate = (i: number) => {
     setDirection(i > active ? "forward" : "backward");
@@ -39,7 +47,7 @@ export default function DashboardShell({
     }`;
 
   return (
-    <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: "#FAF5E8" }}>
+    <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: "#FAF5E8", display: "flex", flexDirection: "column" }}>
       <style>{`
         body { overflow: hidden; }
         @keyframes slideInFromRight {
@@ -54,7 +62,44 @@ export default function DashboardShell({
         .screen-backward { animation: slideInFromLeft  400ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
       `}</style>
 
-      <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+      {/* ── Global brand bar ── */}
+      <div style={{
+        height: "42px", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 20px",
+        background: "#FAF5E8",
+        borderBottom: "1px solid rgba(44,26,14,0.07)",
+        zIndex: 20,
+      }}>
+        {/* Vynta logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+          <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: "16px", width: "auto" }}>
+            <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
+              stroke="#C4874A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="5"  cy="3" r="2" fill="#C4874A" />
+            <circle cx="17" cy="3" r="2" fill="#C4874A" />
+            <circle cx="29" cy="3" r="2" fill="#C4874A" />
+            <circle cx="41" cy="3" r="2" fill="#C4874A" />
+            <circle cx="53" cy="3" r="2" fill="#C4874A" />
+          </svg>
+          <span className="font-display" style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E" }}>
+            Vynta
+          </span>
+        </div>
+
+        {/* Client business name */}
+        {clientBusiness && (
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <span style={{ fontSize: "10px", color: "rgba(44,26,14,0.25)", fontWeight: 400 }}>×</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#2D9B8A", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {clientBusiness}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Screen content ── */}
+      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {active === 0 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><AnalyticsScreen plan={plan} /></div>}
         {active === 1 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><RequestCampaign onBack={() => navigate(3)} plan={plan} onNavigate={navigate} /></div>}
         {active === 2 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><OurReviewsScreen plan={plan} /></div>}

@@ -137,7 +137,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [reviewerName, setReviewerName] = useState("");
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [tone, setTone] = useState<Tone>("professional");
+  const [tone, setTone] = useState<Tone>("professional" as Tone);
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -154,6 +154,8 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
     try {
       const biz = localStorage.getItem("vynta_default_business");
       if (biz) setBusinessName(biz);
+      const savedTone = localStorage.getItem("vynta_default_tone") as Tone | null;
+      if (savedTone) setTone(savedTone);
       const req = localStorage.getItem("vynta_requests_sent");
       if (req) setRequestsSent(parseInt(req, 10) || 0);
       const stats = localStorage.getItem("vynta_stats");

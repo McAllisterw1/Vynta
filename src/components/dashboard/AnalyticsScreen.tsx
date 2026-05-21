@@ -208,11 +208,11 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
   );
 
   const stats = [
-    { label: "Total Responses", value: String(history.length),      badge: "All time" },
-    { label: "Average Rating",  value: avgRating ?? "—",            badge: "out of 5" },
-    { label: "Requests Sent",   value: String(requestsSent),        badge: "none yet" },
-    { label: "This Month",      value: String(monthlyUsage),        badge: "this period" },
-    { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—", badge: "Most used" },
+    { label: "Total Responses", value: String(history.length),      badge: "All time",    desc: "AI replies generated to customer reviews" },
+    { label: "Average Rating",  value: avgRating ?? "—",            badge: "out of 5",    desc: "Mean star rating across all logged responses" },
+    { label: "Requests Sent",   value: String(requestsSent),        badge: "none yet",    desc: "Review requests sent to customers via campaign" },
+    { label: "This Month",      value: String(monthlyUsage),        badge: "this period", desc: "AI responses generated in the current month" },
+    { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—", badge: "Most used", desc: "Your most-used AI reply personality" },
   ];
 
   const SLOT_W = 60;
@@ -234,22 +234,24 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
 
         {/* 3 stat cards */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-          {stats.slice(0, 3).map(({ label, value, badge }) => (
+          {stats.slice(0, 3).map(({ label, value, badge, desc }) => (
             <div key={label} style={{ ...CARD, padding: "18px" }}>
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
+              <p style={{ fontSize: "10px", color: "#C4A882", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
 
         {/* 2 stat cards */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          {stats.slice(3).map(({ label, value, badge }) => (
+          {stats.slice(3).map(({ label, value, badge, desc }) => (
             <div key={label} style={{ ...CARD, padding: "18px" }}>
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
+              <p style={{ fontSize: "10px", color: "#C4A882", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -308,8 +310,11 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
         {/* ── Google Review Score Predictor ── */}
         <UpgradeTooltip locked={!canAccess(plan, "scorePredictor")} requiredPlan="Pro">
         <div style={{ ...CARD, padding: "18px" }}>
-          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "14px" }}>
+          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>
             Score Predictor
+          </p>
+          <p style={{ fontSize: "10px", color: "#C4A882", lineHeight: 1.5, marginBottom: "14px" }}>
+            Set your goal rating and we calculate exactly how many new 5-star reviews you need to reach it. 4.5 is the default — the threshold most customers filter by on Google.
           </p>
 
           {/* Target rating control */}
