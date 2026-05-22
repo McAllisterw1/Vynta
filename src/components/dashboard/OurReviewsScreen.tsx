@@ -12,6 +12,7 @@ const SMART_INBOX_KEY = "vynta_smart_inbox";
 interface SmartInboxConfig {
   businessName: string;
   zipCode: string;
+  placeId?: string;
   setupDate: string;
   baselineCount: number;
   lastKnownCount: number;
@@ -31,6 +32,7 @@ interface LoggedReview {
   responded: boolean;
   seen: boolean;
   smartInbox?: boolean;
+  externalId?: string | null;
 }
 
 const PLATFORM_COLORS: Record<Platform, { bg: string; text: string }> = {
@@ -217,7 +219,7 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
       const raw = localStorage.getItem(SMART_INBOX_KEY);
       if (!raw) return;
       const config = JSON.parse(raw) as SmartInboxConfig;
-      if (!config.enabled || !config.businessName || !config.zipCode) return;
+      if (!config.enabled) return;
 
       if (!skipThrottle) {
         const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
@@ -225,55 +227,94 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
       }
 
       setSyncing(true);
-      const res = await fetch("/api/lookup-business", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
-      });
-      const data = await res.json() as { reviewCount?: number | null; starRating?: number | null; error?: string };
-      if (data.error || data.reviewCount == null) return;
 
-      const currentCount = data.reviewCount;
+      if (config.placeId) {
+        // ── Outscraper: full review content ──────────────────────────────
+        const since = config.lastChecked ?? config.setupDate;
+        const res = await fetch("/api/outscraper-reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ placeId: config.placeId, since }),
+        });
+        const data = await res.json() as {
+          reviews?: Array<{
+            externalId?: string | null;
+            reviewerName: string;
+            platform: "Google";
+            rating: number;
+            text: string;
+            date: string;
+            responded: boolean;
+            seen: boolean;
+          }>;
+          error?: string;
+        };
 
-      // Always keep vynta_stats fresh so HomeScreen shows real numbers
-      try {
-        localStorage.setItem("vynta_stats", JSON.stringify({
-          totalReviews: currentCount,
-          avgRating: data.starRating ?? null,
-        }));
-      } catch {}
-      const baseline = config.lastKnownCount ?? config.baselineCount;
-      const delta = currentCount - baseline;
+        if (data.error || !data.reviews) {
+          if (skipThrottle) showToastMsg("Sync failed. Please try again.");
+          return;
+        }
 
-      if (delta > 0) {
-        const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
-          id: crypto.randomUUID(),
-          reviewerName: "Google Reviewer",
-          platform: "Google" as Platform,
-          rating: 0,
-          text: "",
-          date: new Date().toISOString().slice(0, 10),
-          responded: false,
-          seen: false,
-          smartInbox: true,
-        }));
         setReviews((prev) => {
-          const updated = [...incomingReviews, ...prev];
+          const existingIds = new Set(prev.map((r) => r.externalId).filter(Boolean));
+          const incoming = data.reviews!
+            .filter((r) => !r.externalId || !existingIds.has(r.externalId))
+            .map((r) => ({ ...r, id: crypto.randomUUID() }));
+
+          if (incoming.length === 0) {
+            if (skipThrottle) showToastMsg("Up to date — no new reviews since last sync.");
+            return prev;
+          }
+
+          const updated = [...incoming, ...prev];
           try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
           syncStats(updated);
+          showToastMsg(`${incoming.length} new review${incoming.length !== 1 ? "s" : ""} imported from Google!`);
           return updated;
         });
-        showToastMsg(`${delta} new Google review${delta !== 1 ? "s" : ""} detected!`);
+
+        const updatedConfig: SmartInboxConfig = { ...config, lastChecked: new Date().toISOString() };
+        try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
       } else {
-        if (skipThrottle) showToastMsg(`Up to date — ${currentCount.toLocaleString()} reviews. Google can take up to an hour to index new ones.`);
+        // ── Serper fallback: count-based detection ────────────────────────
+        if (!config.businessName || !config.zipCode) return;
+        const res = await fetch("/api/lookup-business", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
+        });
+        const data = await res.json() as { reviewCount?: number | null; starRating?: number | null; error?: string };
+        if (data.error || data.reviewCount == null) return;
+
+        const currentCount = data.reviewCount;
+        try {
+          localStorage.setItem("vynta_stats", JSON.stringify({ totalReviews: currentCount, avgRating: data.starRating ?? null }));
+        } catch {}
+
+        const delta = currentCount - (config.lastKnownCount ?? config.baselineCount);
+        if (delta > 0) {
+          const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
+            id: crypto.randomUUID(),
+            reviewerName: "Google Reviewer",
+            platform: "Google" as Platform,
+            rating: 0, text: "", date: new Date().toISOString().slice(0, 10),
+            responded: false, seen: false, smartInbox: true,
+          }));
+          setReviews((prev) => {
+            const updated = [...incomingReviews, ...prev];
+            try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
+            syncStats(updated);
+            return updated;
+          });
+          showToastMsg(`${delta} new review${delta !== 1 ? "s" : ""} detected!`);
+        } else if (skipThrottle) {
+          showToastMsg(`Up to date — ${currentCount.toLocaleString()} reviews. Google can take up to an hour to index new ones.`);
+        }
+
+        const updatedConfig: SmartInboxConfig = { ...config, lastKnownCount: currentCount, lastChecked: new Date().toISOString() };
+        try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
       }
 
-      const updatedConfig: SmartInboxConfig = {
-        ...config,
-        lastKnownCount: currentCount,
-        lastChecked: new Date().toISOString(),
-      };
-      try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
       if (skipThrottle) {
         try { localStorage.setItem("vynta_smart_inbox_last_sync", String(Date.now())); } catch {}
         setCooldownSecs(SYNC_COOLDOWN);

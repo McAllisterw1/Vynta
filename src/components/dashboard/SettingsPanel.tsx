@@ -11,6 +11,7 @@ const SMART_INBOX_KEY = "vynta_smart_inbox";
 interface SmartInboxConfig {
   businessName: string;
   zipCode: string;
+  placeId?: string;
   setupDate: string;
   baselineCount: number;
   lastKnownCount: number;
@@ -142,6 +143,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [inboxConfig, setInboxConfig]     = useState<SmartInboxConfig | null>(null);
   const [inboxName, setInboxName]         = useState("");
   const [inboxZip, setInboxZip]           = useState("");
+  const [inboxPlaceId, setInboxPlaceId]   = useState("");
   const [inboxActivating, setInboxActivating] = useState(false);
   const [inboxError, setInboxError]       = useState("");
 
@@ -210,6 +212,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
       const config: SmartInboxConfig = {
         businessName: inboxName.trim(),
         zipCode: inboxZip.trim(),
+        placeId: inboxPlaceId.trim() || undefined,
         setupDate: new Date().toISOString(),
         baselineCount: count,
         lastKnownCount: count,
@@ -415,10 +418,15 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         ) : (
           <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
             <input type="text" value={inboxName} onChange={(e) => setInboxName(e.target.value)}
-              placeholder="Business name to monitor" style={FIELD} />
+              placeholder="Business name" style={FIELD} />
             <input type="text" inputMode="numeric" maxLength={5} value={inboxZip}
               onChange={(e) => setInboxZip(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="Zip code" style={FIELD} />
+            <input type="text" value={inboxPlaceId} onChange={(e) => setInboxPlaceId(e.target.value.trim())}
+              placeholder="Google Place ID (e.g. ChIJ…) — for full review import" style={FIELD} />
+            <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5, marginTop: "-4px" }}>
+              Place ID enables Outscraper — pulls actual review text automatically. Find it on Google Maps in the business URL.
+            </p>
             {inboxError && <p style={{ fontSize: "11px", color: "#DC2626" }}>{inboxError}</p>}
             <button type="button" onClick={activateSmartInbox}
               disabled={!inboxName.trim() || !inboxZip.trim() || inboxActivating}
