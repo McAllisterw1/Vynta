@@ -274,7 +274,7 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
 
           const updated = [...incoming, ...prev];
           try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
-          syncStats(updated);
+          // Don't call syncStats here — home page uses the real count from Google, not the logged count
           showToastMsg(`${incoming.length} new review${incoming.length !== 1 ? "s" : ""} imported from Google!`);
           return updated;
         });
