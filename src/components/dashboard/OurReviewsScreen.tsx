@@ -247,12 +247,18 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
             responded: boolean;
             seen: boolean;
           }>;
+          stats?: { totalReviews: number; avgRating: number | null } | null;
           error?: string;
         };
 
         if (data.error || !data.reviews) {
           if (skipThrottle) showToastMsg("Sync failed. Please try again.");
           return;
+        }
+
+        // Save exact stats from Outscraper to home page
+        if (data.stats) {
+          try { localStorage.setItem("vynta_stats", JSON.stringify(data.stats)); } catch {}
         }
 
         setReviews((prev) => {
