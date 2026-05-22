@@ -75,8 +75,14 @@ export default function SignInPage() {
             </span>
           </div>
           <p className="font-display text-[2.1rem] font-bold text-cream leading-[1.2] max-w-xs">
-            Your reputation,{" "}
-            <em className="text-sand" style={{ fontStyle: "italic" }}>on autopilot.</em>
+            Welcome to the mission control room of{" "}
+            <em style={{
+              fontStyle: "italic",
+              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>your online business reputation.</em>
           </p>
           <p className="mt-5 text-sm text-cream/45 leading-relaxed max-w-[280px]">
             Automate review requests, respond with AI, and track your rating across every platform — all from one dashboard.
