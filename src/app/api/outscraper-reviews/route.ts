@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { placeId, since } = (await request.json()) as {
+  const { placeId } = (await request.json()) as {
     placeId: string;
     since?: string;
   };
@@ -70,18 +70,8 @@ export async function POST(request: NextRequest) {
     const place = data.data?.[0];
     const rawReviews = place?.reviews_data ?? [];
 
-    // Filter by date on our side (more reliable than cutoff parameter)
-    const sinceTs = since ? new Date(since).getTime() : 0;
-
     const reviews = rawReviews
-      .filter((r) => {
-        if (!r.author_title) return false;
-        // Filter to reviews newer than last sync
-        if (sinceTs && r.review_timestamp) {
-          return r.review_timestamp * 1000 > sinceTs;
-        }
-        return true;
-      })
+      .filter((r) => r.author_title)
       .map((r) => ({
         externalId: r.review_id ?? null,
         reviewerName: r.author_title ?? "Google Reviewer",
