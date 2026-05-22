@@ -712,7 +712,7 @@ ${reviewsText}`;
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600 }}>
                 Sentiment Analysis
               </p>
-              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
+              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "2px" }}>
                 Powered by AI · based on your logged reviews
               </p>
             </div>
@@ -745,7 +745,7 @@ ${reviewsText}`;
           </div>
 
           {ourReviews.length < 3 ? (
-            <p style={{ fontSize: "12px", color: "#A0856A", marginTop: "10px" }}>
+            <p style={{ fontSize: "12px", color: "#2D9B8A", marginTop: "10px" }}>
               Log at least 3 reviews to unlock sentiment analysis.
             </p>
           ) : !sentimentData ? (

@@ -239,7 +239,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
-              <p style={{ fontSize: "10px", color: "#C4A882", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
+              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -251,7 +251,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
-              <p style={{ fontSize: "10px", color: "#C4A882", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
+              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -313,7 +313,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
           <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>
             Score Predictor
           </p>
-          <p style={{ fontSize: "10px", color: "#C4A882", lineHeight: 1.5, marginBottom: "14px" }}>
+          <p style={{ fontSize: "10px", color: "#2D9B8A", lineHeight: 1.5, marginBottom: "14px" }}>
             Set your goal rating and we calculate exactly how many new 5-star reviews you need to reach it. 4.5 is the default — the threshold most customers filter by on Google.
           </p>
 

@@ -348,7 +348,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Google Review Link</label>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "8px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
               Paste your Google review URL so campaigns send customers to the right place. Find it in Google Business Profile → Get more reviews.
             </p>
             <input type="url" value={googleReviewUrl} onChange={(e) => setGoogleReviewUrl(e.target.value)}
@@ -357,7 +357,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Default Response Tone</label>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "8px" }}>Pre-selects your preferred AI reply personality on the Home tab.</p>
+            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px" }}>Pre-selects your preferred AI reply personality on the Home tab.</p>
             <select value={defaultTone} onChange={(e) => setDefaultTone(e.target.value)}
               style={{ ...FIELD, cursor: "pointer" }}>
               {TONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -366,7 +366,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Outbound Message Template</label>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "8px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
               Default SMS/email sent when you request a review. Use{" "}
               <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
               <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
@@ -394,7 +394,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           {inboxConfig?.enabled && (
             <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4F46E5", display: "inline-block" }} />
           )}
-          <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.5 }}>
+          <p style={{ fontSize: "12px", color: "#2D9B8A", lineHeight: 1.5 }}>
             Monitors your Google review count automatically. New reviews land in your Reviews → New tab.
           </p>
         </div>
@@ -424,7 +424,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
               placeholder="Zip code" style={FIELD} />
             <input type="text" value={inboxPlaceId} onChange={(e) => setInboxPlaceId(e.target.value.trim())}
               placeholder="Google Place ID (e.g. ChIJ…) — for full review import" style={FIELD} />
-            <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5, marginTop: "-4px" }}>
+            <p style={{ fontSize: "10px", color: "#2D9B8A", lineHeight: 1.5, marginTop: "-4px" }}>
               Place ID enables Outscraper — pulls actual review text automatically. Find it on Google Maps in the business URL.
             </p>
             {inboxError && <p style={{ fontSize: "11px", color: "#DC2626" }}>{inboxError}</p>}
