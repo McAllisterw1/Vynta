@@ -300,22 +300,8 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
         .crisis-md h1, .crisis-md h2, .crisis-md h3 { margin: 12px 0 4px; }
       `}</style>
 
-      {/* Sticky top bar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 10, background: "#FAF5E8", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: "20px", width: "auto" }}>
-            <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
-              stroke="#C4874A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="5"  cy="3" r="2" fill="#C4874A" />
-            <circle cx="17" cy="3" r="2" fill="#C4874A" />
-            <circle cx="29" cy="3" r="2" fill="#C4874A" />
-            <circle cx="41" cy="3" r="2" fill="#C4874A" />
-            <circle cx="53" cy="3" r="2" fill="#C4874A" />
-          </svg>
-          <span className="font-display" style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E" }}>
-            Vynta
-          </span>
-        </div>
+      {/* Sticky top bar — plan badge only (Vynta branding lives in the global DashboardShell bar) */}
+      <header style={{ position: "sticky", top: 0, zIndex: 10, background: "#FAF5E8", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
         {planData && isActive ? (
           <span style={{ background: "#E8DCC8", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#C4874A", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "0 1px 4px rgba(44,26,14,0.1)" }}>
             {planData.name}

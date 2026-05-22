@@ -230,10 +230,18 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
       });
-      const data = await res.json() as { reviewCount?: number | null; error?: string };
+      const data = await res.json() as { reviewCount?: number | null; starRating?: number | null; error?: string };
       if (data.error || data.reviewCount == null) return;
 
       const currentCount = data.reviewCount;
+
+      // Always keep vynta_stats fresh so HomeScreen shows real numbers
+      try {
+        localStorage.setItem("vynta_stats", JSON.stringify({
+          totalReviews: currentCount,
+          avgRating: data.starRating ?? null,
+        }));
+      } catch {}
       const baseline = config.lastKnownCount ?? config.baselineCount;
       const delta = currentCount - baseline;
 
@@ -257,7 +265,7 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         });
         showToastMsg(`${delta} new Google review${delta !== 1 ? "s" : ""} detected!`);
       } else {
-        if (skipThrottle) showToastMsg("No new reviews yet.");
+        if (skipThrottle) showToastMsg(`Up to date — ${currentCount.toLocaleString()} reviews. Google can take up to an hour to index new ones.`);
       }
 
       const updatedConfig: SmartInboxConfig = {
