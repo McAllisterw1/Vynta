@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         },
       ],
       metadata: { plan, ...(userId && { userId }) },
-      subscription_data: { metadata: { plan, ...(userId && { userId }) } },
+      subscription_data: { trial_period_days: 14, metadata: { plan, ...(userId && { userId }) } },
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/#pricing`,
     })
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { plan, ...(userId && { userId }) },
-      subscription_data: { metadata: { plan, ...(userId && { userId }) } },
+      subscription_data: { trial_period_days: 14, metadata: { plan, ...(userId && { userId }) } },
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/#pricing`,
     })

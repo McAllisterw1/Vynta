@@ -234,7 +234,7 @@ export default function Pricing() {
         </div>
 
         <p className="mt-10 text-center text-sm text-tobacco-light">
-          All plans include a 14-day free trial. No credit card required.
+          All plans include a 14-day free trial. Card required — cancel anytime before day 15 and you won&apos;t be charged.
         </p>
 
       </div>
