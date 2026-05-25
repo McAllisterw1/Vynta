@@ -61,6 +61,7 @@ ${TONE_INSTRUCTIONS.savage}
 
 - 3–5 sentences. Enough to make the point, not enough to seem like you care too much.
 - Address the reviewer by first name.
+- Do not use any emojis.
 - Do not include a subject line, greeting label, or sign-off — just the response body.`;
   }
 
@@ -89,6 +90,7 @@ Guidelines:
 - Address the reviewer by first name.
 - Sound like a real person, not a template. Avoid generic filler phrases like "We appreciate your feedback."
 - Do not make up specific details not mentioned in the review.
+- Do not use any emojis.
 - End with a welcoming note if appropriate.
 - Do not include a subject line, greeting label, or sign-off — just the response body.`;
 }
