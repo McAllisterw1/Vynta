@@ -20,6 +20,17 @@ export async function POST(
     const competitor = await prisma.competitor.findFirst({ where: { id, userId } });
     if (!competitor) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    if (competitor.lastAnalyzed) {
+      const hoursSince = (Date.now() - competitor.lastAnalyzed.getTime()) / 3600000;
+      if (hoursSince < 24) {
+        const hoursLeft = Math.ceil(24 - hoursSince);
+        return NextResponse.json(
+          { error: `Refresh available in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}` },
+          { status: 429 }
+        );
+      }
+    }
+
     const daysSinceAdded = Math.floor(
       (Date.now() - competitor.createdAt.getTime()) / (1000 * 60 * 60 * 24)
     );

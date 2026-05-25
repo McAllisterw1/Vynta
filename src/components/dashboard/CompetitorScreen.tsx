@@ -76,7 +76,7 @@ function TrendBadge({ trend }: { trend: string | null }) {
     ? { label: "↑ Improving", bg: "rgba(45,155,138,0.12)", color: "#2D9B8A" }
     : trend === "declining"
     ? { label: "↓ Declining", bg: "rgba(220,38,38,0.1)", color: "#DC2626" }
-    : { label: "→ Stable", bg: "rgba(79,70,229,0.1)", color: "#4F46E5" };
+    : { label: "→ Stable", bg: "rgba(45,155,138,0.1)", color: "#2D9B8A" };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, borderRadius: "20px", padding: "3px 9px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em" }}>
       {cfg.label}
@@ -239,10 +239,10 @@ export default function CompetitorScreen() {
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#FAF5E8", padding: "14px 20px 10px", borderBottom: "1px solid rgba(44,26,14,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <h1 className="font-display" style={{ fontSize: "1.2rem", fontWeight: 700, color: "#2C1A0E" }}>Rivals</h1>
-          <p style={{ fontSize: "11px", color: "#4F46E5", marginTop: "1px" }}>Track and analyze your competition</p>
+          <p style={{ fontSize: "11px", color: "#2D9B8A", marginTop: "1px" }}>Track and analyze your competition</p>
         </div>
         <button type="button" onClick={() => { setShowAdd(true); resetAddForm(); }}
-          style={{ background: "#4F46E5", color: "white", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 700, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+          style={{ background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 700, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
           <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "12px", height: "12px" }}>
             <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
           </svg>
@@ -261,7 +261,7 @@ export default function CompetitorScreen() {
               Add a competitor to see their rating, review velocity, sentiment breakdown, and how you stack up.
             </p>
             <button type="button" onClick={() => { setShowAdd(true); resetAddForm(); }}
-              style={{ background: "#4F46E5", color: "white", borderRadius: "12px", padding: "12px 24px", fontSize: "13px", fontWeight: 700, border: "none", cursor: "pointer" }}>
+              style={{ background: "#2D9B8A", color: "white", borderRadius: "12px", padding: "12px 24px", fontSize: "13px", fontWeight: 700, border: "none", cursor: "pointer" }}>
               Add your first rival →
             </button>
           </div>
@@ -322,14 +322,14 @@ export default function CompetitorScreen() {
           <div style={{ background: "#FAF5E8", borderRadius: "20px", width: "100%", maxWidth: "420px", maxHeight: "85vh", overflowY: "auto", padding: "24px", boxShadow: "0 8px 40px rgba(44,26,14,0.2)" }}
             onClick={(e) => e.stopPropagation()}>
             <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>Add a Rival</h2>
-            <p style={{ fontSize: "12px", color: "#4F46E5", marginBottom: "18px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "12px", color: "#2D9B8A", marginBottom: "18px", lineHeight: 1.5 }}>
               We'll look up their current rating and review count from Google.
             </p>
 
             {lookupResult ? (
               /* Step 2: Confirm */
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "12px", padding: "14px" }}>
+                <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "12px", padding: "14px" }}>
                   <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>Found on Google</p>
                   <p style={{ fontSize: "15px", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>{lookupResult.businessName}</p>
                   <div style={{ display: "flex", gap: "14px" }}>
@@ -351,7 +351,7 @@ export default function CompetitorScreen() {
                     Back
                   </button>
                   <button type="button" onClick={addCompetitor} disabled={adding}
-                    style={{ flex: 2, background: adding ? "rgba(79,70,229,0.4)" : "#4F46E5", color: "white", borderRadius: "10px", padding: "11px", fontSize: "13px", fontWeight: 700, border: "none", cursor: adding ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                    style={{ flex: 2, background: adding ? "rgba(45,155,138,0.4)" : "#2D9B8A", color: "white", borderRadius: "10px", padding: "11px", fontSize: "13px", fontWeight: 700, border: "none", cursor: adding ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                     {adding ? <><Spinner /> Adding…</> : "Add to Rivals"}
                   </button>
                 </div>
@@ -368,7 +368,7 @@ export default function CompetitorScreen() {
                 <button type="button" onClick={lookupBusiness}
                   disabled={!addName.trim() || !addZip.trim() || looking}
                   style={{
-                    background: !addName.trim() || !addZip.trim() || looking ? "rgba(79,70,229,0.4)" : "#4F46E5",
+                    background: !addName.trim() || !addZip.trim() || looking ? "rgba(45,155,138,0.4)" : "#2D9B8A",
                     color: "white", borderRadius: "10px", padding: "12px",
                     fontSize: "13px", fontWeight: 700, border: "none",
                     cursor: !addName.trim() || !addZip.trim() || looking ? "not-allowed" : "pointer",
@@ -428,7 +428,7 @@ export default function CompetitorScreen() {
                   {selected.trend && (
                     <div style={{ ...CARD, padding: "12px 14px" }}>
                       <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>Overall Trend</p>
-                      <p style={{ fontSize: "15px", fontWeight: 700, color: selected.trend === "improving" ? "#2D9B8A" : selected.trend === "declining" ? "#DC2626" : "#4F46E5", textTransform: "capitalize" }}>{selected.trend}</p>
+                      <p style={{ fontSize: "15px", fontWeight: 700, color: selected.trend === "improving" ? "#2D9B8A" : selected.trend === "declining" ? "#DC2626" : "#2D9B8A", textTransform: "capitalize" }}>{selected.trend}</p>
                     </div>
                   )}
                 </div>
@@ -458,21 +458,42 @@ export default function CompetitorScreen() {
             {analyzeError && (
               <p style={{ fontSize: "11px", color: "#DC2626", textAlign: "center", marginBottom: "8px" }}>{analyzeError}</p>
             )}
-            <button type="button"
-              onClick={() => runAnalysis(selected.id)}
-              disabled={analyzing === selected.id}
-              style={{
-                width: "100%", marginBottom: "10px",
-                background: analyzing === selected.id ? "rgba(79,70,229,0.4)" : "#4F46E5",
-                color: "white", borderRadius: "12px", padding: "13px",
-                fontSize: "13px", fontWeight: 700, border: "none",
-                cursor: analyzing === selected.id ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-              }}>
-              {analyzing === selected.id
-                ? <><Spinner /> Analyzing…</>
-                : selected.lastAnalyzed ? "Refresh Analysis" : "Run Analysis"}
-            </button>
+            {(() => {
+              const hoursLeft = selected.lastAnalyzed
+                ? Math.ceil(24 - (Date.now() - new Date(selected.lastAnalyzed).getTime()) / 3600000)
+                : 0;
+              const throttled = hoursLeft > 0;
+              const busy = analyzing === selected.id;
+              const disabled = busy || throttled;
+              return (
+                <>
+                  <button type="button"
+                    onClick={() => !disabled && runAnalysis(selected.id)}
+                    disabled={disabled}
+                    style={{
+                      width: "100%", marginBottom: "10px",
+                      background: disabled ? "rgba(44,26,14,0.08)" : "#2D9B8A",
+                      color: disabled ? "#A0856A" : "white",
+                      borderRadius: "12px", padding: "13px",
+                      fontSize: "13px", fontWeight: 700, border: "none",
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                      transition: "background 150ms",
+                    }}>
+                    {busy
+                      ? <><Spinner /> Analyzing…</>
+                      : throttled
+                      ? `Refresh in ${hoursLeft}h`
+                      : selected.lastAnalyzed ? "Refresh Analysis" : "Run Analysis"}
+                  </button>
+                  {throttled && (
+                    <p style={{ fontSize: "10px", color: "#A0856A", textAlign: "center", marginBottom: "10px", marginTop: "-6px" }}>
+                      Analysis refreshes once every 24 hours
+                    </p>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Delete */}
             <button type="button"
