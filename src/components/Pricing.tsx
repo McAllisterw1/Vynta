@@ -32,16 +32,17 @@ const plans: Plan[] = [
     name: 'Vynta Starter',
     billing: 'monthly',
     price: 49,
-    tagline: 'Everything a local service business needs to grow reviews.',
+    tagline: 'Everything a local business needs to start managing reviews.',
     features: [
       'Review logging & management',
-      'AI review responder (3 tones)',
+      'AI review responder — 3 tones',
       'Basic analytics & charts',
+      'Basic review tracking',
       'Up to 20 AI responses/month',
       'Cancel anytime',
     ],
     cta: 'Start for $49/month',
-    featured: true,
+    featured: false,
   },
   {
     slug: 'professional',
@@ -50,20 +51,21 @@ const plans: Plan[] = [
     yearlyPrice: 990,
     monthlyEquiv: 83,
     savingsAmount: 198,
-    tagline: 'For businesses managing multiple locations.',
+    tagline: 'The complete reputation system for serious local businesses.',
     features: [
       'Everything in Starter',
       'SMS & email review request campaigns',
       'All 10 AI response tones',
       'Recovery mode for negative reviews',
       'Google review score predictor',
-      'Review training (5 AI modules)',
       'AI review consultant',
-      'Up to 100 AI responses/month',
+      'Review training modules',
+      'Monthly reputation report',
+      'Up to 150 AI responses/month',
       'Priority support',
     ],
     cta: 'Get Started',
-    featured: false,
+    featured: true,
   },
   {
     slug: 'agency',
@@ -72,15 +74,18 @@ const plans: Plan[] = [
     yearlyPrice: 1990,
     monthlyEquiv: 166,
     savingsAmount: 398,
-    tagline: 'For agencies and franchises managing many clients.',
+    tagline: 'For agencies, franchises, and multi-location businesses.',
     features: [
       'Everything in Professional',
-      'Automated monthly reputation reports',
+      'Multi-client / multi-location dashboard',
       'Competitor tracking & comparison',
       'AI-powered competitor insights',
+      'Goals & AI next-move recommendations',
+      'Automated monthly reputation reports',
       'Weekly reputation reports',
-      'Goals & AI next move recommendations',
-      'Unlimited AI responses',
+      'White-label reporting',
+      'Advanced usage controls',
+      'Up to 1,000 AI responses/month',
       'Dedicated account manager',
     ],
     cta: 'Get Started',
@@ -137,12 +142,26 @@ export default function Pricing() {
                   <p className="mt-1 text-sm text-sand-light/70">{plan.tagline}</p>
                 </div>
 
-                <div className="mb-8 flex items-end gap-1.5 border-b border-tobacco-mid pb-8">
-                  <span className="font-display text-5xl font-bold text-cream leading-none">
-                    ${(plan as MonthlyPlan).price}
-                  </span>
-                  <span className="mb-1 text-sm text-sand-light/60">/ month</span>
-                </div>
+                {plan.billing === 'yearly' ? (
+                  <div className="mb-8 border-b border-tobacco-mid pb-8">
+                    <div className="flex items-end gap-1.5">
+                      <span className="font-display text-5xl font-bold text-cream leading-none">
+                        ${(plan as YearlyPlan).yearlyPrice.toLocaleString()}
+                      </span>
+                      <span className="mb-1 text-sm text-sand-light/60">/ year</span>
+                    </div>
+                    <p className="mt-2 text-sm text-sand-light/60">
+                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · save ${(plan as YearlyPlan).savingsAmount}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-8 flex items-end gap-1.5 border-b border-tobacco-mid pb-8">
+                    <span className="font-display text-5xl font-bold text-cream leading-none">
+                      ${(plan as MonthlyPlan).price}
+                    </span>
+                    <span className="mb-1 text-sm text-sand-light/60">/ month</span>
+                  </div>
+                )}
 
                 <ul className="mb-8 flex-1 space-y-3">
                   {plan.features.map((feature) => (
