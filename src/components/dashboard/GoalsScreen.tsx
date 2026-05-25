@@ -453,9 +453,9 @@ Give specific, actionable advice based on their actual numbers. Never start a re
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px", lineHeight: 1.3 }}>
                       {move.title}
                     </p>
-                    <p style={{ fontSize: "11px", color: "#7B5E45", lineHeight: 1.55 }}>
+                    <div style={{ fontSize: "11px", color: "#7B5E45", lineHeight: 1.55 }}>
                       <MarkdownContent>{move.description}</MarkdownContent>
-                    </p>
+                    </div>
                   </div>
                   <button
                     type="button"
