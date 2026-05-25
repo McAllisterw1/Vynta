@@ -38,7 +38,7 @@ const plans: Plan[] = [
       'AI review responder — 3 tones',
       'Basic analytics & charts',
       'Basic review tracking',
-      'Up to 20 AI responses/month',
+      'Up to 200 AI responses/month',
       'Cancel anytime',
     ],
     cta: 'Start for $49/month',
