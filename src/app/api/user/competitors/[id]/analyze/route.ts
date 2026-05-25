@@ -60,7 +60,7 @@ Estimation rules:
 
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      max_tokens: 500,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -70,6 +70,15 @@ Estimation rules:
       .join("")
       .trim();
 
+    // Strip markdown code fences if Claude wrapped the response anyway
+    const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+    // Extract the JSON object in case there's any surrounding text
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json({ error: "Analysis failed. Try again." }, { status: 500 });
+    }
+
     let parsed: {
       sentiment: { positive: number; neutral: number; negative: number };
       trend: string;
@@ -78,7 +87,7 @@ Estimation rules:
     };
 
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(jsonMatch[0]);
     } catch {
       return NextResponse.json({ error: "Analysis failed. Try again." }, { status: 500 });
     }
