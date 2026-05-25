@@ -29,7 +29,6 @@ interface Competitor {
   reviewCount: number;
 }
 
-const COMPETITORS_KEY = "vynta_competitors";
 const BLANK_COMPETITOR = { name: "", rating: "", reviewCount: "" };
 const INPUT: React.CSSProperties = {
   background: "white",
@@ -94,6 +93,15 @@ function SpinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+function computeSentimentCacheKey(reviews: Array<{ id?: string; text?: string }>) {
+  if (reviews.length === 0) return "";
+  const ids = reviews.map((r) => r.id ?? "").filter(Boolean);
+  if (ids.length === reviews.length) return ids.join("|");
+  const first = reviews[0].text ?? "";
+  const last = reviews[reviews.length - 1].text ?? "";
+  return `${reviews.length}:${first.slice(0, 30)}:${last.slice(0, 30)}`;
+}
+
 export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const { user } = useUser();
   const [reports, setReports] = useState<MonthlyReport[]>([]);
@@ -108,7 +116,7 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [newComp, setNewComp] = useState(BLANK_COMPETITOR);
 
   // Sentiment analysis
-  const [ourReviews, setOurReviews] = useState<Array<{ id?: string; text?: string; content?: string; body?: string }>>([]);
+  const [ourReviews, setOurReviews] = useState<Array<{ id?: string; text?: string }>>([]);
   const [sentimentData, setSentimentData] = useState<{
     positive: number; neutral: number; negative: number;
     keywords: string[]; summary: string;
@@ -118,48 +126,71 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [cacheStatus, setCacheStatus] = useState<"match" | "stale" | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(COMPETITORS_KEY);
-      if (raw) setCompetitors(JSON.parse(raw) as Competitor[]);
-    } catch {}
-  }, []);
+    // Load competitors from API
+    fetch("/api/user/competitors")
+      .then((r) => r.json())
+      .then((data: Competitor[]) => {
+        if (Array.isArray(data)) setCompetitors(data);
+      })
+      .catch(() => {});
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("vynta_our_reviews");
-      if (!raw) return;
-      const reviews = JSON.parse(raw) as Array<{ id?: string; text?: string; content?: string; body?: string }>;
-      setOurReviews(reviews);
-      const key = computeSentimentCacheKey(reviews);
-      setSentimentCacheKey(key);
-      const storedKey = localStorage.getItem("vynta_sentiment_cache_key");
-      if (key && storedKey === key) {
-        const cached = localStorage.getItem("vynta_sentiment_cache");
-        if (cached) {
-          setSentimentData(JSON.parse(cached));
-          setCacheStatus("match");
+    // Load reviews from API for sentiment analysis
+    fetch("/api/user/reviews")
+      .then((r) => r.json())
+      .then((reviews: Array<{ id?: string; text?: string }>) => {
+        if (!Array.isArray(reviews)) return;
+        setOurReviews(reviews);
+        const key = computeSentimentCacheKey(reviews);
+        setSentimentCacheKey(key);
+      })
+      .catch(() => {});
+
+    // Load sentiment cache from API
+    fetch("/api/user/sentiment-cache")
+      .then((r) => r.json())
+      .then((data: { cacheKey?: string; data?: { positive: number; neutral: number; negative: number; keywords: string[]; summary: string } } | null) => {
+        if (!data) return;
+        // Compare cache key after reviews are loaded (will re-run when sentimentCacheKey is set)
+        if (data.data) {
+          setSentimentData(data.data);
         }
-      } else if (storedKey && storedKey !== key) {
-        setCacheStatus("stale");
-      }
-    } catch {}
+        // Store cache key for comparison
+        if (data.cacheKey) {
+          setSentimentCacheKey((currentKey) => {
+            if (currentKey && data.cacheKey === currentKey) {
+              setCacheStatus("match");
+            } else if (currentKey && data.cacheKey !== currentKey) {
+              setCacheStatus("stale");
+            }
+            return currentKey;
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  function computeSentimentCacheKey(reviews: Array<{ id?: string; text?: string; content?: string; body?: string }>) {
-    if (reviews.length === 0) return "";
-    const ids = reviews.map((r) => r.id ?? "").filter(Boolean);
-    if (ids.length === reviews.length) return ids.join("|");
-    const first = reviews[0].text ?? reviews[0].content ?? reviews[0].body ?? "";
-    const last = reviews[reviews.length - 1].text ?? reviews[reviews.length - 1].content ?? reviews[reviews.length - 1].body ?? "";
-    return `${reviews.length}:${first.slice(0, 30)}:${last.slice(0, 30)}`;
-  }
+  // Check cache status once we have both the reviews key and cached data
+  useEffect(() => {
+    if (!sentimentCacheKey || !sentimentData) return;
+    fetch("/api/user/sentiment-cache")
+      .then((r) => r.json())
+      .then((data: { cacheKey?: string } | null) => {
+        if (!data?.cacheKey) return;
+        if (data.cacheKey === sentimentCacheKey) {
+          setCacheStatus("match");
+        } else {
+          setCacheStatus("stale");
+        }
+      })
+      .catch(() => {});
+  }, [sentimentCacheKey]);
 
   async function analyzeSentiment() {
     if (ourReviews.length < 3 || sentimentLoading) return;
     setSentimentLoading(true);
     const system = "You are a sentiment analysis engine. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.";
     const reviewsText = ourReviews
-      .map((r, i) => `${i + 1}. ${r.text ?? r.content ?? r.body ?? ""}`)
+      .map((r, i) => `${i + 1}. ${r.text ?? ""}`)
       .filter((line) => line.trim().length > 3)
       .join("\n");
     const msg = `Analyze the sentiment of these customer reviews and return ONLY a JSON object with no markdown or backticks:
@@ -183,10 +214,12 @@ ${reviewsText}`;
       const parsed = JSON.parse(raw) as { positive: number; neutral: number; negative: number; keywords: string[]; summary: string };
       setSentimentData(parsed);
       setCacheStatus("match");
-      try {
-        localStorage.setItem("vynta_sentiment_cache", JSON.stringify(parsed));
-        localStorage.setItem("vynta_sentiment_cache_key", sentimentCacheKey);
-      } catch {}
+      // Save to API
+      await fetch("/api/user/sentiment-cache", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cacheKey: sentimentCacheKey, data: parsed }),
+      }).catch(() => {});
     } catch {
       // silently fail
     } finally {
@@ -194,22 +227,34 @@ ${reviewsText}`;
     }
   }
 
-  function persistCompetitors(next: Competitor[]) {
-    setCompetitors(next);
-    try { localStorage.setItem(COMPETITORS_KEY, JSON.stringify(next)); } catch {}
-  }
-
-  function addCompetitor() {
+  async function addCompetitor() {
     const name = newComp.name.trim();
     const rating = parseFloat(newComp.rating);
     const reviewCount = parseInt(newComp.reviewCount, 10);
     if (!name || isNaN(rating) || rating < 1 || rating > 5 || isNaN(reviewCount) || reviewCount < 0) return;
-    persistCompetitors([...competitors, { id: crypto.randomUUID(), name, rating, reviewCount }]);
+    const payload = { name, rating, reviewCount };
+    // Optimistic add with temp id
+    const tempId = `temp-${Date.now()}`;
+    setCompetitors((prev) => [...prev, { ...payload, id: tempId }]);
     setNewComp(BLANK_COMPETITOR);
+    try {
+      const res = await fetch("/api/user/competitors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json() as Competitor;
+        setCompetitors((prev) => prev.map((c) => c.id === tempId ? created : c));
+      }
+    } catch {}
   }
 
-  function deleteCompetitor(id: string) {
-    persistCompetitors(competitors.filter((c) => c.id !== id));
+  async function deleteCompetitor(id: string) {
+    setCompetitors((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await fetch(`/api/user/competitors/${id}`, { method: "DELETE" });
+    } catch {}
   }
 
   useEffect(() => {
@@ -252,30 +297,38 @@ ${reviewsText}`;
     let aiResponsesGenerated = 0;
     let reviewsFromVynta = 0;
     let businessName = "My Business";
-    let competitors: Competitor[] = [];
+    let reportCompetitors: Competitor[] = [];
 
     try {
-      const stats = JSON.parse(localStorage.getItem("vynta_stats") || "{}") as { totalReviews?: number; avgRating?: number };
-      totalReviews = stats.totalReviews ?? 0;
-      avgRating = stats.avgRating ?? 0;
-    } catch {}
+      // Fetch all needed data from APIs
+      const [reviewsRes, campaignsRes, historyRes, settingsRes] = await Promise.all([
+        fetch("/api/user/reviews").then((r) => r.json()),
+        fetch("/api/user/campaigns").then((r) => r.json()),
+        fetch("/api/user/response-history").then((r) => r.json()),
+        fetch("/api/user/settings").then((r) => r.json()),
+      ]);
 
-    try { requestsSent = parseInt(localStorage.getItem("vynta_requests_sent") ?? "0", 10) || 0; } catch {}
+      const reviews = reviewsRes as Array<{ rating: number; responded: boolean }>;
+      if (Array.isArray(reviews)) {
+        totalReviews = reviews.length;
+        avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+        reviewsFromVynta = reviews.length;
+      }
 
-    try {
-      const history = JSON.parse(localStorage.getItem("vynta_response_history") || "[]") as unknown[];
-      aiResponsesGenerated = history.length;
-    } catch {}
+      const campaigns = campaignsRes as Array<{ contacts: unknown[] }>;
+      if (Array.isArray(campaigns)) {
+        requestsSent = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
+      }
 
-    try {
-      const ourReviews = JSON.parse(localStorage.getItem("vynta_our_reviews") || "[]") as Array<{ responded: boolean }>;
-      reviewsFromVynta = ourReviews.length;
-    } catch {}
+      const history = historyRes as unknown[];
+      if (Array.isArray(history)) {
+        aiResponsesGenerated = history.length;
+      }
 
-    try { businessName = localStorage.getItem("vynta_default_business") ?? "My Business"; } catch {}
+      const settings = settingsRes as { businessName?: string };
+      businessName = settings.businessName ?? "My Business";
 
-    try {
-      competitors = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Competitor[];
+      reportCompetitors = competitors;
     } catch {}
 
     const now = new Date();
@@ -294,7 +347,7 @@ ${reviewsText}`;
           requestsSent,
           aiResponsesGenerated,
           reviewsFromVynta,
-          competitors,
+          competitors: reportCompetitors,
         }),
       });
 
@@ -377,7 +430,7 @@ ${reviewsText}`;
                     <p style={{
                       fontSize: label === "Month" ? "13px" : "1.8rem",
                       fontWeight: 700,
-                      color: "#2D9B8A",
+                      color: "#4F46E5",
                       lineHeight: 1.1,
                       marginBottom: "6px",
                       overflow: "hidden",
@@ -397,7 +450,7 @@ ${reviewsText}`;
               <div style={{ ...CARD, padding: "16px", marginBottom: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
                   <span style={{ fontSize: "15px" }}>✨</span>
-                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5" }}>
                     AI Summary
                   </p>
                 </div>
@@ -656,7 +709,7 @@ ${reviewsText}`;
 
                 {/* Stats */}
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#2D9B8A" }}>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#4F46E5" }}>
                     {report.avgRating.toFixed(1)} ★
                   </p>
                   <p style={{ fontSize: "11px", color: "#A0856A" }}>
@@ -712,7 +765,7 @@ ${reviewsText}`;
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600 }}>
                 Sentiment Analysis
               </p>
-              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "2px" }}>
+              <p style={{ fontSize: "10px", color: "#4F46E5", marginTop: "2px" }}>
                 Powered by AI · based on your logged reviews
               </p>
             </div>
@@ -722,7 +775,7 @@ ${reviewsText}`;
                   <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
                 )}
                 {cacheStatus === "match" && (
-                  <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
+                  <span style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 600 }}>Up to date</span>
                 )}
                 <button
                   type="button"
@@ -745,7 +798,7 @@ ${reviewsText}`;
           </div>
 
           {ourReviews.length < 3 ? (
-            <p style={{ fontSize: "12px", color: "#2D9B8A", marginTop: "10px" }}>
+            <p style={{ fontSize: "12px", color: "#4F46E5", marginTop: "10px" }}>
               Log at least 3 reviews to unlock sentiment analysis.
             </p>
           ) : !sentimentData ? (

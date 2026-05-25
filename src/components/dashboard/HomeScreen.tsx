@@ -76,7 +76,7 @@ function CompactReviewCard({ entry }: { entry: HistoryEntry }) {
         onClick={() => setExpanded((v) => !v)}
         style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "12px 20px", textAlign: "left", cursor: "pointer", background: "none", border: "none" }}
       >
-        <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#C4874A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "linear-gradient(135deg, #C4874A, #E0A06A)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontSize: "13px", fontWeight: 700, color: "white" }}>
             {entry.reviewerName.charAt(0).toUpperCase()}
           </span>
@@ -116,11 +116,8 @@ function CompactReviewCard({ entry }: { entry: HistoryEntry }) {
 interface CrisisReview {
   id?: string;
   text?: string;
-  content?: string;
-  body?: string;
   rating: number;
   date?: string;
-  createdAt?: string;
 }
 
 interface Props {
@@ -142,35 +139,46 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [ourReviewCount, setOurReviewCount] = useState<number | null>(null);
+  const [dbReviewCount, setDbReviewCount] = useState<number | null>(null);
+  const [inboxReviewCount, setInboxReviewCount] = useState<number | null>(null);
+  const ourReviewCount = inboxReviewCount ?? dbReviewCount;
   const [ourAvgRating, setOurAvgRating] = useState<number | null>(null);
   const [recentNegativeReviews, setRecentNegativeReviews] = useState<CrisisReview[]>([]);
   const [crisisDetected, setCrisisDetected] = useState(false);
   const [crisisActionPlan, setCrisisActionPlan] = useState<string | null>(null);
   const [crisisLoading, setCrisisLoading] = useState(false);
   const [crisisDismissed, setCrisisDismissed] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   useEffect(() => {
-    try {
-      const biz = localStorage.getItem("vynta_default_business");
-      if (biz) setBusinessName(biz);
-      const savedTone = localStorage.getItem("vynta_default_tone") as Tone | null;
-      if (savedTone) setTone(savedTone);
-      const req = localStorage.getItem("vynta_requests_sent");
-      if (req) setRequestsSent(parseInt(req, 10) || 0);
-      const stats = localStorage.getItem("vynta_stats");
-      if (stats) {
-        const parsed = JSON.parse(stats) as { totalReviews?: number; avgRating?: number | null };
-        if (typeof parsed.totalReviews === "number") setOurReviewCount(parsed.totalReviews);
-        if (parsed.avgRating != null) setOurAvgRating(parsed.avgRating);
-      }
+    document.body.classList.toggle("modal-open", showScoreModal);
+    return () => { document.body.classList.remove("modal-open"); };
+  }, [showScoreModal]);
 
-      const reviewsRaw = localStorage.getItem("vynta_our_reviews");
-      if (reviewsRaw) {
-        const reviews = JSON.parse(reviewsRaw) as CrisisReview[];
+  useEffect(() => {
+    // Load settings from API
+    fetch("/api/user/settings")
+      .then((r) => r.json())
+      .then((data: { businessName?: string; defaultTone?: string }) => {
+        if (data.businessName) setBusinessName(data.businessName);
+        if (data.defaultTone) setTone(data.defaultTone as Tone);
+      })
+      .catch(() => {});
+
+    // Load reviews from API for stats and crisis detection
+    fetch("/api/user/reviews")
+      .then((r) => r.json())
+      .then((reviews: CrisisReview[]) => {
+        if (!Array.isArray(reviews)) return;
+        const total = reviews.length;
+        const avg = total > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / total : null;
+        setDbReviewCount(total);
+        if (avg !== null) setOurAvgRating(parseFloat(avg.toFixed(1)));
+
+        // Crisis detection
         const cutoff = Date.now() - 48 * 60 * 60 * 1000;
         const negatives = reviews.filter((r) => {
-          const dateStr = r.date ?? r.createdAt;
+          const dateStr = r.date;
           if (!dateStr) return false;
           return new Date(dateStr).getTime() >= cutoff && r.rating <= 3;
         });
@@ -178,17 +186,39 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
         const detected = negatives.length >= 2;
         setCrisisDetected(detected);
         if (detected) {
-          const dismissedRaw = localStorage.getItem("vynta_crisis_dismissed");
-          if (dismissedRaw) {
-            const { dismissedAt, reviewCount } = JSON.parse(dismissedRaw) as { dismissedAt: number; reviewCount: number };
-            const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
-            if (negatives.length === reviewCount && hoursSince < 24) {
-              setCrisisDismissed(true);
+          try {
+            const dismissedRaw = localStorage.getItem("vynta_crisis_dismissed");
+            if (dismissedRaw) {
+              const { dismissedAt, reviewCount } = JSON.parse(dismissedRaw) as { dismissedAt: number; reviewCount: number };
+              const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
+              if (negatives.length === reviewCount && hoursSince < 24) {
+                setCrisisDismissed(true);
+              }
             }
-          }
+          } catch {}
         }
-      }
-    } catch {}
+      })
+      .catch(() => {});
+
+    // Load smart inbox for review count (may override reviews-based count)
+    fetch("/api/user/smart-inbox")
+      .then((r) => r.json())
+      .then((data: { lastKnownCount?: number } | null) => {
+        if (data?.lastKnownCount != null) {
+          setInboxReviewCount(data.lastKnownCount);
+        }
+      })
+      .catch(() => {});
+
+    // Load campaigns for requests sent count
+    fetch("/api/user/campaigns")
+      .then((r) => r.json())
+      .then((campaigns: Array<{ contacts: unknown[] }>) => {
+        if (!Array.isArray(campaigns)) return;
+        const total = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
+        setRequestsSent(total);
+      })
+      .catch(() => {});
   }, []);
 
   const planData = getPlan(plan);
@@ -202,12 +232,13 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
     setCrisisActionPlan(null);
     let competitorContext = "";
     try {
-      const comps = JSON.parse(localStorage.getItem("vynta_competitors") ?? "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
+      const compsRes = await fetch("/api/user/competitors");
+      const comps = await compsRes.json() as Array<{ name: string; rating: number; reviewCount: number }>;
       if (comps.length > 0) competitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
     } catch {}
     const system = "You are a trusted reputation management advisor. Be direct, urgent, and practical.";
     const msg = `A local service business is experiencing a reputation crisis. They have received ${recentNegativeReviews.length} negative reviews (3 stars or below) in the last 48 hours. Here are the reviews:
-${recentNegativeReviews.map((r, i) => `${i + 1}. "${r.text ?? r.content ?? r.body ?? ""}" — ${r.rating} stars`).join("\n")}
+${recentNegativeReviews.map((r, i) => `${i + 1}. "${r.text ?? ""}" — ${r.rating} stars`).join("\n")}
 Business competitors: ${competitorContext || "None tracked"}
 
 Generate a specific, urgent action plan for this business owner. Be direct and practical. Include:
@@ -247,6 +278,13 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
     setError("");
     setCopied(false);
     try {
+      let competitorContext = "";
+      try {
+        const compsRes = await fetch("/api/user/competitors");
+        const comps = await compsRes.json() as Array<{ name: string; rating: number; reviewCount: number }>;
+        if (comps.length > 0) competitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+      } catch {}
+
       const res = await fetch("/api/draft-response", {
         method: "POST",
         cache: "no-store",
@@ -257,12 +295,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
           rating,
           comment: comment.trim(),
           tone,
-          competitorContext: (() => {
-            try {
-              const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
-              return comps.length > 0 ? comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ") : "";
-            } catch { return ""; }
-          })(),
+          competitorContext,
         }),
       });
       if (!res.ok) {
@@ -281,6 +314,50 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
   }
 
   const usageLabel = limit === null ? "Unlimited" : `${count}/${limit} this month`;
+
+  // ── Reputation Score ──────────────────────────────────────────────────────
+  const hasScoreData = ourAvgRating !== null && ourReviewCount !== null;
+  const ratingPts    = hasScoreData ? (ourAvgRating! / 5) * 40 : 0;
+  const volumePts    = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 25 : 0;
+  const responseRate = hasScoreData && ourReviewCount! > 0 ? Math.min(history.length / ourReviewCount!, 1) : 0;
+  const responsePts  = responseRate * 20;
+  const activityPts  = Math.min(requestsSent / 20, 1) * 15;
+  const repScore     = hasScoreData ? Math.round(ratingPts + volumePts + responsePts + activityPts) : null;
+
+  const scoreGrade = repScore === null ? null
+    : repScore >= 80 ? { label: "Excellent", color: "#2D9B8A" }
+    : repScore >= 65 ? { label: "Good",      color: "#4F46E5" }
+    : repScore >= 50 ? { label: "Fair",       color: "#C4874A" }
+    :                  { label: "Needs Work", color: "#DC2626" };
+
+  const scoreBreakdown = [
+    {
+      label: "Star Rating",
+      pts: Math.round(ratingPts), max: 40,
+      detail: ourAvgRating !== null ? `${ourAvgRating}★ average` : "No reviews yet",
+      tip: "Aim for a 4.5+ average. Respond to negatives fast.",
+    },
+    {
+      label: "Review Volume",
+      pts: Math.round(volumePts), max: 25,
+      detail: ourReviewCount !== null ? `${ourReviewCount} reviews` : "No reviews yet",
+      tip: "50+ reviews builds strong trust signals.",
+    },
+    {
+      label: "Response Rate",
+      pts: Math.round(responsePts), max: 20,
+      detail: `${Math.round(responseRate * 100)}% of reviews responded`,
+      tip: "Responding to every review boosts your score.",
+    },
+    {
+      label: "Review Activity",
+      pts: Math.round(activityPts), max: 15,
+      detail: `${requestsSent} requests sent`,
+      tip: "Consistent outreach keeps new reviews coming.",
+    },
+  ];
+
+  const CIRC = 2 * Math.PI * 36; // radius 36
 
   const statCards = [
     { label: "Total Reviews", value: ourReviewCount !== null ? String(ourReviewCount) : "—", icon: "⭐" },
@@ -307,7 +384,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             {planData.name}
           </span>
         ) : (
-          <a href="/#pricing" style={{ fontSize: "12px", fontWeight: 600, color: "#2D9B8A" }}>Get a plan →</a>
+          <a href="/#pricing" style={{ fontSize: "12px", fontWeight: 600, color: "#4F46E5" }}>Get a plan →</a>
         )}
       </header>
 
@@ -349,7 +426,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
                     <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)" }}>{r.rating} star{r.rating !== 1 ? "s" : ""}</span>
                   </div>
                   <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.78)", margin: 0, lineHeight: 1.5 }}>
-                    &ldquo;{r.text ?? r.content ?? r.body ?? "(no review text)"}&rdquo;
+                    &ldquo;{r.text ?? "(no review text)"}&rdquo;
                   </p>
                 </div>
               ))}
@@ -391,7 +468,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
                   ) : "Get Action Plan"}
                 </button>
                 <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>
-                  Powered by Vynta AI
+                  Powered by Vynta
                 </p>
               </>
             ) : (
@@ -452,11 +529,130 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
           ))}
         </div>
 
-        {/* AI Review Responder */}
+        {/* ── Reputation Score Card ── */}
+        <button
+          type="button"
+          onClick={() => repScore !== null && setShowScoreModal(true)}
+          style={{
+            ...CARD,
+            width: "100%",
+            padding: "18px 20px",
+            marginBottom: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "18px",
+            cursor: repScore !== null ? "pointer" : "default",
+            border: "none",
+            textAlign: "left",
+          }}
+        >
+          {/* Ring */}
+          <div style={{ position: "relative", flexShrink: 0, width: "88px", height: "88px" }}>
+            <svg viewBox="0 0 88 88" style={{ width: "88px", height: "88px", transform: "rotate(-90deg)" }}>
+              <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(44,26,14,0.08)" strokeWidth="8" />
+              <circle
+                cx="44" cy="44" r="36" fill="none"
+                stroke={repScore !== null ? (scoreGrade?.color ?? "#4F46E5") : "rgba(44,26,14,0.08)"}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={CIRC}
+                strokeDashoffset={repScore !== null ? CIRC * (1 - repScore / 100) : CIRC}
+                style={{ transition: "stroke-dashoffset 600ms cubic-bezier(0.4,0,0.2,1)" }}
+              />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: "22px", fontWeight: 800, color: repScore !== null ? (scoreGrade?.color ?? "#4F46E5") : "#A0856A", lineHeight: 1 }}>
+                {repScore ?? "—"}
+              </span>
+              <span style={{ fontSize: "8px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A", marginTop: "2px" }}>/ 100</span>
+            </div>
+          </div>
+
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>
+              Reputation Score
+            </p>
+            <p className="font-display" style={{ fontSize: "1.2rem", fontWeight: 700, color: scoreGrade?.color ?? "#A0856A", marginBottom: "6px" }}>
+              {scoreGrade?.label ?? "Not enough data"}
+            </p>
+            {repScore !== null && (
+              <p style={{ fontSize: "11px", color: "#4F46E5", fontWeight: 500 }}>
+                Tap to see breakdown →
+              </p>
+            )}
+          </div>
+        </button>
+
+        {/* ── Score Breakdown Modal ── */}
+        {showScoreModal && repScore !== null && (
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(44,26,14,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 20px 100px" }}
+            onClick={() => setShowScoreModal(false)}
+          >
+            <div
+              style={{ background: "#FAF5E8", borderRadius: "20px", width: "100%", maxWidth: "400px", maxHeight: "80vh", overflowY: "auto", padding: "24px", boxShadow: "0 8px 40px rgba(44,26,14,0.22)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ position: "relative", width: "72px", height: "72px", flexShrink: 0 }}>
+                  <svg viewBox="0 0 88 88" style={{ width: "72px", height: "72px", transform: "rotate(-90deg)" }}>
+                    <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(44,26,14,0.08)" strokeWidth="8" />
+                    <circle cx="44" cy="44" r="36" fill="none" stroke={scoreGrade?.color} strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - repScore / 100)} />
+                  </svg>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "18px", fontWeight: 800, color: scoreGrade?.color, lineHeight: 1 }}>{repScore}</span>
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "2px" }}>Reputation Score</p>
+                  <p className="font-display" style={{ fontSize: "1.4rem", fontWeight: 700, color: scoreGrade?.color }}>{scoreGrade?.label}</p>
+                  <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Based on {ourReviewCount} reviews · updated live</p>
+                </div>
+              </div>
+
+              {/* Breakdown rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
+                {scoreBreakdown.map((item) => (
+                  <div key={item.label}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "5px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{item.label}</span>
+                      <span style={{ fontSize: "11px", color: "#A0856A" }}>{item.pts} / {item.max} pts</span>
+                    </div>
+                    {/* Bar */}
+                    <div style={{ height: "6px", background: "rgba(44,26,14,0.08)", borderRadius: "99px", overflow: "hidden", marginBottom: "4px" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${(item.pts / item.max) * 100}%`,
+                        background: item.pts >= item.max * 0.8 ? "#2D9B8A" : item.pts >= item.max * 0.5 ? "#4F46E5" : "#C4874A",
+                        borderRadius: "99px",
+                        transition: "width 500ms cubic-bezier(0.4,0,0.2,1)",
+                      }} />
+                    </div>
+                    <p style={{ fontSize: "10px", color: "#A0856A" }}>{item.detail}{item.pts < item.max ? ` — ${item.tip}` : ""}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowScoreModal(false)}
+                style={{ width: "100%", background: "#2C1A0E", color: "white", borderRadius: "12px", padding: "13px", fontSize: "13px", fontWeight: 700, border: "none", cursor: "pointer" }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Vynta AI Responder */}
         <div style={{ ...CARD, padding: "20px", marginBottom: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E" }}>
-              AI Review Responder
+            <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#4F46E5" }}>
+              Vynta AI Responder
             </h2>
             <span style={{ fontSize: "10px", color: "#A0856A" }}>{usageLabel}</span>
           </div>
@@ -474,7 +670,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} type="button" onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
-                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#C4874A" : "#C8B49A" }} fill="currentColor">
+                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#4F46E5" : "#C8B49A" }} fill="currentColor">
                     <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
                   </svg>
                 </button>

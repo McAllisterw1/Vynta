@@ -4,11 +4,6 @@ import { useState, useEffect } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 
-const DEFAULT_BUSINESS_KEY = "vynta_default_business";
-const CAMPAIGNS_KEY = "vynta_campaigns";
-const REQUESTS_KEY = "vynta_requests_sent";
-const MESSAGE_TEMPLATE_KEY = "vynta_message_template";
-
 const FALLBACK_TEMPLATE =
   "Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}";
 
@@ -78,16 +73,23 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
 
   useEffect(() => {
-    try {
-      const biz = localStorage.getItem(DEFAULT_BUSINESS_KEY);
-      if (biz) setBusinessName(biz);
-      const stored = localStorage.getItem(CAMPAIGNS_KEY);
-      if (stored) setCampaigns(JSON.parse(stored));
-      const tpl = localStorage.getItem(MESSAGE_TEMPLATE_KEY);
-      if (tpl) setTemplate(tpl);
-      const gUrl = localStorage.getItem("vynta_google_review_url");
-      if (gUrl) setGoogleReviewUrl(gUrl);
-    } catch {}
+    // Load settings from API
+    fetch("/api/user/settings")
+      .then((r) => r.json())
+      .then((data: { businessName?: string; messageTemplate?: string; googleReviewUrl?: string }) => {
+        if (data.businessName) setBusinessName(data.businessName);
+        if (data.messageTemplate) setTemplate(data.messageTemplate);
+        if (data.googleReviewUrl) setGoogleReviewUrl(data.googleReviewUrl);
+      })
+      .catch(() => {});
+
+    // Load campaigns from API
+    fetch("/api/user/campaigns")
+      .then((r) => r.json())
+      .then((data: Campaign[]) => {
+        if (Array.isArray(data)) setCampaigns(data);
+      })
+      .catch(() => {});
   }, []);
 
   function updateContact(id: string, field: keyof Contact, value: string) {
@@ -127,20 +129,23 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
         )
       );
 
-      const campaign: Campaign = {
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
+      // POST campaign to API
+      const campaignPayload = {
         businessName,
         contacts: validContacts,
         messageTemplate: template,
       };
-      const updated = [campaign, ...campaigns];
-      setCampaigns(updated);
-      try {
-        localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(updated));
-        const cur = parseInt(localStorage.getItem(REQUESTS_KEY) || "0", 10);
-        localStorage.setItem(REQUESTS_KEY, String(cur + validContacts.length));
-      } catch {}
+      const campaignRes = await fetch("/api/user/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(campaignPayload),
+      });
+
+      if (campaignRes.ok) {
+        const created = await campaignRes.json() as Campaign;
+        setCampaigns((prev) => [created, ...prev]);
+      }
+
       setContacts([newContact()]);
       setSent(true);
       setTimeout(() => { setSent(false); setTab("history"); }, 1500);

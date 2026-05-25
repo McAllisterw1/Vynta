@@ -9,37 +9,37 @@ export type HistoryEntry = {
   rating: number;
   comment: string;
   response: string;
+  tone?: string | null;
   createdAt: string;
 };
-
-const HISTORY_KEY = "vynta_response_history";
 
 export function useResponseHistory() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw) as HistoryEntry[]);
-    } catch {}
+    fetch("/api/user/response-history")
+      .then((res) => res.json())
+      .then((data: HistoryEntry[]) => setHistory(data))
+      .catch(() => {});
   }, []);
 
-  function addEntry(entry: Omit<HistoryEntry, "id" | "createdAt">) {
-    const next: HistoryEntry = {
-      ...entry,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    setHistory((prev) => {
-      const updated = [next, ...prev].slice(0, 100);
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(updated)); } catch {}
-      return updated;
-    });
+  async function addEntry(entry: Omit<HistoryEntry, "id" | "createdAt">) {
+    try {
+      const res = await fetch("/api/user/response-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+      const created = await res.json() as HistoryEntry;
+      setHistory((prev) => [created, ...prev].slice(0, 100));
+    } catch {}
   }
 
-  function clearHistory() {
-    setHistory([]);
-    try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  async function clearHistory() {
+    try {
+      await fetch("/api/user/response-history", { method: "DELETE" });
+      setHistory([]);
+    } catch {}
   }
 
   return { history, addEntry, clearHistory };

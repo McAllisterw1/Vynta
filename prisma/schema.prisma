@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -43,4 +38,143 @@ model ReviewRequest {
   platformUrl String
   expiresAt   DateTime
   createdAt   DateTime  @default(now())
+}
+
+// ── User data models ──────────────────────────────────────────────────────────
+
+model UserSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  businessName    String   @default("")
+  businessType    String   @default("")
+  businessAddress String   @default("")
+  businessUrl     String   @default("")
+  businessPhone   String   @default("")
+  googleReviewUrl      String   @default("")
+  defaultTone          String   @default("professional")
+  messageTemplate      String   @default("")
+  onboardingComplete   Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  userId       String
+  reviewerName String
+  platform     String   @default("Google")
+  rating       Int      @default(0)
+  text         String   @default("")
+  date         String
+  responded    Boolean  @default(false)
+  seen         Boolean  @default(false)
+  smartInbox   Boolean  @default(false)
+  externalId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, seen])
+}
+
+model ResponseHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  businessName String
+  reviewerName String
+  rating       Int
+  comment      String
+  response     String
+  tone         String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Campaign {
+  id              String   @id @default(cuid())
+  userId          String
+  businessName    String
+  messageTemplate String   @default("")
+  contacts        Json
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Competitor {
+  id           String    @id @default(cuid())
+  userId       String
+  name         String
+  zipCode      String    @default("")
+  rating       Float
+  reviewCount  Int
+  sentiment    String?
+  trend        String?
+  velocity     String?
+  analysisText String?
+  lastAnalyzed DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Goal {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  target    Int
+  current   Int      @default(0)
+  deadline  String   @default("")
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SmartInbox {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  businessName   String
+  zipCode        String
+  placeId        String?
+  baselineCount  Int       @default(0)
+  lastKnownCount Int       @default(0)
+  lastChecked    DateTime  @default(now())
+  lastManualSync DateTime?
+  setupDate      DateTime  @default(now())
+  enabled        Boolean   @default(true)
+  verified       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model SentimentCache {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  cacheKey  String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrainingProgress {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  profile   Json?
+  completed Json     @default("[false,false,false,false,false]")
+  content   Json     @default("[null,null,null,null,null]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MonthlyUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  yearMonth String
+  count     Int      @default(0)
+
+  @@unique([userId, yearMonth])
 }

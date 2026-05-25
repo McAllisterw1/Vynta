@@ -5,10 +5,6 @@ import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 import { useResponseHistory } from "@/lib/useResponseHistory";
 
-const REVIEWS_KEY = "vynta_our_reviews";
-const STATS_KEY = "vynta_stats";
-const SMART_INBOX_KEY = "vynta_smart_inbox";
-
 interface SmartInboxConfig {
   businessName: string;
   zipCode: string;
@@ -91,7 +87,7 @@ function Stars({
       {[1, 2, 3, 4, 5].map((s) => {
         const active = interactive ? s <= (hovered ?? rating) : s <= rating;
         const color = interactive
-          ? active ? "#F5A623" : "#A0856A"
+          ? active ? "#4F46E5" : "#A0856A"
           : active ? "#C4874A" : "#C8B49A";
 
         const star = (
@@ -132,17 +128,6 @@ function formatDate(iso: string) {
   }
 }
 
-function syncStats(reviews: LoggedReview[]) {
-  const total = reviews.length;
-  const avg = total > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / total : null;
-  try {
-    localStorage.setItem(
-      STATS_KEY,
-      JSON.stringify({ totalReviews: total, avgRating: avg !== null ? parseFloat(avg.toFixed(1)) : null })
-    );
-  } catch {}
-}
-
 function blankForm() {
   return {
     reviewerName: "",
@@ -154,10 +139,10 @@ function blankForm() {
   };
 }
 
-export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
+export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: string | null; smartInboxEnabled?: boolean }) {
   const { addEntry } = useResponseHistory();
   const [reviews, setReviews] = useState<LoggedReview[]>([]);
-  const [activeTab, setActiveTab] = useState<"new" | "seen">("new");
+  const [activeTab, setActiveTab] = useState<"new" | "seen" | "negative">("new");
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -179,24 +164,60 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
   const [recoveryCopied, setRecoveryCopied] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [smartInboxActive, setSmartInboxActive] = useState(false);
+  const [smartInboxConfig, setSmartInboxConfig] = useState<SmartInboxConfig | null>(null);
   const [cooldownSecs, setCooldownSecs] = useState(0);
   const SYNC_COOLDOWN = 300; // 5 minutes
   const smartInboxSynced = useRef(false);
   const [inlineEdits, setInlineEdits] = useState<Record<string, { name: string; text: string; rating: number }>>({});
 
   useEffect(() => {
+    // Load reviews from API
+    fetch("/api/user/reviews")
+      .then((r) => r.json())
+      .then((data: LoggedReview[]) => {
+        if (Array.isArray(data)) setReviews(data);
+      })
+      .catch(() => {});
+
+    // Restore smart inbox config from cache immediately so the button shows without waiting
     try {
-      const raw = localStorage.getItem(REVIEWS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Array<Omit<LoggedReview, "seen"> & { seen?: boolean }>;
-        setReviews(parsed.map((r) => ({ ...r, seen: r.seen ?? false })));
+      const cached = localStorage.getItem("vynta_smart_inbox_config");
+      if (cached) {
+        const config = JSON.parse(cached) as SmartInboxConfig;
+        if (config?.enabled) setSmartInboxConfig(config);
       }
-      const inbox = localStorage.getItem(SMART_INBOX_KEY);
-      if (inbox) {
-        const cfg = JSON.parse(inbox) as SmartInboxConfig;
-        setSmartInboxActive(cfg.enabled === true);
-      }
+    } catch {}
+
+    // Then fetch fresh data to validate and update
+    fetch("/api/user/smart-inbox")
+      .then((r) => r.json())
+      .then((data: {
+        enabled?: boolean; businessName?: string; zipCode?: string; placeId?: string;
+        setupDate?: string; baselineCount?: number; lastKnownCount?: number; lastChecked?: string;
+        error?: string;
+      } | null) => {
+        if (data?.error) return;
+        if (data?.enabled) {
+          const config: SmartInboxConfig = {
+            businessName: data.businessName ?? "",
+            zipCode: data.zipCode ?? "",
+            placeId: data.placeId ?? undefined,
+            setupDate: data.setupDate ?? new Date().toISOString(),
+            baselineCount: data.baselineCount ?? 0,
+            lastKnownCount: data.lastKnownCount ?? 0,
+            lastChecked: data.lastChecked ?? new Date().toISOString(),
+            enabled: true,
+          };
+          setSmartInboxConfig(config);
+          try { localStorage.setItem("vynta_smart_inbox_config", JSON.stringify(config)); } catch {}
+        }
+        // If API returns null/disabled, keep whatever localStorage has.
+        // Only deactivateSmartInbox() in Settings should clear the cache.
+      })
+      .catch(() => {});
+
+    // Cooldown from localStorage (UI state only)
+    try {
       const lastSync = localStorage.getItem("vynta_smart_inbox_last_sync");
       if (lastSync) {
         const elapsed = (Date.now() - parseInt(lastSync, 10)) / 1000;
@@ -204,6 +225,7 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         if (remaining > 0) setCooldownSecs(remaining);
       }
     } catch {}
+
     setLoaded(true);
   }, []);
 
@@ -214,20 +236,25 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     return () => clearTimeout(timer);
   }, [cooldownSecs]);
 
+  // Hide navbar when any modal is open
+  useEffect(() => {
+    const open = showModal || !!recoveryReview;
+    document.body.classList.toggle("modal-open", open);
+    return () => { document.body.classList.remove("modal-open"); };
+  }, [showModal, recoveryReview]);
+
   async function runSmartInboxSync(skipThrottle = false) {
+    if (!smartInboxConfig?.enabled) return;
+    const config = smartInboxConfig;
+
+    if (!skipThrottle) {
+      const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
+      if (minutesSince < 30) return;
+    }
+
+    setSyncing(true);
+
     try {
-      const raw = localStorage.getItem(SMART_INBOX_KEY);
-      if (!raw) return;
-      const config = JSON.parse(raw) as SmartInboxConfig;
-      if (!config.enabled) return;
-
-      if (!skipThrottle) {
-        const minutesSince = (Date.now() - new Date(config.lastChecked || 0).getTime()) / 60000;
-        if (minutesSince < 30) return;
-      }
-
-      setSyncing(true);
-
       if (config.placeId) {
         // ── Outscraper: full review content ──────────────────────────────
         const since = config.lastChecked ?? config.setupDate;
@@ -256,69 +283,56 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
           return;
         }
 
-        // Save exact stats from Outscraper to home page
-        if (data.stats) {
-          try { localStorage.setItem("vynta_stats", JSON.stringify(data.stats)); } catch {}
-        }
-
-        setReviews((prev) => {
-          const existingIds = new Set(prev.map((r) => r.externalId).filter(Boolean));
-          const incoming = data.reviews!
-            .filter((r) => !r.externalId || !existingIds.has(r.externalId))
-            .map((r) => ({ ...r, id: crypto.randomUUID() }));
-
-          if (incoming.length === 0) {
-            if (skipThrottle) showToastMsg("Up to date — no new reviews since last sync.");
-            return prev;
-          }
-
-          const updated = [...incoming, ...prev];
-          try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
-          // Don't call syncStats here — home page uses the real count from Google, not the logged count
-          showToastMsg(`${incoming.length} new review${incoming.length !== 1 ? "s" : ""} imported from Google!`);
-          return updated;
-        });
-
-        const updatedConfig: SmartInboxConfig = { ...config, lastChecked: new Date().toISOString() };
-        try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
-      } else {
-        // ── Serper fallback: count-based detection ────────────────────────
-        if (!config.businessName || !config.zipCode) return;
-        const res = await fetch("/api/lookup-business", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessName: config.businessName, zipCode: config.zipCode }),
-        });
-        const data = await res.json() as { reviewCount?: number | null; starRating?: number | null; error?: string };
-        if (data.error || data.reviewCount == null) return;
-
-        const currentCount = data.reviewCount;
-        try {
-          localStorage.setItem("vynta_stats", JSON.stringify({ totalReviews: currentCount, avgRating: data.starRating ?? null }));
-        } catch {}
-
-        const delta = currentCount - (config.lastKnownCount ?? config.baselineCount);
-        if (delta > 0) {
-          const incomingReviews: LoggedReview[] = Array.from({ length: delta }, () => ({
-            id: crypto.randomUUID(),
-            reviewerName: "Google Reviewer",
-            platform: "Google" as Platform,
-            rating: 0, text: "", date: new Date().toISOString().slice(0, 10),
-            responded: false, seen: false, smartInbox: true,
-          }));
-          setReviews((prev) => {
-            const updated = [...incomingReviews, ...prev];
-            try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(updated)); } catch {}
-            syncStats(updated);
-            return updated;
+        if (data.reviews.length > 0) {
+          // Bulk insert via PUT
+          const bulkRes = await fetch("/api/user/reviews", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviews: data.reviews }),
           });
-          showToastMsg(`${delta} new review${delta !== 1 ? "s" : ""} detected!`);
+          if (bulkRes.ok) {
+            const inserted = await bulkRes.json() as { count?: number };
+            const count = inserted.count ?? 0;
+            if (count > 0) {
+              showToastMsg(`${count} new review${count !== 1 ? "s" : ""} imported from Google!`);
+              // Reload reviews
+              const refreshed = await fetch("/api/user/reviews").then((r) => r.json()) as LoggedReview[];
+              if (Array.isArray(refreshed)) setReviews(refreshed);
+            } else if (skipThrottle) {
+              showToastMsg("Up to date — no new reviews since last sync.");
+            }
+          }
         } else if (skipThrottle) {
-          showToastMsg(`Up to date — ${currentCount.toLocaleString()} reviews. Google can take up to an hour to index new ones.`);
+          showToastMsg("Up to date — no new reviews since last sync.");
         }
 
-        const updatedConfig: SmartInboxConfig = { ...config, lastKnownCount: currentCount, lastChecked: new Date().toISOString() };
-        try { localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(updatedConfig)); } catch {}
+        // Update lastChecked (and exact count if Outscraper returned it)
+        const now = new Date().toISOString();
+        const putPayload: Record<string, unknown> = { lastChecked: now };
+        if (data.stats?.totalReviews != null) {
+          putPayload.lastKnownCount = data.stats.totalReviews;
+        }
+        await fetch("/api/user/smart-inbox", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(putPayload),
+        }).catch(() => {});
+        setSmartInboxConfig((prev) => {
+          if (!prev) return prev;
+          const next = {
+            ...prev,
+            lastChecked: now,
+            ...(data.stats?.totalReviews != null ? { lastKnownCount: data.stats.totalReviews } : {}),
+          };
+          try { localStorage.setItem("vynta_smart_inbox_config", JSON.stringify(next)); } catch {}
+          return next;
+        });
+
+      } else {
+        // No Place ID — Outscraper requires one
+        if (skipThrottle) {
+          showToastMsg("Add your Google Place ID in Settings → Smart Inbox to enable sync.");
+        }
       }
 
       if (skipThrottle) {
@@ -334,16 +348,10 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
 
   // Auto-sync on mount (throttled)
   useEffect(() => {
-    if (!loaded || smartInboxSynced.current) return;
+    if (!loaded || smartInboxSynced.current || !smartInboxConfig) return;
     smartInboxSynced.current = true;
     void runSmartInboxSync(false);
-  }, [loaded]);
-
-  function persist(next: LoggedReview[]) {
-    setReviews(next);
-    try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(next)); } catch {}
-    syncStats(next);
-  }
+  }, [loaded, smartInboxConfig]);
 
   function getInlineEdit(id: string) {
     return inlineEdits[id] ?? { name: "", text: "", rating: 0 };
@@ -353,42 +361,65 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     setInlineEdits((prev) => ({ ...prev, [id]: { ...getInlineEdit(id), [field]: value } }));
   }
 
-  function saveInlineEdit(id: string) {
+  async function saveInlineEdit(id: string) {
     const edit = inlineEdits[id];
     if (!edit || !edit.name.trim() || edit.rating === 0 || !edit.text.trim()) return;
-    persist(reviews.map((r) =>
-      r.id === id
-        ? { ...r, reviewerName: edit.name.trim(), rating: edit.rating, text: edit.text.trim(), smartInbox: false }
-        : r
-    ));
+    const updated = {
+      reviewerName: edit.name.trim(),
+      rating: edit.rating,
+      text: edit.text.trim(),
+      smartInbox: false,
+    };
+    // Optimistic update
+    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, ...updated } : r));
     setInlineEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    try {
+      await fetch(`/api/user/reviews/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+    } catch {}
   }
 
-  function toggleSeen(id: string) {
-    persist(reviews.map((r) => r.id === id ? { ...r, seen: !r.seen } : r));
+  async function toggleSeen(id: string) {
+    const review = reviews.find((r) => r.id === id);
+    if (!review) return;
+    const newSeen = !review.seen;
+    // Optimistic update
+    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, seen: newSeen } : r));
+    try {
+      await fetch(`/api/user/reviews/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seen: newSeen }),
+      });
+    } catch {}
   }
 
-  function saveReview() {
+  async function saveReview() {
     if (!form.reviewerName.trim() || form.rating === 0) return;
     if (editingId) {
-      persist(
-        reviews.map((r) =>
-          r.id === editingId
-            ? {
-                ...r,
-                reviewerName: form.reviewerName.trim(),
-                platform: form.platform,
-                rating: form.rating,
-                text: form.text.trim(),
-                date: form.date || r.date,
-                responded: form.responded,
-              }
-            : r
-        )
-      );
+      const payload = {
+        reviewerName: form.reviewerName.trim(),
+        platform: form.platform,
+        rating: form.rating,
+        text: form.text.trim(),
+        date: form.date,
+        responded: form.responded,
+      };
+      // Optimistic update
+      setReviews((prev) => prev.map((r) => r.id === editingId ? { ...r, ...payload } : r));
+      closeModal();
+      try {
+        await fetch(`/api/user/reviews/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch {}
     } else {
-      persist([{
-        id: crypto.randomUUID(),
+      const payload = {
         reviewerName: form.reviewerName.trim(),
         platform: form.platform,
         rating: form.rating,
@@ -396,9 +427,20 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
         date: form.date || new Date().toISOString().slice(0, 10),
         responded: form.responded,
         seen: false,
-      }, ...reviews]);
+      };
+      closeModal();
+      try {
+        const res = await fetch("/api/user/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const created = await res.json() as LoggedReview;
+          setReviews((prev) => [created, ...prev]);
+        }
+      } catch {}
     }
-    closeModal();
   }
 
   function openEdit(review: LoggedReview) {
@@ -414,8 +456,12 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     setShowModal(true);
   }
 
-  function deleteReview(id: string) {
-    persist(reviews.filter((r) => r.id !== id));
+  async function deleteReview(id: string) {
+    // Optimistic update
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await fetch(`/api/user/reviews/${id}`, { method: "DELETE" });
+    } catch {}
   }
 
   function closeModal() {
@@ -433,7 +479,11 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     if (generatingReplyId) return;
     setGeneratingReplyId(review.id);
     let businessName = "";
-    try { businessName = localStorage.getItem("vynta_default_business") ?? ""; } catch {}
+    try {
+      const settingsRes = await fetch("/api/user/settings");
+      const settings = await settingsRes.json() as { businessName?: string };
+      businessName = settings.businessName ?? "";
+    } catch {}
     const system = "You are a professional reputation manager. Write a short, warm, professional reply to this customer review on behalf of the business. Keep it under 100 words. Sound human, not corporate.";
     const msg = `Reviewer: ${review.reviewerName}\nRating: ${review.rating} stars\nBusiness: ${businessName || "the business"}\nReview: "${review.text}"`;
     try {
@@ -473,20 +523,23 @@ export default function OurReviewsScreen({ plan }: { plan?: string | null }) {
     setRecoveryReview(review);
     setRecoveryData(null);
     setRecoveryLoading(true);
-    let businessName = "";
-    try { businessName = localStorage.getItem("vynta_default_business") ?? ""; } catch {}
-    const system = `You are a reputation recovery coach. Based on a negative review, generate a JSON response with exactly three keys:
+    fetch("/api/user/settings")
+      .then((r) => r.json())
+      .then((settings: { businessName?: string }) => {
+        const businessName = settings.businessName ?? "";
+        const system = `You are a reputation recovery coach. Based on a negative review, generate a JSON response with exactly three keys:
 - public_response: a calm, professional, empathetic public reply to post on Google (2-3 sentences)
 - private_message: a short direct follow-up message to send the customer privately (1-2 sentences, offer to make it right)
 - recovery_checklist: an array of exactly 3 short strings, each a concrete internal action to take
 
 Return only valid JSON with no markdown, no code fences, no explanation.`;
-    const msg = `Reviewer: ${review.reviewerName}\nRating: ${review.rating} stars\nReview: "${review.text}"\n${businessName ? `Business: ${businessName}` : ""}`;
-    fetch("/api/consultant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
-    })
+        const msg = `Reviewer: ${review.reviewerName}\nRating: ${review.rating} stars\nReview: "${review.text}"\n${businessName ? `Business: ${businessName}` : ""}`;
+        return fetch("/api/consultant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+        });
+      })
       .then((res) => res.json())
       .then((data: { response?: string }) => {
         const raw = (data.response ?? "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -509,11 +562,17 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
   }
 
   // Derived counts + filtered list
-  const newCount  = reviews.filter((r) => !r.seen).length;
-  const seenCount = reviews.filter((r) => r.seen).length;
+  const newCount      = reviews.filter((r) => !r.seen).length;
+  const seenCount     = reviews.filter((r) => r.seen).length;
+  const negativeCount = reviews.filter((r) => r.rating <= 3).length;
 
   const filtered = reviews
-    .filter((r) => (activeTab === "new" ? !r.seen : r.seen))
+    .filter((r) => {
+      if (activeTab === "new")      return !r.seen;
+      if (activeTab === "seen")     return r.seen;
+      if (activeTab === "negative") return r.rating <= 3;
+      return true;
+    })
     .filter((r) => {
       const q = searchQuery.trim().toLowerCase();
       if (!q) return true;
@@ -522,7 +581,8 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
         r.text.toLowerCase().includes(q) ||
         formatDate(r.date).toLowerCase().includes(q)
       );
-    });
+    })
+    .sort((a, b) => activeTab === "negative" ? a.rating - b.rating : 0);
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
@@ -658,14 +718,14 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 9999, background: "rgba(44,26,14,0.5)",
-            display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 20px 120px",
           }}
           onClick={(e) => { if (e.target === e.currentTarget) closeRecoveryModal(); }}
         >
           <div style={{
-            background: "#FAF5E8", borderRadius: "20px", width: "360px", maxHeight: "88vh",
+            background: "#FAF5E8", borderRadius: "20px", width: "100%", maxWidth: "480px", maxHeight: "80vh",
             overflowY: "auto", boxShadow: "0 8px 40px rgba(44,26,14,0.22)",
-            padding: "20px 20px 24px", position: "relative",
+            padding: "24px", position: "relative",
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
               <div>
@@ -752,12 +812,12 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", flexShrink: 0, marginTop: "4px" }}>
-            {smartInboxActive && (
+            {(smartInboxEnabled || smartInboxConfig?.enabled) && (
               <button
                 type="button"
                 onClick={() => void runSmartInboxSync(true)}
-                disabled={syncing || cooldownSecs > 0}
-                title={cooldownSecs > 0 ? `Available in ${Math.floor(cooldownSecs / 60)}:${String(cooldownSecs % 60).padStart(2, "0")}` : "Check for new Google reviews"}
+                disabled={syncing || cooldownSecs > 0 || !smartInboxConfig}
+                title={cooldownSecs > 0 ? `Available in ${Math.floor(cooldownSecs / 60)}:${String(cooldownSecs % 60).padStart(2, "0")}` : !smartInboxConfig ? "Loading…" : "Check for new Google reviews"}
                 style={{
                   background: "rgba(79,70,229,0.1)",
                   color: "#4F46E5",
@@ -766,11 +826,11 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                   fontSize: "13px",
                   fontWeight: 600,
                   border: "none",
-                  cursor: (syncing || cooldownSecs > 0) ? "not-allowed" : "pointer",
+                  cursor: (syncing || cooldownSecs > 0 || !smartInboxConfig) ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  opacity: (syncing || cooldownSecs > 0) ? 0.5 : 1,
+                  opacity: (syncing || cooldownSecs > 0 || !smartInboxConfig) ? 0.5 : 1,
                   transition: "opacity 150ms",
                 }}
               >
@@ -842,9 +902,13 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
 
       {/* ── Tabs ── */}
       <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "0 24px", gap: "4px", marginBottom: "4px" }}>
-        {(["new", "seen"] as const).map((t) => {
+        {([
+          { key: "new",      label: "New",      count: newCount },
+          { key: "seen",     label: "Seen",     count: seenCount },
+          { key: "negative", label: "Negative", count: negativeCount },
+        ] as const).map(({ key: t, label, count }) => {
           const active = activeTab === t;
-          const count = t === "new" ? newCount : seenCount;
+          const isNeg  = t === "negative";
           return (
             <button
               key={t}
@@ -858,18 +922,18 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                 border: "none",
                 background: "none",
                 cursor: "pointer",
-                borderBottom: `3px solid ${active ? "#2C1A0E" : "transparent"}`,
-                color: active ? "#2C1A0E" : "#A0856A",
+                borderBottom: `3px solid ${active ? (isNeg ? "#DC2626" : "#2C1A0E") : "transparent"}`,
+                color: active ? (isNeg ? "#DC2626" : "#2C1A0E") : "#A0856A",
                 marginBottom: "-2px",
                 transition: "color 150ms, border-color 150ms",
               }}
             >
-              {t === "new" ? "New" : "Seen"}
+              {label}
               {count > 0 && (
                 <span style={{
                   marginLeft: "6px",
-                  background: active ? "#2C1A0E" : "rgba(44,26,14,0.1)",
-                  color: active ? "white" : "#A0856A",
+                  background: active ? (isNeg ? "#DC2626" : "#2C1A0E") : (isNeg ? "rgba(220,38,38,0.1)" : "rgba(44,26,14,0.1)"),
+                  color: active ? "white" : (isNeg ? "#DC2626" : "#A0856A"),
                   borderRadius: "99px",
                   padding: "1px 7px",
                   fontSize: "10px",
@@ -888,13 +952,15 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
         {filtered.length === 0 ? (
           <div style={{ ...CARD, padding: "48px 24px", textAlign: "center", marginTop: "8px" }}>
             <div style={{ fontSize: "2rem", marginBottom: "12px" }}>
-              {searchQuery ? "🔍" : activeTab === "new" ? "⭐" : "✓"}
+              {searchQuery ? "🔍" : activeTab === "new" ? "⭐" : activeTab === "negative" ? "✅" : "✓"}
             </div>
             <p style={{ fontSize: "15px", fontWeight: 600, color: "#2C1A0E", marginBottom: "6px" }}>
               {searchQuery
                 ? "No reviews match your search"
                 : activeTab === "new"
                 ? "No new reviews"
+                : activeTab === "negative"
+                ? "No negative reviews"
                 : "No seen reviews yet"}
             </p>
             <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6 }}>
@@ -902,6 +968,8 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                 ? "Try a different name or keyword."
                 : activeTab === "new"
                 ? "Hit \"+ Log Review\" to add your first one."
+                : activeTab === "negative"
+                ? "Nothing under 4 stars — keep it up."
                 : "Check a review's box to move it here."}
             </p>
           </div>

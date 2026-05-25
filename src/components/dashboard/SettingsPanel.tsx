@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { useResponseHistory } from "@/lib/useResponseHistory";
 import { getPlan } from "@/lib/plans";
 
-const SMART_INBOX_KEY = "vynta_smart_inbox";
-
 interface SmartInboxConfig {
   businessName: string;
   zipCode: string;
@@ -17,6 +15,13 @@ interface SmartInboxConfig {
   lastKnownCount: number;
   lastChecked: string;
   enabled: boolean;
+  verified: boolean;
+}
+
+interface LookupResult {
+  businessName: string;
+  reviewCount: number | null;
+  starRating: number | null;
 }
 
 interface Props {
@@ -25,6 +30,7 @@ interface Props {
   plan: string | null;
   subscriptionStatus: string | null;
   onBack?: () => void;
+  onOpenWizard?: () => void;
 }
 
 const CARD: React.CSSProperties = {
@@ -118,7 +124,7 @@ function SaveButton({ onSave, saving, saved, disabled }: { onSave: () => void; s
   );
 }
 
-export default function SettingsPanel({ name, email, plan, subscriptionStatus, onBack }: Props) {
+export default function SettingsPanel({ name, email, plan, subscriptionStatus, onBack, onOpenWizard }: Props) {
   const { signOut } = useClerk();
   const router = useRouter();
   const { history, clearHistory } = useResponseHistory();
@@ -132,107 +138,216 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [businessUrl, setBusinessUrl]       = useState("");
   const [businessPhone, setBusinessPhone]   = useState("");
   const [bizSaved, setBizSaved]             = useState(false);
+  const [bizSaving, setBizSaving]           = useState(false);
 
   // ── Review Tools ──
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [defaultTone, setDefaultTone]         = useState("professional");
   const [messageTemplate, setMessageTemplate] = useState("");
   const [toolsSaved, setToolsSaved]           = useState(false);
+  const [toolsSaving, setToolsSaving]         = useState(false);
 
   // ── Smart Inbox ──
-  const [inboxConfig, setInboxConfig]     = useState<SmartInboxConfig | null>(null);
-  const [inboxName, setInboxName]         = useState("");
-  const [inboxZip, setInboxZip]           = useState("");
-  const [inboxPlaceId, setInboxPlaceId]   = useState("");
+  const [inboxConfig, setInboxConfig]       = useState<SmartInboxConfig | null>(null);
+  const [inboxName, setInboxName]           = useState("");
+  const [inboxZip, setInboxZip]             = useState("");
+  const [inboxPlaceId, setInboxPlaceId]     = useState("");
+  const [inboxLooking, setInboxLooking]     = useState(false);
   const [inboxActivating, setInboxActivating] = useState(false);
-  const [inboxError, setInboxError]       = useState("");
+  const [inboxError, setInboxError]         = useState("");
+  const [lookupResult, setLookupResult]     = useState<LookupResult | null>(null);
+  const [verifyChecked, setVerifyChecked]   = useState(false);
+  const [editingPlaceId, setEditingPlaceId] = useState(false);
+  const [placeIdDraft, setPlaceIdDraft]     = useState("");
+  const [placeIdSaving, setPlaceIdSaving]   = useState(false);
 
   // ── Data ──
   const [cleared, setCleared] = useState(false);
 
   useEffect(() => {
-    try {
-      setBusinessName(localStorage.getItem("vynta_default_business") ?? "");
-      setBusinessType(localStorage.getItem("vynta_business_type") ?? "");
-      setBusinessAddress(localStorage.getItem("vynta_business_address") ?? "");
-      setBusinessUrl(localStorage.getItem("vynta_business_url") ?? "");
-      setBusinessPhone(localStorage.getItem("vynta_business_phone") ?? "");
-      setGoogleReviewUrl(localStorage.getItem("vynta_google_review_url") ?? "");
-      setDefaultTone(localStorage.getItem("vynta_default_tone") ?? "professional");
-      setMessageTemplate(localStorage.getItem("vynta_message_template") ?? "");
-      const inbox = localStorage.getItem(SMART_INBOX_KEY);
-      if (inbox) setInboxConfig(JSON.parse(inbox) as SmartInboxConfig);
-    } catch {}
+    // Load settings from API
+    fetch("/api/user/settings")
+      .then((r) => r.json())
+      .then((data: {
+        businessName?: string; businessType?: string; businessAddress?: string;
+        businessUrl?: string; businessPhone?: string; googleReviewUrl?: string;
+        defaultTone?: string; messageTemplate?: string;
+      }) => {
+        if (data.businessName)    setBusinessName(data.businessName);
+        if (data.businessType)    setBusinessType(data.businessType);
+        if (data.businessAddress) setBusinessAddress(data.businessAddress);
+        if (data.businessUrl)     setBusinessUrl(data.businessUrl);
+        if (data.businessPhone)   setBusinessPhone(data.businessPhone);
+        if (data.googleReviewUrl) setGoogleReviewUrl(data.googleReviewUrl);
+        if (data.defaultTone)     setDefaultTone(data.defaultTone);
+        if (data.messageTemplate) setMessageTemplate(data.messageTemplate);
+      })
+      .catch(() => {});
+
+    // Load smart inbox from API
+    fetch("/api/user/smart-inbox")
+      .then((r) => r.json())
+      .then((data: {
+        enabled?: boolean; businessName?: string; zipCode?: string; placeId?: string;
+        setupDate?: string; baselineCount?: number; lastKnownCount?: number; lastChecked?: string;
+        verified?: boolean;
+      } | null) => {
+        if (data?.enabled) {
+          const config = {
+            businessName: data.businessName ?? "",
+            zipCode: data.zipCode ?? "",
+            placeId: data.placeId ?? undefined,
+            setupDate: data.setupDate ?? new Date().toISOString(),
+            baselineCount: data.baselineCount ?? 0,
+            lastKnownCount: data.lastKnownCount ?? 0,
+            lastChecked: data.lastChecked ?? new Date().toISOString(),
+            enabled: true,
+            verified: data.verified ?? false,
+          };
+          setInboxConfig(config);
+          try { localStorage.setItem("vynta_smart_inbox_config", JSON.stringify(config)); } catch {}
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  function saveBusinessProfile() {
+  async function saveBusinessProfile() {
+    setBizSaving(true);
     try {
-      localStorage.setItem("vynta_default_business", businessName.trim());
-      localStorage.setItem("vynta_business_type", businessType);
-      localStorage.setItem("vynta_business_address", businessAddress.trim());
-      localStorage.setItem("vynta_business_url", businessUrl.trim());
-      localStorage.setItem("vynta_business_phone", businessPhone.trim());
+      await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: businessName.trim(),
+          businessType,
+          businessAddress: businessAddress.trim(),
+          businessUrl: businessUrl.trim(),
+          businessPhone: businessPhone.trim(),
+        }),
+      });
     } catch {}
+    setBizSaving(false);
     setBizSaved(true);
     setTimeout(() => setBizSaved(false), 2000);
   }
 
-  function saveReviewTools() {
+  async function saveReviewTools() {
+    setToolsSaving(true);
     try {
-      localStorage.setItem("vynta_google_review_url", googleReviewUrl.trim());
-      localStorage.setItem("vynta_default_tone", defaultTone);
-      localStorage.setItem("vynta_message_template", messageTemplate.trim());
+      await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleReviewUrl: googleReviewUrl.trim(),
+          defaultTone,
+          messageTemplate: messageTemplate.trim(),
+        }),
+      });
     } catch {}
+    setToolsSaving(false);
     setToolsSaved(true);
     setTimeout(() => setToolsSaved(false), 2000);
   }
 
-  async function activateSmartInbox() {
-    if (!inboxName.trim() || !inboxZip.trim() || inboxActivating) return;
+  async function lookupBusiness() {
+    if (!inboxPlaceId.trim() || inboxLooking) return;
+    setInboxLooking(true);
+    setInboxError("");
+    setLookupResult(null);
+    setVerifyChecked(false);
+    try {
+      const res = await fetch("/api/outscraper-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId: inboxPlaceId.trim() }),
+      });
+      const data = await res.json() as { businessName?: string | null; reviewCount?: number | null; starRating?: number | null; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Couldn't find that business.");
+      setLookupResult({
+        businessName: (data.businessName ?? inboxName.trim()) || inboxPlaceId.trim(),
+        reviewCount: data.reviewCount ?? null,
+        starRating: data.starRating ?? null,
+      });
+    } catch (err) {
+      setInboxError(err instanceof Error ? err.message : "Couldn't find that business. Check your Place ID.");
+    } finally {
+      setInboxLooking(false);
+    }
+  }
+
+  async function confirmAndActivate() {
+    if (!lookupResult || !verifyChecked || inboxActivating) return;
     setInboxActivating(true);
     setInboxError("");
     try {
-      const res = await fetch("/api/lookup-business", {
+      const count = lookupResult.reviewCount ?? 0;
+      const now = new Date().toISOString();
+      const res = await fetch("/api/user/smart-inbox", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName: inboxName.trim(), zipCode: inboxZip.trim() }),
+        body: JSON.stringify({
+          businessName: lookupResult.businessName,
+          zipCode: inboxZip.trim() || "",
+          placeId: inboxPlaceId.trim() || undefined,
+          baselineCount: count,
+          lastKnownCount: count,
+          lastChecked: now,
+          setupDate: now,
+          enabled: true,
+          verified: true,
+        }),
       });
-      const data = await res.json() as { reviewCount?: number | null; starRating?: number | null; error?: string };
-      if (!res.ok || data.error) throw new Error(data.error ?? "Couldn't find that business.");
-      const count = data.reviewCount ?? 0;
-
-      // Populate home page stats with real Serper data
-      try {
-        localStorage.setItem("vynta_stats", JSON.stringify({
-          totalReviews: count,
-          avgRating: data.starRating ?? null,
-        }));
-      } catch {}
-
-      const config: SmartInboxConfig = {
-        businessName: inboxName.trim(),
-        zipCode: inboxZip.trim(),
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "Activation failed. Please try again.");
+      }
+      const newConfig = {
+        businessName: lookupResult.businessName,
+        zipCode: inboxZip.trim() || "",
         placeId: inboxPlaceId.trim() || undefined,
-        setupDate: new Date().toISOString(),
+        setupDate: now,
         baselineCount: count,
         lastKnownCount: count,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now,
         enabled: true,
+        verified: true,
       };
-      localStorage.setItem(SMART_INBOX_KEY, JSON.stringify(config));
-      setInboxConfig(config);
+      setInboxConfig(newConfig);
+      try { localStorage.setItem("vynta_smart_inbox_config", JSON.stringify(newConfig)); } catch {}
+      setLookupResult(null);
+      setVerifyChecked(false);
     } catch (err) {
-      setInboxError(err instanceof Error ? err.message : "Activation failed. Check the business name and zip.");
+      setInboxError(err instanceof Error ? err.message : "Activation failed. Please try again.");
     } finally {
       setInboxActivating(false);
     }
   }
 
-  function deactivateSmartInbox() {
-    try { localStorage.removeItem(SMART_INBOX_KEY); } catch {}
+  async function deactivateSmartInbox() {
+    try {
+      await fetch("/api/user/smart-inbox", { method: "DELETE" });
+    } catch {}
+    try { localStorage.removeItem("vynta_smart_inbox_config"); } catch {}
     setInboxConfig(null);
     setInboxName("");
     setInboxZip("");
+    setLookupResult(null);
+    setVerifyChecked(false);
+  }
+
+  async function saveSmartInboxPlaceId() {
+    setPlaceIdSaving(true);
+    try {
+      const res = await fetch("/api/user/smart-inbox", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId: placeIdDraft.trim() || null }),
+      });
+      const data = await res.json() as { placeId?: string | null };
+      setInboxConfig((prev) => prev ? { ...prev, placeId: data.placeId ?? undefined } : prev);
+      setEditingPlaceId(false);
+    } catch {}
+    setPlaceIdSaving(false);
   }
 
   function handleClearHistory() {
@@ -288,7 +403,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
               {planData.name}
             </span>
           ) : (
-            <a href="/#pricing" style={{ fontSize: "13px", fontWeight: 600, color: "#2D9B8A" }}>View plans →</a>
+            <a href="/#pricing" style={{ fontSize: "13px", fontWeight: 600, color: "#4F46E5" }}>View plans →</a>
           )}
         </div>
       </div>
@@ -334,7 +449,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <SaveButton onSave={saveBusinessProfile} saved={bizSaved} />
+            <SaveButton onSave={saveBusinessProfile} saving={bizSaving} saved={bizSaved} />
           </div>
         </div>
       </div>
@@ -348,7 +463,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Google Review Link</label>
-            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "11px", color: "#4F46E5", marginBottom: "8px", lineHeight: 1.5 }}>
               Paste your Google review URL so campaigns send customers to the right place. Find it in Google Business Profile → Get more reviews.
             </p>
             <input type="url" value={googleReviewUrl} onChange={(e) => setGoogleReviewUrl(e.target.value)}
@@ -357,7 +472,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Default Response Tone</label>
-            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px" }}>Pre-selects your preferred AI reply personality on the Home tab.</p>
+            <p style={{ fontSize: "11px", color: "#4F46E5", marginBottom: "8px" }}>Pre-selects your preferred AI reply personality on the Home tab.</p>
             <select value={defaultTone} onChange={(e) => setDefaultTone(e.target.value)}
               style={{ ...FIELD, cursor: "pointer" }}>
               {TONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -366,7 +481,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
           <div>
             <label style={LABEL}>Outbound Message Template</label>
-            <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "11px", color: "#4F46E5", marginBottom: "8px", lineHeight: 1.5 }}>
               Default SMS/email sent when you request a review. Use{" "}
               <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
               <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
@@ -380,7 +495,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <SaveButton onSave={saveReviewTools} saved={toolsSaved} />
+            <SaveButton onSave={saveReviewTools} saving={toolsSaving} saved={toolsSaved} />
           </div>
         </div>
       </div>
@@ -394,7 +509,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           {inboxConfig?.enabled && (
             <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4F46E5", display: "inline-block" }} />
           )}
-          <p style={{ fontSize: "12px", color: "#2D9B8A", lineHeight: 1.5 }}>
+          <p style={{ fontSize: "12px", color: "#4F46E5", lineHeight: 1.5 }}>
             Monitors your Google review count automatically. New reviews land in your Reviews → New tab.
           </p>
         </div>
@@ -402,7 +517,14 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         {inboxConfig?.enabled ? (
           <div>
             <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "10px", padding: "12px 14px", margin: "12px 0" }}>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "2px" }}>{inboxConfig.businessName}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>{inboxConfig.businessName}</p>
+                {inboxConfig.verified && (
+                  <span style={{ background: "rgba(79,70,229,0.12)", color: "#4F46E5", borderRadius: "20px", padding: "2px 8px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", flexShrink: 0 }}>
+                    VERIFIED ✓
+                  </span>
+                )}
+              </div>
               <p style={{ fontSize: "11px", color: "#A0856A" }}>
                 Zip {inboxConfig.zipCode} · Started {new Date(inboxConfig.setupDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {inboxConfig.baselineCount.toLocaleString()} reviews at setup
               </p>
@@ -410,35 +532,146 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
             <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "12px" }}>
               Last synced: {new Date(inboxConfig.lastChecked).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
             </p>
+
+            {/* Place ID editor */}
+            <div style={{ borderTop: "1px solid rgba(44,26,14,0.06)", paddingTop: "12px", marginBottom: "12px" }}>
+              <p style={LABEL}>Google Place ID</p>
+              {editingPlaceId ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <input
+                    type="text"
+                    value={placeIdDraft}
+                    onChange={(e) => setPlaceIdDraft(e.target.value.trim())}
+                    placeholder="ChIJ…"
+                    style={FIELD}
+                    autoFocus
+                  />
+                  <a
+                    href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: "10px", color: "#4F46E5", lineHeight: 1.5 }}
+                  >
+                    Find your Place ID →
+                  </a>
+                  <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
+                    <button type="button" onClick={() => setEditingPlaceId(false)}
+                      style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                    <button type="button" onClick={saveSmartInboxPlaceId} disabled={placeIdSaving}
+                      style={{ background: "#2C1A0E", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: placeIdSaving ? "not-allowed" : "pointer", opacity: placeIdSaving ? 0.6 : 1 }}>
+                      {placeIdSaving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ fontSize: "12px", color: inboxConfig.placeId ? "#2C1A0E" : "#A0856A", fontFamily: inboxConfig.placeId ? "monospace" : "inherit", wordBreak: "break-all" }}>
+                    {inboxConfig.placeId ?? "Not set"}
+                  </span>
+                  <button type="button" onClick={() => { setPlaceIdDraft(inboxConfig.placeId ?? ""); setEditingPlaceId(true); }}
+                    style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "#A0856A", cursor: "pointer", flexShrink: 0 }}>
+                    {inboxConfig.placeId ? "Edit" : "Add"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button type="button" onClick={deactivateSmartInbox}
               style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 16px", fontSize: "12px", fontWeight: 600, color: "#A0856A", cursor: "pointer" }}>
               Deactivate Smart Inbox
             </button>
           </div>
+        ) : lookupResult ? (
+          /* ── Step 2: Confirm found business ── */
+          <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "10px", padding: "14px" }}>
+              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>We found this business</p>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>{lookupResult.businessName}</p>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {lookupResult.starRating !== null && (
+                  <span style={{ fontSize: "12px", color: "#A0856A" }}>⭐ {lookupResult.starRating.toFixed(1)} stars</span>
+                )}
+                {lookupResult.reviewCount !== null && (
+                  <span style={{ fontSize: "12px", color: "#A0856A" }}>{lookupResult.reviewCount.toLocaleString()} reviews</span>
+                )}
+                <span style={{ fontSize: "12px", color: "#A0856A" }}>Zip {inboxZip.trim()}</span>
+              </div>
+            </div>
+
+            <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={verifyChecked}
+                  onChange={(e) => setVerifyChecked(e.target.checked)}
+                  style={{ marginTop: "2px", accentColor: "#4F46E5", flexShrink: 0 }}
+                />
+                <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
+                  I confirm I am the owner or authorized manager of this business and have the right to track and respond to its Google reviews.
+                </span>
+              </label>
+            </div>
+
+            {inboxError && <p style={{ fontSize: "11px", color: "#DC2626" }}>{inboxError}</p>}
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="button" onClick={() => { setLookupResult(null); setVerifyChecked(false); setInboxError(""); }}
+                style={{ flex: 1, background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "10px", padding: "11px", fontSize: "13px", color: "#A0856A", cursor: "pointer" }}>
+                Back
+              </button>
+              <button type="button" onClick={confirmAndActivate}
+                disabled={!verifyChecked || inboxActivating}
+                style={{
+                  flex: 2,
+                  background: !verifyChecked || inboxActivating ? "rgba(79,70,229,0.4)" : "#4F46E5",
+                  color: "white", borderRadius: "10px", padding: "11px",
+                  fontSize: "13px", fontWeight: 600, border: "none",
+                  cursor: !verifyChecked || inboxActivating ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                }}>
+                {inboxActivating ? (
+                  <>
+                    <svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                    </svg>
+                    Activating…
+                  </>
+                ) : "Confirm & Activate"}
+              </button>
+            </div>
+          </div>
         ) : (
+          /* ── Step 1: Enter business details ── */
           <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+            <input type="text" value={inboxPlaceId} onChange={(e) => setInboxPlaceId(e.target.value.trim())}
+              placeholder="Google Place ID (e.g. ChIJ…)" style={FIELD} />
+            <a
+              href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+              target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: "10px", color: "#4F46E5", lineHeight: 1.5, marginTop: "-4px" }}
+            >
+              How to find your Place ID →
+            </a>
             <input type="text" value={inboxName} onChange={(e) => setInboxName(e.target.value)}
-              placeholder="Business name" style={FIELD} />
+              placeholder="Business name (optional override)" style={FIELD} />
             <input type="text" inputMode="numeric" maxLength={5} value={inboxZip}
               onChange={(e) => setInboxZip(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Zip code" style={FIELD} />
-            <input type="text" value={inboxPlaceId} onChange={(e) => setInboxPlaceId(e.target.value.trim())}
-              placeholder="Google Place ID (e.g. ChIJ…) — for full review import" style={FIELD} />
-            <p style={{ fontSize: "10px", color: "#2D9B8A", lineHeight: 1.5, marginTop: "-4px" }}>
-              Place ID enables Outscraper — pulls actual review text automatically. Find it on Google Maps in the business URL.
-            </p>
+              placeholder="Zip code (optional)" style={FIELD} />
             {inboxError && <p style={{ fontSize: "11px", color: "#DC2626" }}>{inboxError}</p>}
-            <button type="button" onClick={activateSmartInbox}
-              disabled={!inboxName.trim() || !inboxZip.trim() || inboxActivating}
+            <button type="button" onClick={lookupBusiness}
+              disabled={!inboxPlaceId.trim() || inboxLooking}
               style={{
-                background: inboxActivating ? "rgba(79,70,229,0.5)" : "#4F46E5",
+                background: inboxLooking ? "rgba(79,70,229,0.5)" : "#4F46E5",
                 color: "white", borderRadius: "10px", padding: "11px",
                 fontSize: "13px", fontWeight: 600, border: "none",
-                cursor: (!inboxName.trim() || !inboxZip.trim() || inboxActivating) ? "not-allowed" : "pointer",
-                opacity: (!inboxName.trim() || !inboxZip.trim()) ? 0.5 : 1,
+                cursor: (!inboxPlaceId.trim() || inboxLooking) ? "not-allowed" : "pointer",
+                opacity: !inboxPlaceId.trim() ? 0.5 : 1,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
               }}>
-              {inboxActivating ? (
+              {inboxLooking ? (
                 <>
                   <svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
                     <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
@@ -446,10 +679,10 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
                   </svg>
                   Looking up business…
                 </>
-              ) : "Activate Smart Inbox"}
+              ) : "Look Up Business"}
             </button>
             <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5 }}>
-              Activating will pull the current review count as your baseline. Any new reviews after this point will appear in your inbox.
+              Outscraper pulls exact review counts and text directly from Google using your Place ID.
             </p>
           </div>
         )}
@@ -471,6 +704,18 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           {cleared ? "Cleared!" : "Clear"}
         </button>
       </div>
+
+      {/* Restart setup wizard */}
+      {onOpenWizard && (
+        <button type="button" onClick={onOpenWizard}
+          style={{ width: "100%", background: "transparent", border: "1.5px solid rgba(79,70,229,0.3)", borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 600, color: "#4F46E5", cursor: "pointer", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "16px", height: "16px" }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          </svg>
+          Restart Setup Wizard
+        </button>
+      )}
 
       {/* Sign out */}
       <button type="button" onClick={handleSignOut}

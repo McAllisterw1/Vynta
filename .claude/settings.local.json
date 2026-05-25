@@ -25,7 +25,10 @@
       "Bash(npm run *)",
       "Bash(npx prisma *)",
       "WebSearch",
-      "Bash(New-Item *)"
+      "Bash(New-Item *)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\wbmac\\\\vynta\\\\node_modules\\\\.prisma\\\\client\\\\index.js\"\\).LastWriteTime; \\(Get-Item \"C:\\\\Users\\\\wbmac\\\\vynta\\\\prisma\\\\schema.prisma\"\\).LastWriteTime)",
+      "PowerShell(Get-Item *)",
+      "PowerShell($pkg = Get-Content \"C:\\\\Users\\\\wbmac\\\\vynta\\\\node_modules\\\\@prisma\\\\client\\\\package.json\" | ConvertFrom-Json; $pkg.exports | ConvertTo-Json -Depth 5)"
     ]
   }
 }

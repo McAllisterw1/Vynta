@@ -5,8 +5,6 @@ import { useUser } from "@clerk/nextjs";
 import { useResponseHistory } from "@/lib/useResponseHistory";
 import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 
-const DEFAULT_BUSINESS_KEY = "vynta_default_business";
-
 const TONES = [
   { value: "professional", emoji: "💼", name: "Professional",    description: "Polished and composed" },
   { value: "friendly",     emoji: "😊", name: "Friendly",        description: "Warm and genuine" },
@@ -40,10 +38,12 @@ export default function AIReviewResponder() {
   const { count, limit, increment, atLimit } = useMonthlyUsage(plan);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DEFAULT_BUSINESS_KEY);
-      if (saved) setBusinessName(saved);
-    } catch {}
+    fetch("/api/user/settings")
+      .then((r) => r.json())
+      .then((data: { businessName?: string | null }) => {
+        if (data.businessName) setBusinessName(data.businessName);
+      })
+      .catch(() => {});
   }, []);
 
   const canSubmit =
@@ -124,7 +124,7 @@ export default function AIReviewResponder() {
     <div className="mt-8">
       <div className="mb-2 flex items-center gap-3">
         <div className="h-px w-8 bg-teal" />
-        <h2 className="font-display text-xl font-semibold text-tobacco">AI Review Responder</h2>
+        <h2 className="font-display text-xl font-semibold" style={{ color: "#4F46E5" }}>Vynta AI Responder</h2>
       </div>
 
       <p className="mb-4 text-xs text-tobacco-light/70">{usageLabel}</p>
@@ -177,7 +177,8 @@ export default function AIReviewResponder() {
                 >
                   <svg
                     viewBox="0 0 16 16"
-                    className={`h-6 w-6 ${star <= rating ? "text-sand-dark" : "text-cream-border"}`}
+                    className={`h-6 w-6 ${star <= rating ? "" : "text-cream-border"}`}
+                    style={star <= rating ? { color: "#4F46E5" } : undefined}
                     fill="currentColor"
                   >
                     <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />

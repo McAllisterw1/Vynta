@@ -4,13 +4,12 @@ import { useState, useEffect } from "react";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 import MarkdownContent from "@/components/ui/MarkdownContent";
-
-const HISTORY_KEY = "vynta_response_history";
-const REQUESTS_KEY = "vynta_requests_sent";
+import { useResponseHistory } from "@/lib/useResponseHistory";
+import { useMonthlyUsage } from "@/lib/useMonthlyUsage";
 
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
-  borderRadius: "16px",
+  borderRadius: "20px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
 };
 
@@ -29,13 +28,6 @@ const DIVIDER: React.CSSProperties = {
   borderBottom: "1px solid rgba(44,26,14,0.07)",
 };
 
-interface Entry {
-  id: string;
-  createdAt: string;
-  rating: number;
-  tone?: string;
-}
-
 interface WeeklyStats {
   reviews: number;
   requests: number;
@@ -43,18 +35,10 @@ interface WeeklyStats {
   unresponded: number;
 }
 
-function getMonthKey(d: Date) {
-  return `vynta_usage_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function barPath(x: number, topY: number, w: number, h: number, r: number): string {
-  const r2 = Math.min(r, h);
-  return `M ${x},${topY + r2} Q ${x},${topY} ${x + r2},${topY} H ${x + w - r2} Q ${x + w},${topY} ${x + w},${topY + r2} V ${topY + h} H ${x} Z`;
-}
 
 function isThisWeek(dateStr: string): boolean {
   try {
@@ -68,9 +52,9 @@ function isThisWeek(dateStr: string): boolean {
 }
 
 export default function AnalyticsScreen({ plan }: { plan?: string | null } = {}) {
-  const [history, setHistory] = useState<Entry[]>([]);
+  const { history } = useResponseHistory();
+  const { count: monthlyUsage } = useMonthlyUsage(plan);
   const [requestsSent, setRequestsSent] = useState(0);
-  const [monthlyUsage, setMonthlyUsage] = useState(0);
 
   // Score predictor
   const [ourTotalReviews, setOurTotalReviews] = useState(0);
@@ -83,82 +67,73 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
   const [weeklyTipLoading, setWeeklyTipLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw));
-      const req = localStorage.getItem(REQUESTS_KEY);
-      if (req) setRequestsSent(parseInt(req, 10) || 0);
-      const usage = localStorage.getItem(getMonthKey(new Date()));
-      if (usage) setMonthlyUsage(parseInt(usage, 10) || 0);
-    } catch {}
+    // Load reviews for score predictor and weekly stats
+    fetch("/api/user/reviews")
+      .then((r) => r.json())
+      .then((reviews: Array<{ date: string; responded: boolean; rating: number }>) => {
+        if (!Array.isArray(reviews)) return;
+        const total = reviews.length;
+        const avg = total > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / total : null;
+        setOurTotalReviews(total);
+        setOurAvgRating(avg !== null ? parseFloat(avg.toFixed(1)) : null);
+
+        setWeeklyStats((prev) => ({
+          ...prev,
+          reviews: reviews.filter((r) => isThisWeek(r.date)).length,
+          unresponded: reviews.filter((r) => !r.responded).length,
+        }));
+      })
+      .catch(() => {});
+
+    // Load campaigns for requests sent and weekly requests
+    fetch("/api/user/campaigns")
+      .then((r) => r.json())
+      .then((campaigns: Array<{ createdAt: string; contacts: unknown[] }>) => {
+        if (!Array.isArray(campaigns)) return;
+        const total = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
+        setRequestsSent(total);
+        const weeklyRequests = campaigns
+          .filter((c) => isThisWeek(c.createdAt))
+          .reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
+        setWeeklyStats((prev) => ({ ...prev, requests: weeklyRequests }));
+      })
+      .catch(() => {});
   }, []);
 
+  // Weekly responses stat from history (already fetched by hook)
   useEffect(() => {
-    // Score predictor data
-    try {
-      const raw = localStorage.getItem("vynta_stats");
-      if (raw) {
-        const s = JSON.parse(raw) as { totalReviews?: number; avgRating?: number | null };
-        setOurTotalReviews(s.totalReviews ?? 0);
-        setOurAvgRating(s.avgRating ?? null);
-      }
-    } catch {}
+    const weeklyResponses = history.filter((e) => isThisWeek(e.createdAt)).length;
+    setWeeklyStats((prev) => ({ ...prev, responses: weeklyResponses }));
+  }, [history]);
 
-    // Weekly stats
-    const weekly: WeeklyStats = { reviews: 0, requests: 0, responses: 0, unresponded: 0 };
-
-    try {
-      const raw = localStorage.getItem("vynta_our_reviews");
-      if (raw) {
-        const reviews = JSON.parse(raw) as Array<{ date: string; responded: boolean; text?: string; content?: string; body?: string }>;
-        weekly.reviews = reviews.filter((r) => isThisWeek(r.date)).length;
-        weekly.unresponded = reviews.filter((r) => !r.responded).length;
-      }
-    } catch {}
-
-    try {
-      const raw = localStorage.getItem("vynta_campaigns");
-      if (raw) {
-        const campaigns = JSON.parse(raw) as Array<{ createdAt: string; contacts: unknown[] }>;
-        weekly.requests = campaigns
-          .filter((c) => isThisWeek(c.createdAt))
-          .reduce((sum, c) => sum + c.contacts.length, 0);
-      }
-    } catch {}
-
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) {
-        const hist = JSON.parse(raw) as Array<{ createdAt: string }>;
-        weekly.responses = hist.filter((e) => isThisWeek(e.createdAt)).length;
-      }
-    } catch {}
-
-    setWeeklyStats(weekly);
-
+  // Fetch weekly tip from Claude
+  useEffect(() => {
     let weeklyCompetitorContext = "";
-    try {
-      const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
-      if (comps.length > 0) {
-        weeklyCompetitorContext = ` Competitor context: ${comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")}.`;
-      }
-    } catch {}
 
-    // Claude tip for the week
-    const system = "You are a reputation growth coach. Based on a business's weekly activity data, write exactly one short, specific, actionable next-step sentence (max 25 words). Be direct, coach-like, no fluff. Return plain text only — no JSON, no bullet points.";
-    const msg = `This week: ${weekly.reviews} reviews logged, ${weekly.requests} review requests sent, ${weekly.responses} AI responses generated, ${weekly.unresponded} reviews still awaiting a response.${weeklyCompetitorContext} What is the single most impactful thing they should do next?`;
-
-    fetch("/api/consultant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
-    })
-      .then((res) => res.json())
-      .then((data: { response?: string }) => {
-        setWeeklyTip(data.response?.trim() ?? "");
+    fetch("/api/user/competitors")
+      .then((r) => r.json())
+      .then((comps: Array<{ name: string; rating: number; reviewCount: number }>) => {
+        if (Array.isArray(comps) && comps.length > 0) {
+          weeklyCompetitorContext = ` Competitor context: ${comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")}.`;
+        }
       })
       .catch(() => {})
-      .finally(() => setWeeklyTipLoading(false));
+      .finally(() => {
+        const system = "You are a reputation growth coach. Based on a business's weekly activity data, write exactly one short, specific, actionable next-step sentence (max 25 words). Be direct, coach-like, no fluff. Return plain text only — no JSON, no bullet points.";
+        const msg = `This week: ${weeklyStats.reviews} reviews logged, ${weeklyStats.requests} review requests sent, ${weeklyStats.responses} AI responses generated, ${weeklyStats.unresponded} reviews still awaiting a response.${weeklyCompetitorContext} What is the single most impactful thing they should do next?`;
+
+        fetch("/api/consultant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+        })
+          .then((res) => res.json())
+          .then((data: { response?: string }) => {
+            setWeeklyTip(data.response?.trim() ?? "");
+          })
+          .catch(() => {})
+          .finally(() => setWeeklyTipLoading(false));
+      });
   }, []);
 
   // Score predictor helpers
@@ -215,13 +190,6 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
     { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—", badge: "Most used", desc: "Your most-used AI reply personality" },
   ];
 
-  const SLOT_W = 60;
-  const BAR_W = 20;
-  const BAR_X_OFFSET = (SLOT_W - BAR_W) / 2;
-  const CHART_BASE = 82;
-  const CHART_TOP = 10;
-  const CHART_H = CHART_BASE - CHART_TOP;
-
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "28px 24px 120px", display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -239,7 +207,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
-              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
+              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -251,14 +219,14 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
               <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
               <span style={BADGE}>{badge}</span>
               <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "8px" }}>{label}</p>
-              <p style={{ fontSize: "10px", color: "#2D9B8A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
+              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "4px", lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
 
         {/* Bar chart */}
-        <div style={{ ...CARD, height: "220px", padding: "18px 18px 16px", display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexShrink: 0 }}>
+        <div style={{ ...CARD, padding: "18px 18px 16px", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
             <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600 }}>
               Responses per Month
             </p>
@@ -270,40 +238,49 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
           </div>
 
           {history.length === 0 ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ padding: "24px 0", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <p style={{ fontSize: "13px", color: "#A0856A", textAlign: "center", lineHeight: 1.6 }}>
-                No responses generated yet.<br />Start by responding to a review on the Home tab.
+                No responses yet.<br />Start by responding to a review on the Home tab.
               </p>
             </div>
           ) : (
-            <svg viewBox="0 0 360 110" style={{ width: "100%", flex: 1 }} preserveAspectRatio="none">
-              <line x1={0} y1={CHART_TOP} x2={360} y2={CHART_TOP} stroke="#E8DDD0" strokeWidth={1} />
-              {months.map((m, i) => {
-                const x = i * SLOT_W + BAR_X_OFFSET;
-                const cx = i * SLOT_W + SLOT_W / 2;
-                const isZero = m.count === 0;
-                const barH = isZero ? 4 : Math.max((m.count / maxCount) * CHART_H, 6);
-                const topY = CHART_BASE - barH;
-                const fill = m.isCurrent ? "#7B3F1A" : "#C4874A";
-                return (
-                  <g key={m.key}>
-                    {isZero ? (
-                      <rect x={x} y={topY} width={BAR_W} height={barH} rx={2} fill="#E0D4C0" />
-                    ) : (
-                      <path d={barPath(x, topY, BAR_W, barH, 6)} fill={fill} />
-                    )}
-                    {!isZero && (
-                      <text x={cx} y={topY - 4} textAnchor="middle" fontSize={8} fill="#5C3A1E" fontWeight="700">
-                        {m.count}
-                      </text>
-                    )}
-                    <text x={cx} y={100} textAnchor="middle" fontSize={9} fill={m.isCurrent ? "#2C1A0E" : "#A0856A"} fontWeight={m.isCurrent ? "700" : "400"}>
-                      {m.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+            <div>
+              {/* Bars */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "100px" }}>
+                {months.map((m) => {
+                  const barH = m.count === 0 ? 3 : Math.max((m.count / maxCount) * 88, 8);
+                  return (
+                    <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: "4px", height: "100%" }}>
+                      {m.count > 0 && (
+                        <span style={{ fontSize: "9px", fontWeight: 700, color: "#5C3A1E" }}>{m.count}</span>
+                      )}
+                      <div style={{
+                        width: "100%",
+                        height: `${barH}px`,
+                        borderRadius: "5px 5px 3px 3px",
+                        background: m.count === 0
+                          ? "#E0D4C0"
+                          : m.isCurrent
+                          ? "linear-gradient(180deg, #7B3F1A 0%, #C4874A 100%)"
+                          : "linear-gradient(180deg, #C4874A 0%, #E0A06A 100%)",
+                      }} />
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Month labels */}
+              <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                {months.map((m) => (
+                  <div key={m.key} style={{ flex: 1, textAlign: "center" }}>
+                    <span style={{
+                      fontSize: "9px",
+                      fontWeight: m.isCurrent ? 700 : 400,
+                      color: m.isCurrent ? "#2C1A0E" : "#A0856A",
+                    }}>{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -313,7 +290,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
           <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>
             Score Predictor
           </p>
-          <p style={{ fontSize: "10px", color: "#2D9B8A", lineHeight: 1.5, marginBottom: "14px" }}>
+          <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5, marginBottom: "14px" }}>
             Set your goal rating and we calculate exactly how many new 5-star reviews you need to reach it. 4.5 is the default — the threshold most customers filter by on Google.
           </p>
 

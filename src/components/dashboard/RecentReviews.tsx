@@ -133,7 +133,7 @@ export default function RecentReviews() {
           </div>
           <p className="text-sm font-medium text-tobacco">No responses yet</p>
           <p className="mt-1 text-xs text-tobacco-light">
-            Use the AI Review Responder above to generate your first response.
+            Use the Vynta AI Responder above to generate your first response.
           </p>
         </div>
       ) : (

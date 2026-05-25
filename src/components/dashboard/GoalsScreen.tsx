@@ -5,11 +5,6 @@ import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 import MarkdownContent from "@/components/ui/MarkdownContent";
 
-const GOALS_KEY = "vynta_goals";
-const HISTORY_KEY = "vynta_response_history";
-const REQUESTS_KEY = "vynta_requests_sent";
-const CAMPAIGNS_KEY = "vynta_campaigns";
-
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
   borderRadius: "16px",
@@ -45,30 +40,16 @@ const TAB_INDEX: Record<string, number> = {
   home: 3,
 };
 
-function buildSystemPrompt(): string {
-  try {
-    const goals = JSON.parse(localStorage.getItem(GOALS_KEY) || "[]") as Goal[];
-    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]") as Array<{ rating: number; createdAt: string }>;
-    const requestsSent = localStorage.getItem(REQUESTS_KEY) || "0";
-    const campaigns = JSON.parse(localStorage.getItem(CAMPAIGNS_KEY) || "[]") as unknown[];
-    const now = new Date();
-    const monthKey = `vynta_usage_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const usage = localStorage.getItem(monthKey) || "0";
-    const avg = history.length > 0 ? (history.reduce((s, e) => s + e.rating, 0) / history.length).toFixed(1) : "N/A";
-    const goalsText = goals.length > 0
-      ? goals.map((g) => `"${g.title}" — ${g.current}/${g.target} (${g.completed ? "done" : "in progress"})`).join("; ")
-      : "No goals set yet.";
-    const competitors = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
-    const competitorText = competitors.length > 0
-      ? competitors.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ")
-      : "none added";
-    return `You are Vynta's AI Review Consultant — a sharp, friendly reputation coach for small business owners. You have access to this user's real data:\n\nGoals: ${goalsText}\nTotal responses generated: ${history.length}\nAverage rating: ${avg}\nReview requests sent: ${requestsSent}\nMonthly usage: ${usage} responses this month\nCampaigns: ${campaigns.length} sent\nCompetitors: ${competitorText}\n\nGive specific, actionable advice based on their actual numbers. Factor competitor context into your advice where relevant. Be concise, direct, and encouraging.`;
-  } catch {
-    return "You are Vynta's AI Review Consultant — a sharp, friendly reputation coach for small business owners. Give specific, actionable advice. Be concise, direct, and encouraging.";
-  }
-}
-
 const BLANK = { title: "", target: "", current: "", deadline: "" };
+
+const TEMPLATES = [
+  { id: "reviews",  emoji: "⭐", label: "Grow review count",   desc: "Get to a target number of Google reviews" },
+  { id: "rating",   emoji: "📈", label: "Improve rating",       desc: "Aim for a higher star average" },
+  { id: "requests", emoji: "📨", label: "Send more requests",   desc: "Track outbound review requests this month" },
+  { id: "training", emoji: "🎓", label: "Complete training",    desc: "Finish your reputation training modules" },
+  { id: "custom",   emoji: "✏️",  label: "Custom goal",          desc: "Set your own title and target" },
+] as const;
+type TemplateId = typeof TEMPLATES[number]["id"];
 
 interface Props {
   onNavigate?: (tab: number) => void;
@@ -79,6 +60,7 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(BLANK);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId | null>(null);
   const [trainingCompleted, setTrainingCompleted] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -91,19 +73,38 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [nextMovesLoading, setNextMovesLoading] = useState(true);
   const [greeting, setGreeting] = useState("");
 
+  // Consultant system prompt data
+  const [consultantData, setConsultantData] = useState({
+    businessName: "",
+    goalsText: "No goals set yet.",
+    historyCount: 0,
+    totalLoggedReviews: 0,
+    googleReviewCount: null as number | null,
+    avgRating: "N/A",
+    requestsSent: 0,
+    monthlyUsage: "0",
+    campaignsCount: 0,
+    competitorText: "none added",
+  });
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(GOALS_KEY);
-      if (stored) setGoals(JSON.parse(stored));
-    } catch {}
-    try {
-      const raw = localStorage.getItem("vynta_training");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const count = (parsed.completed as boolean[]).filter(Boolean).length;
-        setTrainingCompleted(count);
-      }
-    } catch {}
+    // Load goals from API
+    fetch("/api/user/goals")
+      .then((r) => r.json())
+      .then((data: Goal[]) => {
+        if (Array.isArray(data)) setGoals(data);
+      })
+      .catch(() => {});
+
+    // Load training from API
+    fetch("/api/user/training")
+      .then((r) => r.json())
+      .then((data: { completed?: boolean[] } | null) => {
+        if (data?.completed) {
+          setTrainingCompleted(data.completed.filter(Boolean).length);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch "Your Next Move" cards on mount
@@ -114,51 +115,87 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
     let unrespondedCount = 0;
     let trainingCount = 0;
     let responseHistoryCount = 0;
+    let competitorContext = "No competitor data available.";
 
-    try {
-      const stats = JSON.parse(localStorage.getItem("vynta_stats") || "null") as { totalReviews?: number; avgRating?: number | null } | null;
-      if (stats) {
-        totalReviews = stats.totalReviews ?? 0;
-        avgRating = stats.avgRating ?? null;
+    // Parallel fetches for all data needed
+    Promise.all([
+      fetch("/api/user/reviews").then((r) => r.json()).catch(() => []),
+      fetch("/api/user/campaigns").then((r) => r.json()).catch(() => []),
+      fetch("/api/user/training").then((r) => r.json()).catch(() => null),
+      fetch("/api/user/response-history").then((r) => r.json()).catch(() => []),
+      fetch("/api/user/competitors").then((r) => r.json()).catch(() => []),
+      fetch("/api/user/goals").then((r) => r.json()).catch(() => []),
+      fetch("/api/user/smart-inbox").then((r) => r.json()).catch(() => null),
+    ]).then(([reviews, campaigns, training, responseHistory, competitors, goalsData, smartInbox]) => {
+      // Reviews
+      if (Array.isArray(reviews)) {
+        totalReviews = reviews.length;
+        avgRating = reviews.length > 0
+          ? parseFloat((reviews.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviews.length).toFixed(1))
+          : null;
+        unrespondedCount = (reviews as Array<{ responded: boolean }>).filter((r) => !r.responded).length;
       }
-    } catch {}
 
-    try {
-      requestsSent = parseInt(localStorage.getItem("vynta_requests_sent") || "0", 10) || 0;
-    } catch {}
+      // Campaigns
+      if (Array.isArray(campaigns)) {
+        requestsSent = campaigns.reduce((sum: number, c: { contacts: unknown[] }) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
+      }
 
-    try {
-      const ourReviews = JSON.parse(localStorage.getItem("vynta_our_reviews") || "[]") as Array<{ responded: boolean }>;
-      unrespondedCount = ourReviews.filter((r) => !r.responded).length;
-    } catch {}
-
-    try {
-      const training = JSON.parse(localStorage.getItem("vynta_training") || "null") as { completed: boolean[] } | null;
+      // Training
       if (training?.completed) {
-        trainingCount = training.completed.filter(Boolean).length;
+        trainingCount = (training.completed as boolean[]).filter(Boolean).length;
       }
-    } catch {}
 
-    try {
-      const history = JSON.parse(localStorage.getItem("vynta_response_history") || "[]") as unknown[];
-      responseHistoryCount = history.length;
-    } catch {}
+      // Response history
+      if (Array.isArray(responseHistory)) {
+        responseHistoryCount = responseHistory.length;
+      }
 
-    // Build greeting from data — no API needed
-    const parts: string[] = [];
-    if (totalReviews > 0) {
-      parts.push(`${totalReviews} review${totalReviews !== 1 ? "s" : ""}`);
-      if (avgRating !== null) parts.push(`a ${avgRating} avg`);
-    }
-    if (unrespondedCount > 0) parts.push(`${unrespondedCount} unresponded`);
-    setGreeting(
-      parts.length > 0
-        ? `You have ${parts.join(", ")}. Here's what to do next.`
-        : "Here's what to focus on next."
-    );
+      // Competitors
+      if (Array.isArray(competitors) && competitors.length > 0) {
+        competitorContext = (competitors as Array<{ name: string; rating: number; reviewCount: number }>)
+          .map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+      }
 
-    // Call Claude for personalised next-move cards
-    const system = `You are a reputation growth coach inside the Vynta dashboard. Based on the user's real data, generate exactly 3 actionable next steps as a JSON array. Be specific to their numbers. Sound like a coach, not a robot. No fluff. Return only valid JSON, no markdown, no explanation.
+      // Goals for consultant
+      const goalsForConsultant = Array.isArray(goalsData) ? goalsData as Goal[] : [];
+
+      // Smart Inbox — verified Google data from Outscraper
+      const inbox = smartInbox as { enabled?: boolean; businessName?: string; lastKnownCount?: number } | null;
+      const googleReviewCount = inbox?.enabled ? (inbox.lastKnownCount ?? null) : null;
+      const businessName = inbox?.businessName ?? "";
+
+      // Update consultant data
+      setConsultantData({
+        businessName,
+        goalsText: goalsForConsultant.length > 0
+          ? goalsForConsultant.map((g) => `"${g.title}" — ${g.current}/${g.target} (${g.completed ? "done" : "in progress"})`).join("; ")
+          : "No goals set yet.",
+        historyCount: responseHistoryCount,
+        totalLoggedReviews: totalReviews,
+        googleReviewCount,
+        avgRating: avgRating !== null ? String(avgRating) : "N/A",
+        requestsSent,
+        monthlyUsage: "0",
+        campaignsCount: Array.isArray(campaigns) ? campaigns.length : 0,
+        competitorText: competitorContext === "No competitor data available." ? "none added" : competitorContext,
+      });
+
+      // Build greeting
+      const parts: string[] = [];
+      if (totalReviews > 0) {
+        parts.push(`${totalReviews} review${totalReviews !== 1 ? "s" : ""}`);
+        if (avgRating !== null) parts.push(`a ${avgRating} avg`);
+      }
+      if (unrespondedCount > 0) parts.push(`${unrespondedCount} unresponded`);
+      setGreeting(
+        parts.length > 0
+          ? `You have ${parts.join(", ")}. Here's what to do next.`
+          : "Here's what to focus on next."
+      );
+
+      // Call Claude for personalised next-move cards
+      const system = `You are a reputation growth coach inside the Vynta dashboard. Based on the user's real data, generate exactly 3 actionable next steps as a JSON array. Be specific to their numbers. Sound like a coach, not a robot. No fluff. Return only valid JSON, no markdown, no explanation.
 
 Each item in the array must have exactly these keys:
 - emoji: a single relevant emoji
@@ -167,15 +204,7 @@ Each item in the array must have exactly these keys:
 - action_label: 2-3 words (e.g. "Send Request", "Reply Now", "Start Training")
 - action_tab: exactly one of "requests", "reviews", "training", "home", "stats"`;
 
-    let competitorContext = "No competitor data available.";
-    try {
-      const comps = JSON.parse(localStorage.getItem("vynta_competitors") || "[]") as Array<{ name: string; rating: number; reviewCount: number }>;
-      if (comps.length > 0) {
-        competitorContext = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
-      }
-    } catch {}
-
-    const userMessage = `User data:
+      const userMessage = `User data:
 - Total logged reviews: ${totalReviews}
 - Average rating: ${avgRating ?? "no data yet"}
 - Review requests sent: ${requestsSent}
@@ -186,10 +215,11 @@ Each item in the array must have exactly these keys:
 
 Generate 3 specific, coach-style next steps. Where relevant, reference how this business compares to its competitors.`;
 
-    fetch("/api/consultant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system, messages: [{ role: "user", content: userMessage }] }),
+      return fetch("/api/consultant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, messages: [{ role: "user", content: userMessage }] }),
+      });
     })
       .then((res) => res.json())
       .then((data: { response?: string }) => {
@@ -215,30 +245,101 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  function save(updated: Goal[]) {
-    setGoals(updated);
-    try { localStorage.setItem(GOALS_KEY, JSON.stringify(updated)); } catch {}
-  }
-
-  function addGoal() {
+  async function addGoal() {
     if (!form.title.trim() || !form.target) return;
-    save([...goals, {
-      id: crypto.randomUUID(),
+    const payload = {
       title: form.title.trim(),
       target: Math.max(1, Number(form.target) || 1),
       current: Math.max(0, Number(form.current) || 0),
       deadline: form.deadline,
       completed: false,
-    }]);
+    };
+    // Optimistic update with temp id
+    const tempId = `temp-${Date.now()}`;
+    setGoals((prev) => [...prev, { ...payload, id: tempId }]);
     setForm(BLANK);
     setShowForm(false);
+    try {
+      const res = await fetch("/api/user/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json() as Goal;
+        setGoals((prev) => prev.map((g) => g.id === tempId ? created : g));
+      }
+    } catch {}
   }
 
-  function toggleComplete(id: string) {
-    save(goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g)));
+  function selectTemplate(id: TemplateId) {
+    const googleCount = consultantData.googleReviewCount ?? consultantData.totalLoggedReviews;
+    const currentRating = consultantData.avgRating !== "N/A" ? Math.round(parseFloat(consultantData.avgRating)) : 4;
+
+    let title = "";
+    let target = "";
+    let current = "0";
+
+    switch (id) {
+      case "reviews": {
+        const suggested = googleCount < 25 ? 25 : googleCount < 50 ? 50 : googleCount < 100 ? 100 : Math.ceil(googleCount * 1.5 / 25) * 25;
+        title = `Get to ${suggested} Google reviews`;
+        target = String(suggested);
+        current = String(googleCount);
+        break;
+      }
+      case "rating":
+        title = "Hit a 5-star average";
+        target = "5";
+        current = String(currentRating);
+        break;
+      case "requests":
+        title = "Send 20 review requests this month";
+        target = "20";
+        current = "0";
+        break;
+      case "training":
+        title = "Complete all 5 training modules";
+        target = "5";
+        current = String(trainingCompleted);
+        break;
+      case "custom":
+        title = "";
+        target = "";
+        current = "0";
+        break;
+    }
+    setForm({ title, target, current, deadline: "" });
+    setSelectedTemplate(id);
   }
-  function deleteGoal(id: string) {
-    save(goals.filter((g) => g.id !== id));
+
+  function cancelGoalForm() {
+    setShowForm(false);
+    setSelectedTemplate(null);
+    setForm(BLANK);
+  }
+
+  async function toggleComplete(id: string) {
+    const goal = goals.find((g) => g.id === id);
+    if (!goal) return;
+    const completed = !goal.completed;
+    // Optimistic update
+    setGoals((prev) => prev.map((g) => g.id === id ? { ...g, completed } : g));
+    try {
+      await fetch(`/api/user/goals/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+    } catch {}
+  }
+
+  async function deleteGoal(id: string) {
+    // Optimistic update
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    try {
+      await fetch(`/api/user/goals/${id}`, { method: "DELETE" });
+    } catch {}
   }
 
   function handleNextMoveAction(tab: string) {
@@ -248,6 +349,26 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
     }
     const idx = TAB_INDEX[tab];
     if (idx !== undefined && onNavigate) onNavigate(idx);
+  }
+
+  function buildSystemPrompt(): string {
+    const reviewLine = consultantData.googleReviewCount !== null
+      ? `${consultantData.googleReviewCount} verified on Google (live sync), ${consultantData.totalLoggedReviews} imported into Vynta — ${consultantData.avgRating} star average`
+      : `${consultantData.totalLoggedReviews} logged in Vynta — ${consultantData.avgRating} star average`;
+
+    return `You are Vynta — a sharp, straight-talking reputation strategist who has helped hundreds of local businesses dominate their Google rankings. You are working with ${consultantData.businessName || "this business"} right now.
+
+You know the local service business game cold. You give direct, specific advice — no hedging, no filler. When there's an easy win, you point to it immediately. When something isn't working, you say so plainly and tell them what to do instead. You have a confident edge but you're rooting for them.
+
+This user's real data:
+- Reviews: ${reviewLine}
+- Goals: ${consultantData.goalsText}
+- AI responses generated: ${consultantData.historyCount}
+- Review requests sent: ${consultantData.requestsSent}
+- Campaigns sent: ${consultantData.campaignsCount}
+- Competitors: ${consultantData.competitorText}
+
+Give specific, actionable advice based on their actual numbers. Never start a response with "Great question" or any filler opener. Get straight to the point.`;
   }
 
   async function sendPrompt(text: string) {
@@ -283,7 +404,7 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
         {/* ── Your Next Move ── */}
         <div>
           <div style={{ marginBottom: "10px" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "4px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5", marginBottom: "4px" }}>
               ⚡ Your Next Move
             </p>
             <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.5 }}>{greeting}</p>
@@ -367,34 +488,108 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
             <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "#2C1A0E" }}>Goals</h2>
             <button
               type="button"
-              onClick={() => setShowForm((v) => !v)}
+              onClick={() => {
+                const next = !showForm;
+                setShowForm(next);
+                if (next) { setSelectedTemplate(null); setForm(BLANK); }
+              }}
               style={{ background: "#2D9B8A", color: "white", borderRadius: "20px", padding: "6px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
             >
-              + Add
+              {showForm ? "✕" : "+ Add"}
             </button>
           </div>
 
           {showForm && (
-            <div style={{ ...CARD, padding: "14px", marginBottom: "12px" }}>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Goal title"
-                style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", width: "100%", outline: "none", marginBottom: "8px", boxSizing: "border-box" }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
-                <input type="number" value={form.target} onChange={(e) => setForm((f) => ({ ...f, target: e.target.value }))} placeholder="Target" min={1}
-                  style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none" }} />
-                <input type="number" value={form.current} onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))} placeholder="Current" min={0}
-                  style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none" }} />
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="button" onClick={addGoal} disabled={!form.title.trim() || !form.target}
-                  style={{ background: "#2C1A0E", color: "white", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>Add</button>
-                <button type="button" onClick={() => { setShowForm(false); setForm(BLANK); }}
-                  style={{ background: "white", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 500, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer" }}>Cancel</button>
-              </div>
+            <div style={{ ...CARD, padding: "16px", marginBottom: "12px" }}>
+              {selectedTemplate === null ? (
+                /* ── Step 1: template picker ── */
+                <div>
+                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "12px" }}>
+                    What do you want to achieve?
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => selectTemplate(t.id)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "12px",
+                          background: "white", border: "none", borderRadius: "10px",
+                          padding: "11px 14px", cursor: "pointer", textAlign: "left",
+                          boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
+                        }}
+                      >
+                        <span style={{ fontSize: "20px", lineHeight: 1, flexShrink: 0 }}>{t.emoji}</span>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", margin: 0 }}>{t.label}</p>
+                          <p style={{ fontSize: "11px", color: "#A0856A", margin: 0, marginTop: "2px" }}>{t.desc}</p>
+                        </div>
+                        <svg viewBox="0 0 16 16" fill="none" stroke="#A0856A" strokeWidth="1.5" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 3l5 5-5 5" />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={cancelGoalForm}
+                    style={{ marginTop: "10px", background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", padding: "4px 0" }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                /* ── Step 2: pre-filled form ── */
+                <div>
+                  <button type="button" onClick={() => setSelectedTemplate(null)}
+                    style={{ background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", padding: "0 0 12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: "12px", height: "12px" }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 13L5 8l5-5" />
+                    </svg>
+                    Back
+                  </button>
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Goal title"
+                    style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", width: "100%", outline: "none", marginBottom: "8px", boxSizing: "border-box" }}
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 600, color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Target</p>
+                      <input
+                        type="number"
+                        value={form.target}
+                        onChange={(e) => setForm((f) => ({ ...f, target: e.target.value }))}
+                        placeholder="e.g. 100"
+                        min={1}
+                        autoFocus={selectedTemplate === "custom"}
+                        style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" }}
+                      />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 600, color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Current</p>
+                      <input
+                        type="number"
+                        value={form.current}
+                        onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))}
+                        placeholder="e.g. 0"
+                        min={0}
+                        style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button type="button" onClick={addGoal} disabled={!form.title.trim() || !form.target}
+                      style={{ background: "#2C1A0E", color: "white", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer", opacity: (!form.title.trim() || !form.target) ? 0.4 : 1 }}>
+                      Add Goal
+                    </button>
+                    <button type="button" onClick={cancelGoalForm}
+                      style={{ background: "white", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 500, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -459,8 +654,8 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
 
           {/* Chat header */}
           <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid rgba(44,26,14,0.07)", flexShrink: 0 }}>
-            <p className="font-display" style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E" }}>AI Review Consultant</p>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Powered by your real data. Ask anything.</p>
+            <p className="font-display" style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E" }}>Ask Vynta</p>
+            <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Your reputation strategist. Ask anything — she&apos;ll tell you exactly what to do.</p>
           </div>
 
           {/* Messages */}
@@ -541,7 +736,7 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask your review consultant…"
+                placeholder="Ask Vynta…"
                 disabled={loading}
                 style={{ flex: 1, background: "white", borderRadius: "99px", border: "none", boxShadow: "0 2px 8px rgba(44,26,14,0.1)", padding: "11px 18px", fontSize: "13px", color: "#2C1A0E", outline: "none" }}
               />

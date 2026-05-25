@@ -3,17 +3,15 @@
 import { useState, useEffect } from "react";
 import { useResponseHistory } from "@/lib/useResponseHistory";
 
-const REQUESTS_KEY = "vynta_requests_sent";
-
 export default function StatCards() {
   const { history } = useResponseHistory();
   const [requestsSent, setRequestsSent] = useState(0);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(REQUESTS_KEY);
-      if (stored) setRequestsSent(parseInt(stored, 10) || 0);
-    } catch {}
+    fetch("/api/user/usage")
+      .then((r) => r.json())
+      .then((data: { count?: number }) => setRequestsSent(data.count ?? 0))
+      .catch(() => {});
   }, []);
 
   const now = new Date();
@@ -77,9 +75,9 @@ export default function StatCards() {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-sm border border-cream-border bg-sand-pale p-6"
+          className="rounded-2xl border border-cream-border bg-sand-pale p-6"
         >
-          <div className="mb-4 inline-flex rounded-sm bg-cream p-2 text-teal border border-cream-border">
+          <div className="mb-4 inline-flex rounded-xl bg-cream p-2 text-teal border border-cream-border">
             {stat.icon}
           </div>
           <p className="text-xs font-medium uppercase tracking-[0.12em] text-tobacco-light mb-1">

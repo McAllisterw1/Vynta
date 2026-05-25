@@ -10,11 +10,9 @@ const AI_RESPONSE_LIMITS: Record<string, number | null> = {
 
 const FREE_LIMIT = 5;
 
-function getMonthKey() {
+function getCurrentYearMonth() {
   const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  return `vynta_usage_${yyyy}_${mm}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export function getResponseLimit(plan: string | null | undefined): number | null {
@@ -27,21 +25,24 @@ export function getResponseLimit(plan: string | null | undefined): number | null
 export function useMonthlyUsage(plan: string | null | undefined) {
   const [count, setCount] = useState(0);
   const limit = getResponseLimit(plan);
+  const yearMonth = getCurrentYearMonth();
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(getMonthKey());
-      setCount(raw ? parseInt(raw, 10) || 0 : 0);
-    } catch {}
-  }, []);
+    fetch(`/api/user/usage?yearMonth=${yearMonth}`)
+      .then((res) => res.json())
+      .then((data: { count: number }) => setCount(data.count))
+      .catch(() => {});
+  }, [yearMonth]);
 
-  function increment() {
+  async function increment() {
     try {
-      const key = getMonthKey();
-      const raw = localStorage.getItem(key);
-      const next = (raw ? parseInt(raw, 10) || 0 : 0) + 1;
-      localStorage.setItem(key, String(next));
-      setCount(next);
+      const res = await fetch("/api/user/usage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ yearMonth }),
+      });
+      const data = await res.json() as { count: number };
+      setCount(data.count);
     } catch {}
   }
 
