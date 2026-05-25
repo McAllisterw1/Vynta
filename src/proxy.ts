@@ -19,7 +19,7 @@ export const proxy = clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
 
   if (isAdminRoute(request)) {
-    const adminId = process.env.ADMIN_USER_ID
+    const adminId = process.env.ADMIN_USER_ID?.trim()
     if (!adminId || userId !== adminId) {
       return NextResponse.redirect(new URL('/', request.url))
     }
