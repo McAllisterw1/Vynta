@@ -24,14 +24,15 @@ export function getResponseLimit(plan: string | null | undefined): number | null
 
 // Module-level cache keyed by yearMonth
 const usageCache: Record<string, { count: number; ts: number }> = {};
-const usageInflight: Record<string, Promise<number>> = {};
+const usageInflight: Partial<Record<string, Promise<number>>> = {};
 const TTL = 60_000;
 
 function fetchUsage(yearMonth: string): Promise<number> {
   const cached = usageCache[yearMonth];
   if (cached && Date.now() - cached.ts < TTL) return Promise.resolve(cached.count);
-  if (usageInflight[yearMonth]) return usageInflight[yearMonth];
-  usageInflight[yearMonth] = fetch(`/api/user/usage?yearMonth=${yearMonth}`)
+  const existing = usageInflight[yearMonth];
+  if (existing) return existing;
+  const promise = fetch(`/api/user/usage?yearMonth=${yearMonth}`)
     .then((r) => r.json() as Promise<{ count: number }>)
     .then(({ count }) => {
       usageCache[yearMonth] = { count, ts: Date.now() };
@@ -42,7 +43,8 @@ function fetchUsage(yearMonth: string): Promise<number> {
       delete usageInflight[yearMonth];
       throw err;
     });
-  return usageInflight[yearMonth];
+  usageInflight[yearMonth] = promise;
+  return promise;
 }
 
 export function useMonthlyUsage(plan: string | null | undefined) {
