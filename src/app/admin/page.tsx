@@ -36,14 +36,25 @@ async function fetchStripe() {
   const subs = await stripe.subscriptions.list({
     status: "active",
     limit: 100,
-    expand: ["data.items.data.price"],
+    expand: ["data.items.data.price", "data.discount"],
   });
 
   const planMap = new Map<string, { name: string; count: number; unitMrr: number }>();
+  let skipped = 0;
   for (const sub of subs.data) {
     const price = sub.items.data[0]?.price;
     if (!price) continue;
+
+    // Skip comped accounts: free price, 100% percent coupon, or amount_off >= full price
     const amount   = price.unit_amount ?? 0;
+    const discount = (sub as { discount?: { coupon?: { percent_off?: number; amount_off?: number } } }).discount;
+    const coupon   = discount?.coupon;
+    const isComped =
+      amount === 0 ||
+      coupon?.percent_off === 100 ||
+      (coupon?.amount_off != null && coupon.amount_off >= amount);
+    if (isComped) { skipped++; continue; }
+
     const interval = price.recurring?.interval ?? "month";
     const existing = planMap.get(price.id);
     if (existing) {
@@ -55,7 +66,7 @@ async function fetchStripe() {
 
   const plans    = Array.from(planMap.values()).map((p) => ({ ...p, totalMrr: p.count * p.unitMrr }));
   const totalMrr = plans.reduce((s, p) => s + p.totalMrr, 0);
-  return { plans, totalMrr, activeSubCount: subs.data.length };
+  return { plans, totalMrr, activeSubCount: subs.data.length - skipped, skipped };
 }
 
 async function fetchTwilio() {
@@ -157,7 +168,7 @@ export default async function AdminPage() {
       fetchDbStats(),
     ]);
 
-  const stripe   = stripeRes.status   === "fulfilled" ? stripeRes.value   : { plans: [], totalMrr: 0, activeSubCount: 0 };
+  const stripe   = stripeRes.status   === "fulfilled" ? stripeRes.value   : { plans: [], totalMrr: 0, activeSubCount: 0, skipped: 0 };
   const twilio   = twilioRes.status   === "fulfilled" ? twilioRes.value   : { smsCount: 0, cost: 0 };
   const outscraper = outscraperRes.status === "fulfilled" ? outscraperRes.value : null;
   const serper   = serperRes.status   === "fulfilled" ? serperRes.value   : null;
@@ -188,7 +199,10 @@ export default async function AdminPage() {
             <div style={CARD}>
               <p style={{ fontSize: "10px", color: "#7ba8a4", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" }}>MRR</p>
               <p style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1a2e2b", lineHeight: 1 }}>{usd(stripe.totalMrr)}</p>
-              <p style={{ fontSize: "11px", color: "#7ba8a4", marginTop: "6px" }}>{stripe.activeSubCount} active sub{stripe.activeSubCount !== 1 ? "s" : ""}</p>
+              <p style={{ fontSize: "11px", color: "#7ba8a4", marginTop: "6px" }}>
+                {stripe.activeSubCount} active sub{stripe.activeSubCount !== 1 ? "s" : ""}
+                {stripe.skipped > 0 && <span style={{ marginLeft: "6px", color: "#b2ddd9" }}>({stripe.skipped} comped)</span>}
+              </p>
             </div>
 
             <div style={CARD}>
@@ -342,6 +356,7 @@ export default async function AdminPage() {
                 {[
                   { label: "Total accounts",               value: db.totalAccounts.toLocaleString() },
                   { label: "Active paid subscriptions",    value: stripe.activeSubCount.toLocaleString() },
+                  { label: "Comped accounts",              value: stripe.skipped.toLocaleString() },
                   { label: "New signups this month",       value: db.newSignupsThisMonth.toLocaleString() },
                   { label: "Free accounts",                value: Math.max(0, db.totalAccounts - stripe.activeSubCount).toLocaleString() },
                 ].map((row) => (
