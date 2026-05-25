@@ -178,3 +178,12 @@ model MonthlyUsage {
 
   @@unique([userId, yearMonth])
 }
+
+model ApiLog {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  tokensUsed    Int      @default(0)
+  estimatedCost Float    @default(0)
+
+  @@index([createdAt])
+}
