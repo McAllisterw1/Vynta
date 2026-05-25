@@ -146,7 +146,7 @@ export default function Pricing() {
                       <span className="mb-1 text-sm text-sand-light/60">/ year</span>
                     </div>
                     <p className="mt-2 text-sm text-sand-light/60">
-                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · save ${(plan as YearlyPlan).savingsAmount}
+                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · 2 months free
                     </p>
                   </div>
                 ) : (
