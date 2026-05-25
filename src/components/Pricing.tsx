@@ -126,10 +126,15 @@ export default function Pricing() {
                 key={plan.name}
                 className="relative flex flex-col rounded-sm bg-tobacco p-8 shadow-xl"
               >
-                <div className="absolute -top-3.5 left-8">
+                <div className="absolute -top-3.5 left-8 flex gap-2">
                   <span className="rounded-sm bg-teal px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cream">
                     Most Popular
                   </span>
+                  {plan.billing === 'yearly' && (
+                    <span className="rounded-sm bg-sand px-3 py-1 text-xs font-semibold uppercase tracking-wider text-tobacco">
+                      2 months free
+                    </span>
+                  )}
                 </div>
 
                 <div className="mb-6 pt-2">
@@ -146,7 +151,7 @@ export default function Pricing() {
                       <span className="mb-1 text-sm text-sand-light/60">/ year</span>
                     </div>
                     <p className="mt-2 text-sm text-sand-light/60">
-                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · 2 months free
+                      just ${(plan as YearlyPlan).monthlyEquiv}/mo · save ${(plan as YearlyPlan).savingsAmount}
                     </p>
                   </div>
                 ) : (
