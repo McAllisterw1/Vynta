@@ -10,20 +10,9 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin
 
   if (plan === 'starter') {
-    // Monthly — price created inline, no pre-existing Stripe price needed
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: 'Vynta Starter' },
-            unit_amount: PLANS.starter.price * 100,
-            recurring: { interval: 'month' },
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: PLANS.starter.priceId, quantity: 1 }],
       metadata: { plan, ...(userId && { userId }) },
       subscription_data: { trial_period_days: 14, metadata: { plan, ...(userId && { userId }) } },
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
