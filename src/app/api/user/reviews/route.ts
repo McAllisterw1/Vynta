@@ -4,13 +4,16 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const slim = new URL(request.url).searchParams.get("slim") === "true";
 
   const reviews = await prisma.review.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    ...(slim ? { select: { id: true, rating: true, date: true, responded: true, seen: true, smartInbox: true, externalId: true } } : {}),
   });
 
   return NextResponse.json(reviews);

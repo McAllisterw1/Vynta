@@ -68,7 +68,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
 
   useEffect(() => {
     // Load reviews for score predictor and weekly stats
-    fetch("/api/user/reviews")
+    fetch("/api/user/reviews?slim=true")
       .then((r) => r.json())
       .then((reviews: Array<{ date: string; responded: boolean; rating: number }>) => {
         if (!Array.isArray(reviews)) return;

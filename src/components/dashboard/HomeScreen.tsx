@@ -166,7 +166,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
       .catch(() => {});
 
     // Load reviews from API for stats and crisis detection
-    fetch("/api/user/reviews")
+    fetch("/api/user/reviews?slim=true")
       .then((r) => r.json())
       .then((reviews: CrisisReview[]) => {
         if (!Array.isArray(reviews)) return;

@@ -22,16 +22,36 @@ export function getResponseLimit(plan: string | null | undefined): number | null
   return limit;
 }
 
+// Module-level cache keyed by yearMonth
+const usageCache: Record<string, { count: number; ts: number }> = {};
+const usageInflight: Record<string, Promise<number>> = {};
+const TTL = 60_000;
+
+function fetchUsage(yearMonth: string): Promise<number> {
+  const cached = usageCache[yearMonth];
+  if (cached && Date.now() - cached.ts < TTL) return Promise.resolve(cached.count);
+  if (usageInflight[yearMonth]) return usageInflight[yearMonth];
+  usageInflight[yearMonth] = fetch(`/api/user/usage?yearMonth=${yearMonth}`)
+    .then((r) => r.json() as Promise<{ count: number }>)
+    .then(({ count }) => {
+      usageCache[yearMonth] = { count, ts: Date.now() };
+      delete usageInflight[yearMonth];
+      return count;
+    })
+    .catch((err) => {
+      delete usageInflight[yearMonth];
+      throw err;
+    });
+  return usageInflight[yearMonth];
+}
+
 export function useMonthlyUsage(plan: string | null | undefined) {
-  const [count, setCount] = useState(0);
-  const limit = getResponseLimit(plan);
   const yearMonth = getCurrentYearMonth();
+  const limit = getResponseLimit(plan);
+  const [count, setCount] = useState(usageCache[yearMonth]?.count ?? 0);
 
   useEffect(() => {
-    fetch(`/api/user/usage?yearMonth=${yearMonth}`)
-      .then((res) => res.json())
-      .then((data: { count: number }) => setCount(data.count))
-      .catch(() => {});
+    fetchUsage(yearMonth).then(setCount).catch(() => {});
   }, [yearMonth]);
 
   async function increment() {
@@ -42,6 +62,7 @@ export function useMonthlyUsage(plan: string | null | undefined) {
         body: JSON.stringify({ yearMonth }),
       });
       const data = await res.json() as { count: number };
+      usageCache[yearMonth] = { count: data.count, ts: Date.now() };
       setCount(data.count);
     } catch {}
   }
