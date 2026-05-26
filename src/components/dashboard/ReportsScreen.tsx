@@ -48,6 +48,7 @@ interface SentimentAnalysis {
     recommendedAction: string;
   };
   operationalRecommendations: string[];
+  lastAnalyzedAt?: string;
 }
 
 const BLANK_COMPETITOR = { name: "", rating: "", reviewCount: "" };
@@ -142,6 +143,7 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [sentimentLoading, setSentimentLoading] = useState(false);
   const [sentimentCacheKey, setSentimentCacheKey] = useState("");
   const [cacheStatus, setCacheStatus] = useState<"match" | "stale" | null>(null);
+  const [sentimentLastRun, setSentimentLastRun] = useState<string | null>(null);
 
   useEffect(() => {
     // Load competitors from API
@@ -171,6 +173,7 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
         // Compare cache key after reviews are loaded (will re-run when sentimentCacheKey is set)
         if (data.data) {
           setSentimentData(data.data);
+          if (data.data.lastAnalyzedAt) setSentimentLastRun(data.data.lastAnalyzedAt);
         }
         // Store cache key for comparison
         if (data.cacheKey) {
@@ -261,8 +264,10 @@ ${reviewsText}`;
       const raw = (data.response ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON in response");
-      const parsed = JSON.parse(jsonMatch[0]) as SentimentAnalysis;
+      const now = new Date().toISOString();
+      const parsed: SentimentAnalysis = { ...JSON.parse(jsonMatch[0]) as SentimentAnalysis, lastAnalyzedAt: now };
       setSentimentData(parsed);
+      setSentimentLastRun(now);
       setCacheStatus("match");
       // Persist to cache — future: store per-month snapshots for longitudinal trend charts
       await fetch("/api/user/sentiment-cache", {
@@ -820,32 +825,38 @@ ${reviewsText}`;
                 AI-powered · {ourReviews.length} review{ourReviews.length !== 1 ? "s" : ""} analyzed
               </p>
             </div>
-            {sentimentData && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                {cacheStatus === "stale" && (
-                  <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
-                )}
-                {cacheStatus === "match" && (
-                  <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
-                )}
-                <button
-                  type="button"
-                  onClick={analyzeSentiment}
-                  disabled={sentimentLoading || cacheStatus === "match"}
-                  aria-label="Refresh sentiment"
-                  style={{
-                    background: "none", border: "none",
-                    cursor: (sentimentLoading || cacheStatus === "match") ? "default" : "pointer",
-                    color: "#A0856A", padding: "2px", lineHeight: 0,
-                    opacity: (sentimentLoading || cacheStatus === "match") ? 0.4 : 1,
-                  }}
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
-                    <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            )}
+            {sentimentData && (() => {
+              const hoursLeft = sentimentLastRun
+                ? Math.ceil(24 - (Date.now() - new Date(sentimentLastRun).getTime()) / 3_600_000)
+                : 0;
+              const coolingDown = hoursLeft > 0;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {coolingDown
+                    ? <span style={{ fontSize: "10px", color: "#A0856A", fontWeight: 600 }}>Refresh in {hoursLeft}h</span>
+                    : cacheStatus === "stale"
+                    ? <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
+                    : <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
+                  }
+                  <button
+                    type="button"
+                    onClick={analyzeSentiment}
+                    disabled={sentimentLoading || coolingDown}
+                    aria-label="Refresh sentiment"
+                    style={{
+                      background: "none", border: "none",
+                      cursor: (sentimentLoading || coolingDown) ? "default" : "pointer",
+                      color: "#A0856A", padding: "2px", lineHeight: 0,
+                      opacity: (sentimentLoading || coolingDown) ? 0.4 : 1,
+                    }}
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
+                      <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           {ourReviews.length < 3 ? (

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   try {
     const params = new URLSearchParams({
       query: placeId,
-      reviewsLimit: "25",
+      reviewsLimit: "100",
       sort: "newest",
       language: "en",
       async: "false",
