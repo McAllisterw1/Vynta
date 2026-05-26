@@ -29,6 +29,27 @@ interface Competitor {
   reviewCount: number;
 }
 
+interface SentimentAnalysis {
+  positive: number;
+  neutral: number;
+  negative: number;
+  trending: "improving" | "declining" | "stable";
+  keywords: string[];
+  summary: string;
+  complaintThemes: Array<{ theme: string; severity: "low" | "medium" | "high" }>;
+  praiseThemes: string[];
+  actionableInsights: string[];
+  risks: Array<{ description: string; severity: "low" | "medium" | "high" }>;
+  executiveSummary: {
+    improved: string;
+    declined: string;
+    biggestRisk: string;
+    biggestOpportunity: string;
+    recommendedAction: string;
+  };
+  operationalRecommendations: string[];
+}
+
 const BLANK_COMPETITOR = { name: "", rating: "", reviewCount: "" };
 const INPUT: React.CSSProperties = {
   background: "white",
@@ -117,10 +138,7 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
 
   // Sentiment analysis
   const [ourReviews, setOurReviews] = useState<Array<{ id?: string; text?: string }>>([]);
-  const [sentimentData, setSentimentData] = useState<{
-    positive: number; neutral: number; negative: number;
-    keywords: string[]; summary: string;
-  } | null>(null);
+  const [sentimentData, setSentimentData] = useState<SentimentAnalysis | null>(null);
   const [sentimentLoading, setSentimentLoading] = useState(false);
   const [sentimentCacheKey, setSentimentCacheKey] = useState("");
   const [cacheStatus, setCacheStatus] = useState<"match" | "stale" | null>(null);
@@ -148,7 +166,7 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
     // Load sentiment cache from API
     fetch("/api/user/sentiment-cache")
       .then((r) => r.json())
-      .then((data: { cacheKey?: string; data?: { positive: number; neutral: number; negative: number; keywords: string[]; summary: string } } | null) => {
+      .then((data: { cacheKey?: string; data?: SentimentAnalysis } | null) => {
         if (!data) return;
         // Compare cache key after reviews are loaded (will re-run when sentimentCacheKey is set)
         if (data.data) {
@@ -188,21 +206,51 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   async function analyzeSentiment() {
     if (ourReviews.length < 3 || sentimentLoading) return;
     setSentimentLoading(true);
-    const system = "You are a sentiment analysis engine. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.";
+
+    const system = "You are a reputation intelligence engine for local businesses. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.";
+
+    // Cap at 150 reviews to stay within token budget
+    // Future optimization: chunk large sets and merge results per-month
     const reviewsText = ourReviews
+      .slice(0, 150)
       .map((r, i) => `${i + 1}. ${r.text ?? ""}`)
-      .filter((line) => line.trim().length > 3)
+      .filter((line) => line.trim().length > 5)
       .join("\n");
-    const msg = `Analyze the sentiment of these customer reviews and return ONLY a JSON object with no markdown or backticks:
+
+    const msg = `Analyze these customer reviews for a local business and return ONLY a raw JSON object — no markdown, no backticks, no extra text.
+
+Return exactly this structure:
 {
-  "positive": <integer percentage 0-100>,
-  "neutral": <integer percentage 0-100>,
-  "negative": <integer percentage 0-100>,
-  "keywords": [<array of 6 most mentioned words or themes, each a short string, no filler words like 'the' or 'and'>],
-  "summary": <one sentence describing the overall sentiment trend>
+  "positive": <integer 0-100>,
+  "neutral": <integer 0-100>,
+  "negative": <integer 0-100>,
+  "trending": "<improving|declining|stable — compare sentiment of first half vs second half of reviews>",
+  "keywords": ["<6 most-mentioned themes, short strings, no filler words>"],
+  "summary": "<one sentence overall sentiment>",
+  "complaintThemes": [{ "theme": "<e.g. Wait times, Poor communication, Staff attitude, Pricing, Cleanliness, Scheduling>", "severity": "<low|medium|high>" }],
+  "praiseThemes": ["<e.g. Friendly staff, Fast service, Professionalism, Quality work, Reliability>"],
+  "actionableInsights": ["<specific insight e.g. 'Communication complaints appear in 4 of the last 10 reviews'>"],
+  "risks": [{ "description": "<e.g. Legal-risk language detected in 1 review, Refund demand mentioned>", "severity": "<low|medium|high>" }],
+  "executiveSummary": {
+    "improved": "<what improved this period, or Nothing notable this period>",
+    "declined": "<what declined, or Nothing notable>",
+    "biggestRisk": "<biggest risk, or None identified>",
+    "biggestOpportunity": "<biggest opportunity for this business>",
+    "recommendedAction": "<single most important recommended action>"
+  },
+  "operationalRecommendations": ["<concrete operational recommendation>"]
 }
+
+Rules:
+- Only include complaintThemes actually present in the reviews (max 5, empty array if none)
+- Only include praiseThemes actually present (max 5)
+- Only flag genuine risks (max 3, empty array if none)
+- 2-4 actionableInsights, 2-3 operationalRecommendations
+- Do not fabricate data not found in the reviews
+
 Reviews:
 ${reviewsText}`;
+
     try {
       const res = await fetch("/api/consultant", {
         method: "POST",
@@ -210,18 +258,20 @@ ${reviewsText}`;
         body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
       });
       const data = (await res.json()) as { response?: string };
-      const raw = (data.response ?? "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(raw) as { positive: number; neutral: number; negative: number; keywords: string[]; summary: string };
+      const raw = (data.response ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in response");
+      const parsed = JSON.parse(jsonMatch[0]) as SentimentAnalysis;
       setSentimentData(parsed);
       setCacheStatus("match");
-      // Save to API
+      // Persist to cache — future: store per-month snapshots for longitudinal trend charts
       await fetch("/api/user/sentiment-cache", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cacheKey: sentimentCacheKey, data: parsed }),
       }).catch(() => {});
     } catch {
-      // silently fail
+      // silently fail — user can retry
     } finally {
       setSentimentLoading(false);
     }
@@ -430,7 +480,7 @@ ${reviewsText}`;
                     <p style={{
                       fontSize: label === "Month" ? "13px" : "1.8rem",
                       fontWeight: 700,
-                      color: "#4F46E5",
+                      color: "#2D9B8A",
                       lineHeight: 1.1,
                       marginBottom: "6px",
                       overflow: "hidden",
@@ -756,17 +806,18 @@ ${reviewsText}`;
           </button>
         )}
 
-        {/* ── Sentiment Analysis ── */}
+        {/* ── Sentiment Intelligence ── */}
         <UpgradeTooltip locked={!canAccess(plan, "sentimentAnalysis")} requiredPlan="Agency">
-        <div style={{ ...CARD, padding: "18px", marginTop: "16px" }}>
-          {/* Header row */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "6px" }}>
+        <div style={{ marginTop: "16px" }}>
+
+          {/* Section header */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
             <div>
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600 }}>
-                Sentiment Analysis
+              <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2D9B8A" }}>
+                Sentiment Intelligence
               </p>
-              <p style={{ fontSize: "10px", color: "#4F46E5", marginTop: "2px" }}>
-                Powered by AI · based on your logged reviews
+              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>
+                AI-powered · {ourReviews.length} review{ourReviews.length !== 1 ? "s" : ""} analyzed
               </p>
             </div>
             {sentimentData && (
@@ -775,7 +826,7 @@ ${reviewsText}`;
                   <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
                 )}
                 {cacheStatus === "match" && (
-                  <span style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 600 }}>Up to date</span>
+                  <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
                 )}
                 <button
                   type="button"
@@ -798,87 +849,273 @@ ${reviewsText}`;
           </div>
 
           {ourReviews.length < 3 ? (
-            <p style={{ fontSize: "12px", color: "#4F46E5", marginTop: "10px" }}>
-              Log at least 3 reviews to unlock sentiment analysis.
-            </p>
-          ) : !sentimentData ? (
-            <button
-              type="button"
-              onClick={analyzeSentiment}
-              disabled={sentimentLoading}
-              style={{
-                marginTop: "10px",
-                width: "100%",
-                background: sentimentLoading ? "#A0856A" : "#2C1A0E",
-                color: "white",
-                borderRadius: "10px",
-                padding: "10px",
-                fontSize: "13px",
-                fontWeight: 600,
-                border: "none",
-                cursor: sentimentLoading ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-              }}
-            >
-              {sentimentLoading ? (
-                <>
-                  <SpinIcon size={13} />
-                  Analysing…
-                </>
-              ) : "Analyse Sentiment"}
-            </button>
-          ) : (
-            <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "14px" }}>
-              {[
-                { label: "Positive", value: sentimentData.positive, color: "#2D9B8A" },
-                { label: "Neutral",  value: sentimentData.neutral,  color: "#C4874A" },
-                { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
-                  <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        borderRadius: "99px",
-                        background: color,
-                        width: `${value}%`,
-                        transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>
-                    {value}%
-                  </span>
-                </div>
-              ))}
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                {sentimentData.keywords.map((kw) => (
-                  <span
-                    key={kw}
-                    style={{
-                      background: "#E8DCC8",
-                      color: "#2C1A0E",
-                      borderRadius: "20px",
-                      padding: "4px 10px",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-
-              <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>
-                {sentimentData.summary}
+            <div style={{ ...CARD, padding: "28px", textAlign: "center" }}>
+              <p style={{ fontSize: "13px", color: "#A0856A" }}>
+                Log at least 3 reviews to unlock sentiment intelligence.
               </p>
             </div>
+          ) : !sentimentData ? (
+            <div style={{ ...CARD, padding: "18px" }}>
+              <p style={{ fontSize: "12px", color: "#7B5E45", marginBottom: "12px", lineHeight: 1.6 }}>
+                Run a full sentiment analysis — complaint themes, risk flags, executive summary, and operational recommendations.
+              </p>
+              <button
+                type="button"
+                onClick={analyzeSentiment}
+                disabled={sentimentLoading}
+                style={{
+                  width: "100%", background: sentimentLoading ? "#A0856A" : "#2C1A0E",
+                  color: "white", borderRadius: "10px", padding: "10px",
+                  fontSize: "13px", fontWeight: 600, border: "none",
+                  cursor: sentimentLoading ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                }}
+              >
+                {sentimentLoading ? <><SpinIcon size={13} />Analysing {ourReviews.length} reviews…</> : "Run Sentiment Analysis"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* ── 1. Sentiment Breakdown ── */}
+              <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A" }}>
+                    Sentiment Breakdown
+                  </p>
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "20px",
+                    background: sentimentData.trending === "improving" ? "rgba(45,155,138,0.12)" : sentimentData.trending === "declining" ? "rgba(192,57,43,0.1)" : "rgba(44,26,14,0.06)",
+                    color: sentimentData.trending === "improving" ? "#2D9B8A" : sentimentData.trending === "declining" ? "#C0392B" : "#7B5E45",
+                  }}>
+                    {sentimentData.trending === "improving" ? "↑ Improving" : sentimentData.trending === "declining" ? "↓ Declining" : "→ Stable"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "14px" }}>
+                  {([
+                    { label: "Positive", value: sentimentData.positive, color: "#2D9B8A" },
+                    { label: "Neutral",  value: sentimentData.neutral,  color: "#C4874A" },
+                    { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
+                  ] as const).map(({ label, value, color }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
+                      <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
+                        <div style={{ height: "100%", borderRadius: "99px", background: color, width: `${value}%`, transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)" }} />
+                      </div>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>{value}%</span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>{sentimentData.summary}</p>
+              </div>
+
+              {/* ── 2. Executive Summary ── */}
+              {sentimentData.executiveSummary && (
+                <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", marginBottom: "12px" }}>
+                    Executive Summary
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+                    {([
+                      { icon: "✅", label: "Improved",     value: sentimentData.executiveSummary.improved },
+                      { icon: "⚠️", label: "Declined",     value: sentimentData.executiveSummary.declined },
+                      { icon: "🚨", label: "Biggest Risk", value: sentimentData.executiveSummary.biggestRisk },
+                      { icon: "💡", label: "Opportunity",  value: sentimentData.executiveSummary.biggestOpportunity },
+                    ] as const).map(({ icon, label, value }) => (
+                      <div key={label} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                        <span style={{ fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A" }}>{label} </span>
+                          <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{value}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                      <span style={{ fontSize: "13px", flexShrink: 0 }}>→</span>
+                      <div>
+                        <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#2D9B8A" }}>Recommended Action </span>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{sentimentData.executiveSummary.recommendedAction}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── 3. Complaint + Praise Themes ── */}
+              {((sentimentData.complaintThemes?.length ?? 0) > 0 || (sentimentData.praiseThemes?.length ?? 0) > 0) && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                  <div style={{ ...CARD, padding: "14px" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
+                      Top Complaints
+                    </p>
+                    {(sentimentData.complaintThemes ?? []).length === 0 ? (
+                      <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {(sentimentData.complaintThemes ?? []).map((t) => (
+                          <div key={t.theme} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                            <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
+                            <span style={{
+                              fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0,
+                              background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(44,26,14,0.06)",
+                              color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? "#C4874A" : "#7B5E45",
+                            }}>
+                              {t.severity.toUpperCase()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ ...CARD, padding: "14px" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "10px" }}>
+                      Top Praise
+                    </p>
+                    {(sentimentData.praiseThemes ?? []).length === 0 ? (
+                      <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {(sentimentData.praiseThemes ?? []).map((t) => (
+                          <div key={t} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                            <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#2D9B8A", flexShrink: 0 }} />
+                            <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500 }}>{t}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 4. Risk Flags (only rendered when risks exist) ── */}
+              {(sentimentData.risks ?? []).length > 0 && (
+                <div style={{ ...CARD, padding: "14px", marginBottom: "10px", borderLeft: "3px solid #C0392B" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
+                    Risk Flags
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {(sentimentData.risks ?? []).map((r) => (
+                      <div key={r.description} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                        <span style={{
+                          fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0, marginTop: "1px",
+                          background: r.severity === "high" ? "rgba(192,57,43,0.12)" : "rgba(196,135,74,0.1)",
+                          color: r.severity === "high" ? "#C0392B" : "#C4874A",
+                        }}>
+                          {r.severity.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{r.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 5. Actionable Insights ── */}
+              {(sentimentData.actionableInsights ?? []).length > 0 && (
+                <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                    Actionable Insights
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {(sentimentData.actionableInsights ?? []).map((insight) => (
+                      <div key={insight} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                        <span style={{
+                          width: "18px", height: "18px", borderRadius: "50%", background: "rgba(45,155,138,0.12)",
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
+                        }}>
+                          <span style={{ fontSize: "9px", color: "#2D9B8A", fontWeight: 700 }}>→</span>
+                        </span>
+                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{insight}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 6. Competitor Comparison (computed client-side, no extra API call) ── */}
+              {competitors.length > 0 && (() => {
+                const avgCompRating  = competitors.reduce((s, c) => s + c.rating, 0) / competitors.length;
+                const avgCompReviews = Math.round(competitors.reduce((s, c) => s + c.reviewCount, 0) / competitors.length);
+                const latestReport   = reports[0];
+                const ourRating      = latestReport?.avgRating;
+                const ourCount       = latestReport?.totalReviews;
+                return (
+                  <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "12px" }}>
+                      vs Competitors
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      {ourRating != null && (
+                        <div>
+                          <p style={{ fontSize: "10px", color: "#A0856A", marginBottom: "4px" }}>Avg Rating</p>
+                          <p style={{ fontSize: "20px", fontWeight: 800, color: ourRating >= avgCompRating ? "#2D9B8A" : "#C0392B", lineHeight: 1 }}>
+                            {ourRating.toFixed(1)}★
+                          </p>
+                          <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
+                            {ourRating >= avgCompRating ? `+${(ourRating - avgCompRating).toFixed(1)}` : (ourRating - avgCompRating).toFixed(1)} vs competitor avg
+                          </p>
+                        </div>
+                      )}
+                      {ourCount != null && (
+                        <div>
+                          <p style={{ fontSize: "10px", color: "#A0856A", marginBottom: "4px" }}>Review Volume</p>
+                          <p style={{ fontSize: "20px", fontWeight: 800, color: ourCount >= avgCompReviews ? "#2D9B8A" : "#C0392B", lineHeight: 1 }}>
+                            {ourCount.toLocaleString()}
+                          </p>
+                          <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
+                            Comp avg: {avgCompReviews.toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {ourRating != null && (
+                      <p style={{ fontSize: "11px", color: "#7B5E45", marginTop: "12px", lineHeight: 1.6, paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)" }}>
+                        {ourRating > avgCompRating
+                          ? "You outperform competitors on ratings. Increase review volume to widen the lead."
+                          : ourRating === avgCompRating
+                          ? "You're on par with competitors. Focus on volume and response rate to differentiate."
+                          : "Competitors hold a rating advantage. Prioritize recovery mode and increase review requests."}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ── 7. Operational Recommendations ── */}
+              {(sentimentData.operationalRecommendations ?? []).length > 0 && (
+                <div style={{ ...CARD, padding: "14px", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                    Operational Recommendations
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {(sentimentData.operationalRecommendations ?? []).map((rec, i) => (
+                      <div key={rec} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                        <span style={{
+                          width: "18px", height: "18px", borderRadius: "50%", background: "#2C1A0E",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0, marginTop: "1px", fontSize: "9px", color: "white", fontWeight: 700,
+                        }}>
+                          {i + 1}
+                        </span>
+                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Keywords */}
+              {(sentimentData.keywords ?? []).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {(sentimentData.keywords ?? []).map((kw) => (
+                    <span key={kw} style={{ background: "rgba(44,26,14,0.08)", color: "#7B5E45", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600 }}>
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
+
         </div>
         </UpgradeTooltip>
 
