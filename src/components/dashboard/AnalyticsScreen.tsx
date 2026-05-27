@@ -106,8 +106,23 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
     setWeeklyStats((prev) => ({ ...prev, responses: weeklyResponses }));
   }, [history]);
 
-  // Fetch weekly tip from Claude
+  // Fetch weekly tip from Claude — cached in localStorage for 24h
   useEffect(() => {
+    const CACHE_KEY = "vynta_weekly_tip";
+    const TTL_MS = 24 * 60 * 60 * 1000;
+
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const { tip, savedAt } = JSON.parse(raw) as { tip: string; savedAt: number };
+        if (Date.now() - savedAt < TTL_MS && tip) {
+          setWeeklyTip(tip);
+          setWeeklyTipLoading(false);
+          return;
+        }
+      }
+    } catch {}
+
     let weeklyCompetitorContext = "";
 
     fetch("/api/user/competitors")
@@ -129,7 +144,9 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
         })
           .then((res) => res.json())
           .then((data: { response?: string }) => {
-            setWeeklyTip(data.response?.trim() ?? "");
+            const tip = data.response?.trim() ?? "";
+            setWeeklyTip(tip);
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ tip, savedAt: Date.now() })); } catch {}
           })
           .catch(() => {})
           .finally(() => setWeeklyTipLoading(false));
