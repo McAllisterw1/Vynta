@@ -297,7 +297,17 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
               showToastMsg(`${count} new review${count !== 1 ? "s" : ""} imported from Google!`);
               // Reload reviews
               const refreshed = await fetch("/api/user/reviews").then((r) => r.json()) as LoggedReview[];
-              if (Array.isArray(refreshed)) setReviews(refreshed);
+              if (Array.isArray(refreshed)) {
+                setReviews(refreshed);
+                // Notify HomeScreen so its stat cards update without a full page reload
+                window.dispatchEvent(new CustomEvent("vynta:reviews-updated", {
+                  detail: {
+                    dbCount: refreshed.length,
+                    inboxCount: data.stats?.totalReviews ?? null,
+                    googleRating: data.stats?.avgRating ?? null,
+                  },
+                }));
+              }
             } else if (skipThrottle) {
               showToastMsg("Up to date — no new reviews since last sync.");
             }

@@ -1,33 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
 import { canAccess } from "@/lib/plans";
 import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
 import MarkdownContent from "@/components/ui/MarkdownContent";
-
-interface MonthlyReport {
-  id: string;
-  userId: string;
-  businessName: string;
-  month: number;
-  year: number;
-  totalReviews: number;
-  avgRating: number;
-  requestsSent: number;
-  aiResponsesGenerated: number;
-  reviewsFromVynta: number;
-  competitorComparison: string;
-  aiSummary: string;
-  createdAt: string;
-}
-
-interface Competitor {
-  id: string;
-  name: string;
-  rating: number;
-  reviewCount: number;
-}
 
 interface SentimentAnalysis {
   positive: number;
@@ -51,60 +27,25 @@ interface SentimentAnalysis {
   lastAnalyzedAt?: string;
 }
 
-const BLANK_COMPETITOR = { name: "", rating: "", reviewCount: "" };
-const INPUT: React.CSSProperties = {
-  background: "white",
-  borderRadius: "10px",
-  border: "none",
-  boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
-  padding: "10px 14px",
-  fontSize: "13px",
-  color: "#2C1A0E",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box" as const,
-};
+interface SentimentHistoryRecord {
+  id: string;
+  weekStart: string;
+  data: SentimentAnalysis;
+  createdAt: string;
+}
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-const MONTHS_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
+interface ReportSynthesisRecord {
+  id: string;
+  monthLabel: string;
+  content: string;
+  createdAt: string;
+}
 
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
   borderRadius: "16px",
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
-
-function formatReportMonth(month: number, year: number) {
-  return `${MONTHS[month - 1]} ${year}`;
-}
-
-function formatGeneratedDate(iso: string) {
-  const d = new Date(iso);
-  return `Generated ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-}
-
-function ChevronRight() {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px", color: "#A0856A", flexShrink: 0 }}>
-      <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-    </svg>
-  );
-}
-
-function FileTextIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: "40px", height: "40px", color: "#A0856A" }}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-    </svg>
-  );
-}
 
 function SpinIcon({ size = 14 }: { size?: number }) {
   return (
@@ -113,6 +54,54 @@ function SpinIcon({ size = 14 }: { size?: number }) {
       <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
     </svg>
   );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      style={{
+        width: "14px", height: "14px", color: "#A0856A", flexShrink: 0,
+        transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        transition: "transform 200ms",
+      }}
+    >
+      <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function getWeekStart(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  const d = new Date(now);
+  d.setDate(now.getDate() - daysFromMonday);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+function getWeeklyCooldownInfo(lastRun: string | null): {
+  coolingDown: boolean;
+  nextMondayLabel: string;
+} {
+  if (!lastRun) return { coolingDown: false, nextMondayLabel: "" };
+
+  const now = new Date();
+  const day = now.getDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - daysFromMonday);
+  weekStart.setHours(0, 0, 0, 0);
+
+  if (new Date(lastRun) < weekStart) return { coolingDown: false, nextMondayLabel: "" };
+
+  const daysUntilMonday = day === 1 ? 7 : day === 0 ? 1 : 8 - day;
+  const nextMonday = new Date(now);
+  nextMonday.setDate(now.getDate() + daysUntilMonday);
+  const nextMondayLabel = nextMonday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return { coolingDown: true, nextMondayLabel };
 }
 
 function computeSentimentCacheKey(reviews: Array<{ id?: string; text?: string }>) {
@@ -125,17 +114,13 @@ function computeSentimentCacheKey(reviews: Array<{ id?: string; text?: string }>
 }
 
 export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
-  const { user } = useUser();
-  const [reports, setReports] = useState<MonthlyReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<MonthlyReport | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  // Monthly reports (persisted, folder UI)
+  const [savedReports, setSavedReports] = useState<ReportSynthesisRecord[]>([]);
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [monthlyGenerating, setMonthlyGenerating] = useState(false);
 
-  // Competitor manager
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
-  const [competitorsOpen, setCompetitorsOpen] = useState(false);
-  const [newComp, setNewComp] = useState(BLANK_COMPETITOR);
+  // Sentiment history (feeds monthly report generation)
+  const [sentimentHistory, setSentimentHistory] = useState<SentimentHistoryRecord[]>([]);
 
   // Sentiment analysis
   const [ourReviews, setOurReviews] = useState<Array<{ id?: string; text?: string }>>([]);
@@ -146,15 +131,26 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [sentimentLastRun, setSentimentLastRun] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load competitors from API
-    fetch("/api/user/competitors")
+    // Load saved monthly reports and auto-open the most recent
+    fetch("/api/user/report-synthesis")
       .then((r) => r.json())
-      .then((data: Competitor[]) => {
-        if (Array.isArray(data)) setCompetitors(data);
+      .then((data: ReportSynthesisRecord[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSavedReports(data);
+          setOpenMonth(data[0].monthLabel);
+        }
       })
       .catch(() => {});
 
-    // Load reviews from API for sentiment analysis
+    // Load sentiment history for monthly report generation
+    fetch("/api/user/sentiment-history")
+      .then((r) => r.json())
+      .then((data: SentimentHistoryRecord[]) => {
+        if (Array.isArray(data)) setSentimentHistory(data);
+      })
+      .catch(() => {});
+
+    // Load reviews for sentiment analysis
     fetch("/api/user/reviews")
       .then((r) => r.json())
       .then((reviews: Array<{ id?: string; text?: string }>) => {
@@ -165,17 +161,15 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
       })
       .catch(() => {});
 
-    // Load sentiment cache from API
+    // Load sentiment cache
     fetch("/api/user/sentiment-cache")
       .then((r) => r.json())
       .then((data: { cacheKey?: string; data?: SentimentAnalysis } | null) => {
         if (!data) return;
-        // Compare cache key after reviews are loaded (will re-run when sentimentCacheKey is set)
         if (data.data) {
           setSentimentData(data.data);
           if (data.data.lastAnalyzedAt) setSentimentLastRun(data.data.lastAnalyzedAt);
         }
-        // Store cache key for comparison
         if (data.cacheKey) {
           setSentimentCacheKey((currentKey) => {
             if (currentKey && data.cacheKey === currentKey) {
@@ -190,18 +184,13 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
       .catch(() => {});
   }, []);
 
-  // Check cache status once we have both the reviews key and cached data
   useEffect(() => {
     if (!sentimentCacheKey || !sentimentData) return;
     fetch("/api/user/sentiment-cache")
       .then((r) => r.json())
       .then((data: { cacheKey?: string } | null) => {
         if (!data?.cacheKey) return;
-        if (data.cacheKey === sentimentCacheKey) {
-          setCacheStatus("match");
-        } else {
-          setCacheStatus("stale");
-        }
+        setCacheStatus(data.cacheKey === sentimentCacheKey ? "match" : "stale");
       })
       .catch(() => {});
   }, [sentimentCacheKey]);
@@ -212,8 +201,6 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
 
     const system = "You are a reputation intelligence engine for local businesses. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.";
 
-    // Cap at 150 reviews to stay within token budget
-    // Future optimization: chunk large sets and merge results per-month
     const reviewsText = ourReviews
       .slice(0, 150)
       .map((r, i) => `${i + 1}. ${r.text ?? ""}`)
@@ -269,288 +256,122 @@ ${reviewsText}`;
       setSentimentData(parsed);
       setSentimentLastRun(now);
       setCacheStatus("match");
-      // Persist to cache — future: store per-month snapshots for longitudinal trend charts
+
       await fetch("/api/user/sentiment-cache", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cacheKey: sentimentCacheKey, data: parsed }),
       }).catch(() => {});
+
+      fetch("/api/user/sentiment-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart: getWeekStart(), data: parsed }),
+      })
+        .then(() => fetch("/api/user/sentiment-history").then((r) => r.json()))
+        .then((hist) => {
+          if (Array.isArray(hist)) setSentimentHistory(hist as SentimentHistoryRecord[]);
+        })
+        .catch(() => {});
     } catch {
-      // silently fail — user can retry
+      // silently fail
     } finally {
       setSentimentLoading(false);
     }
   }
 
-  async function addCompetitor() {
-    const name = newComp.name.trim();
-    const rating = parseFloat(newComp.rating);
-    const reviewCount = parseInt(newComp.reviewCount, 10);
-    if (!name || isNaN(rating) || rating < 1 || rating > 5 || isNaN(reviewCount) || reviewCount < 0) return;
-    const payload = { name, rating, reviewCount };
-    // Optimistic add with temp id
-    const tempId = `temp-${Date.now()}`;
-    setCompetitors((prev) => [...prev, { ...payload, id: tempId }]);
-    setNewComp(BLANK_COMPETITOR);
+  async function generateMonthlyReport() {
+    if (sentimentHistory.length < 2 || monthlyGenerating) return;
+    setMonthlyGenerating(true);
+
+    const currentMonthLabel = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
     try {
-      const res = await fetch("/api/user/competitors", {
+      const weeks = sentimentHistory.slice(0, 4).reverse();
+
+      const weeksText = weeks
+        .map((record) => {
+          const d = record.data;
+          const weekLabel = new Date(record.weekStart + "T12:00:00").toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          return `**Week of ${weekLabel}:**
+- Sentiment: ${d.positive ?? 0}% positive, ${d.neutral ?? 0}% neutral, ${d.negative ?? 0}% negative
+- Trend: ${d.trending ?? "stable"}
+- Summary: ${d.summary ?? "N/A"}
+- Complaint themes: ${d.complaintThemes?.map((t) => `${t.theme} (${t.severity})`).join("; ") || "none"}
+- Praise themes: ${d.praiseThemes?.join(", ") || "none"}
+- Biggest risk: ${d.executiveSummary?.biggestRisk || "none identified"}
+- Key opportunity: ${d.executiveSummary?.biggestOpportunity || "N/A"}
+- Recommended action: ${d.executiveSummary?.recommendedAction || "N/A"}
+- Operational recs: ${d.operationalRecommendations?.join("; ") || "N/A"}`;
+        })
+        .join("\n\n");
+
+      const system =
+        "You are Vynta's AI reporting engine for local businesses. Write comprehensive, data-driven monthly business intelligence reports in clear markdown.";
+      const prompt = `Synthesize these ${weeks.length} weekly sentiment analyses into a monthly business intelligence report.
+
+${weeksText}
+
+Write a comprehensive monthly report in markdown with these sections:
+## Month in Review
+## Sentiment Trend
+## Recurring Themes
+## Risk Assessment
+## Strategic Recommendations
+
+Be specific, compare week-over-week changes where data exists, and keep every recommendation actionable.`;
+
+      const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ system, messages: [{ role: "user", content: prompt }] }),
       });
-      if (res.ok) {
-        const created = await res.json() as Competitor;
-        setCompetitors((prev) => prev.map((c) => c.id === tempId ? created : c));
-      }
-    } catch {}
-  }
+      const data = (await res.json()) as { response?: string };
 
-  async function deleteCompetitor(id: string) {
-    setCompetitors((prev) => prev.filter((c) => c.id !== id));
-    try {
-      await fetch(`/api/user/competitors/${id}`, { method: "DELETE" });
-    } catch {}
-  }
+      if (data.response) {
+        await fetch("/api/user/report-synthesis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ monthLabel: currentMonthLabel, content: data.response }),
+        }).catch(() => {});
 
-  useEffect(() => {
-    if (!user?.id) return;
-    fetchReports(user.id);
-  }, [user?.id]);
-
-  async function fetchReports(userId: string) {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/reports/list?userId=${userId}`);
-      if (res.ok) {
-        const data = (await res.json()) as MonthlyReport[];
-        setReports(data);
+        const refreshed = await fetch("/api/user/report-synthesis").then((r) => r.json()).catch(() => []);
+        if (Array.isArray(refreshed)) {
+          setSavedReports(refreshed as ReportSynthesisRecord[]);
+        }
+        setOpenMonth(currentMonthLabel);
       }
     } catch {
       // silently fail
     } finally {
-      setLoading(false);
+      setMonthlyGenerating(false);
     }
   }
 
-  function openReport(report: MonthlyReport) {
-    setSelectedReport(report);
-    setModalVisible(true);
-  }
+  const { coolingDown, nextMondayLabel } = getWeeklyCooldownInfo(sentimentLastRun);
 
-  function closeModal() {
-    setModalVisible(false);
-    setTimeout(() => setSelectedReport(null), 350);
-  }
-
-  async function generateReport() {
-    if (!user?.id || generating) return;
-    setGenerating(true);
-
-    let totalReviews = 0;
-    let avgRating = 0;
-    let requestsSent = 0;
-    let aiResponsesGenerated = 0;
-    let reviewsFromVynta = 0;
-    let businessName = "My Business";
-    let reportCompetitors: Competitor[] = [];
-
-    try {
-      // Fetch all needed data from APIs
-      const [reviewsRes, campaignsRes, historyRes, settingsRes] = await Promise.all([
-        fetch("/api/user/reviews").then((r) => r.json()),
-        fetch("/api/user/campaigns").then((r) => r.json()),
-        fetch("/api/user/response-history").then((r) => r.json()),
-        fetch("/api/user/settings").then((r) => r.json()),
-      ]);
-
-      const reviews = reviewsRes as Array<{ rating: number; responded: boolean }>;
-      if (Array.isArray(reviews)) {
-        totalReviews = reviews.length;
-        avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
-        reviewsFromVynta = reviews.length;
-      }
-
-      const campaigns = campaignsRes as Array<{ contacts: unknown[] }>;
-      if (Array.isArray(campaigns)) {
-        requestsSent = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
-      }
-
-      const history = historyRes as unknown[];
-      if (Array.isArray(history)) {
-        aiResponsesGenerated = history.length;
-      }
-
-      const settings = settingsRes as { businessName?: string };
-      businessName = settings.businessName ?? "My Business";
-
-      reportCompetitors = competitors;
-    } catch {}
-
-    const now = new Date();
-
-    try {
-      const res = await fetch("/api/reports/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          businessName,
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-          totalReviews,
-          avgRating,
-          requestsSent,
-          aiResponsesGenerated,
-          reviewsFromVynta,
-          competitors: reportCompetitors,
-        }),
-      });
-
-      if (res.ok) {
-        await fetchReports(user.id);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  const now = new Date();
-  const currentMonthExists = reports.some(
-    (r) => r.month === now.getMonth() + 1 && r.year === now.getFullYear()
-  );
+  const currentMonthLabel = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const hasCurrentMonth = savedReports.some((r) => r.monthLabel === currentMonthLabel);
 
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* ── Detail modal ── */}
-      {selectedReport && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(44,26,14,0.5)",
-            transition: "opacity 350ms",
-            opacity: modalVisible ? 1 : 0,
-          }}
-          onClick={closeModal}
-        >
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              background: "#FAF5E8",
-              borderRadius: "24px 24px 0 0",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              transform: modalVisible ? "translateY(0)" : "translateY(100%)",
-              transition: "transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Handle + close */}
-            <div style={{ position: "sticky", top: 0, background: "#FAF5E8", padding: "16px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 1 }}>
-              <div style={{ width: "40px", height: "4px", borderRadius: "99px", background: "rgba(44,26,14,0.15)", margin: "0 auto" }} />
-              <button
-                type="button"
-                onClick={closeModal}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#A0856A", padding: "4px", lineHeight: 0 }}
-              >
-                <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "16px", height: "16px" }}>
-                  <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-              </button>
-            </div>
-
-            <div style={{ padding: "0 20px 48px" }}>
-              {/* Heading */}
-              <h2 className="font-display" style={{ fontSize: "28px", fontWeight: 700, color: "#2C1A0E", lineHeight: 1.1, marginBottom: "6px" }}>
-                {formatReportMonth(selectedReport.month, selectedReport.year)}
-              </h2>
-              <p style={{ fontSize: "12px", color: "#A0856A", marginBottom: "24px" }}>
-                Generated automatically by Vynta
-              </p>
-
-              {/* Stats grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
-                {[
-                  { label: "Total Reviews", value: String(selectedReport.totalReviews) },
-                  { label: "Avg Rating", value: `${selectedReport.avgRating} ★` },
-                  { label: "Requests Sent", value: String(selectedReport.requestsSent) },
-                  { label: "AI Responses", value: String(selectedReport.aiResponsesGenerated) },
-                  { label: "From Vynta", value: String(selectedReport.reviewsFromVynta) },
-                  { label: "Month", value: formatReportMonth(selectedReport.month, selectedReport.year) },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ ...CARD, padding: "14px" }}>
-                    <p style={{
-                      fontSize: label === "Month" ? "13px" : "1.8rem",
-                      fontWeight: 700,
-                      color: "#2D9B8A",
-                      lineHeight: 1.1,
-                      marginBottom: "6px",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {value}
-                    </p>
-                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A" }}>
-                      {label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* AI Summary */}
-              <div style={{ ...CARD, padding: "16px", marginBottom: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
-                  <span style={{ fontSize: "15px" }}>✨</span>
-                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5" }}>
-                    AI Summary
-                  </p>
-                </div>
-                <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
-                  <MarkdownContent>{selectedReport.aiSummary}</MarkdownContent>
-                </div>
-              </div>
-
-              {/* Competitor Comparison */}
-              {selectedReport.competitorComparison && (
-                <div style={{ ...CARD, padding: "16px", marginBottom: "20px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
-                    <span style={{ fontSize: "15px" }}>📊</span>
-                    <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C4874A" }}>
-                      Competitor Comparison
-                    </p>
-                  </div>
-                  <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.7 }}>
-                    <MarkdownContent>{selectedReport.competitorComparison}</MarkdownContent>
-                  </div>
-                </div>
-              )}
-
-              {/* Footer */}
-              <p style={{ fontSize: "11px", color: "#A0856A", textAlign: "center" }}>
-                Report generated on {new Date(selectedReport.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Main content ── */}
       <UpgradeTooltip locked={!canAccess(plan, "monthlyReports")} requiredPlan="Agency">
       <div style={{ padding: "28px 24px 120px" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "24px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
             <div>
               <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1.1 }}>
-                Monthly Reports
+                Reports
               </h1>
               <p style={{ fontSize: "13px", color: "#A0856A", marginTop: "5px" }}>
-                Auto-generated on the 1st of each month
+                Weekly sentiment &amp; monthly synthesis
               </p>
             </div>
             <span style={{
@@ -564,256 +385,119 @@ ${reviewsText}`;
           </div>
         </div>
 
-        {/* ── Competitor Manager ── */}
-        <div style={{ marginBottom: "16px" }}>
-          {/* Toggle row */}
-          <button
-            type="button"
-            onClick={() => setCompetitorsOpen((v) => !v)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              width: "100%",
-              background: "#E8DCC8",
-              borderRadius: competitorsOpen ? "16px 16px 0 0" : "16px",
-              border: "none",
-              borderLeft: "3px solid #2D9B8A",
-              padding: "13px 16px",
-              cursor: "pointer",
-              boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
-              transition: "border-radius 200ms",
-            }}
-          >
-            <span style={{ flex: 1, textAlign: "left", fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>
-              Manage Competitors
-            </span>
-            <span style={{ fontSize: "11px", color: "#A0856A", marginRight: "10px" }}>
-              {competitors.length > 0 ? `${competitors.length} tracked` : "None added"}
-            </span>
-            <svg
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              style={{
-                width: "14px", height: "14px", color: "#A0856A", flexShrink: 0,
-                transform: competitorsOpen ? "rotate(90deg)" : "rotate(0deg)",
-                transition: "transform 200ms",
-              }}
-            >
-              <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-            </svg>
-          </button>
+        {/* ── Monthly Reports ── */}
+        <div style={{ marginBottom: "24px" }}>
 
-          {/* Expanded panel */}
-          {competitorsOpen && (
-            <div style={{
-              background: "#E8DCC8",
-              borderRadius: "0 0 16px 16px",
-              borderLeft: "3px solid #2D9B8A",
-              padding: "0 16px 16px",
-              boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
-            }}>
-              <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "14px" }} />
-
-              {/* Competitor list */}
-              {competitors.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "#A0856A", textAlign: "center", padding: "8px 0 14px" }}>
-                  No competitors added yet.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-                  {competitors.map((c) => (
-                    <div
-                      key={c.id}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "10px",
-                        background: "rgba(44,26,14,0.05)", borderRadius: "10px", padding: "10px 12px",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {c.name}
-                        </p>
-                        <p style={{ fontSize: "11px", color: "#7B5E45", marginTop: "2px" }}>
-                          ⭐ {c.rating.toFixed(1)} &nbsp;·&nbsp; 📝 {c.reviewCount.toLocaleString()} reviews
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteCompetitor(c.id)}
-                        aria-label="Delete competitor"
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#D32323", padding: "4px", lineHeight: 0, flexShrink: 0 }}
-                      >
-                        <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
-                          <path d="M6.5 1.75a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V3h-3V1.75Zm4.5 0V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15H5.405a1.748 1.748 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15Z" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add form */}
-              {competitors.length >= 5 ? (
-                <p style={{ fontSize: "12px", color: "#A0856A", textAlign: "center", padding: "4px 0" }}>
-                  Maximum 5 competitors reached.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <input
-                    type="text"
-                    value={newComp.name}
-                    onChange={(e) => setNewComp((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="Business name (e.g. Joe's Plumbing)"
-                    style={INPUT}
-                  />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    <input
-                      type="number"
-                      value={newComp.rating}
-                      onChange={(e) => setNewComp((p) => ({ ...p, rating: e.target.value }))}
-                      placeholder="Rating (e.g. 4.2)"
-                      min={1} max={5} step={0.1}
-                      style={INPUT}
-                    />
-                    <input
-                      type="number"
-                      value={newComp.reviewCount}
-                      onChange={(e) => setNewComp((p) => ({ ...p, reviewCount: e.target.value }))}
-                      placeholder="Reviews (e.g. 142)"
-                      min={0}
-                      style={INPUT}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addCompetitor}
-                    disabled={
-                      !newComp.name.trim() ||
-                      !newComp.rating ||
-                      !newComp.reviewCount ||
-                      parseFloat(newComp.rating) < 1 ||
-                      parseFloat(newComp.rating) > 5
-                    }
-                    style={{
-                      background: "#2D9B8A",
-                      color: "white",
-                      borderRadius: "10px",
-                      padding: "10px",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      border: "none",
-                      cursor: "pointer",
-                      opacity: (!newComp.name.trim() || !newComp.rating || !newComp.reviewCount) ? 0.5 : 1,
-                      transition: "opacity 150ms",
-                    }}
-                  >
-                    + Add Competitor
-                  </button>
-                </div>
-              )}
+          {/* Section label + generate button row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2D9B8A" }}>
+                Monthly Reports
+              </p>
+              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>
+                AI synthesis of weekly analyses
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Report list */}
-        {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
-            <SpinIcon size={24} />
-          </div>
-        ) : reports.length === 0 ? (
-          <div style={{ ...CARD, padding: "52px 24px", textAlign: "center" }}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
-              <FileTextIcon />
-            </div>
-            <p style={{ fontSize: "15px", fontWeight: 600, color: "#2C1A0E", marginBottom: "8px" }}>
-              No reports yet
-            </p>
-            <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6 }}>
-              Your first report will be generated automatically<br />on the 1st of next month.
-            </p>
-          </div>
-        ) : (
-          <div style={{ ...CARD, overflow: "hidden" }}>
-            {reports.map((report, i) => (
+            {sentimentHistory.length >= 2 && (
               <button
-                key={report.id}
                 type="button"
-                onClick={() => openReport(report)}
+                onClick={generateMonthlyReport}
+                disabled={monthlyGenerating}
                 style={{
+                  background: monthlyGenerating ? "#A0856A" : "#2D9B8A",
+                  color: "white",
+                  borderRadius: "10px",
+                  padding: "8px 14px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: monthlyGenerating ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: "12px",
-                  width: "100%",
-                  padding: "14px 16px",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  borderBottom: i < reports.length - 1 ? "1px solid rgba(44,26,14,0.07)" : "none",
+                  gap: "6px",
+                  flexShrink: 0,
+                  transition: "background 150ms",
                 }}
               >
-                {/* Month label */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E", marginBottom: "2px" }}>
-                    {formatReportMonth(report.month, report.year)}
-                  </p>
-                  <p style={{ fontSize: "11px", color: "#A0856A" }}>
-                    {formatGeneratedDate(report.createdAt)}
-                  </p>
-                </div>
-
-                {/* Stats */}
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#4F46E5" }}>
-                    {report.avgRating.toFixed(1)} ★
-                  </p>
-                  <p style={{ fontSize: "11px", color: "#A0856A" }}>
-                    {report.totalReviews} review{report.totalReviews !== 1 ? "s" : ""}
-                  </p>
-                </div>
-
-                <ChevronRight />
+                {monthlyGenerating ? (
+                  <><SpinIcon size={12} />{hasCurrentMonth ? "Regenerating…" : "Generating…"}</>
+                ) : (
+                  hasCurrentMonth ? `Regenerate ${currentMonthLabel.split(" ")[0]}` : `Generate ${currentMonthLabel.split(" ")[0]}`
+                )}
               </button>
-            ))}
+            )}
           </div>
-        )}
 
-        {/* Manual generate button */}
-        {!currentMonthExists && (
-          <button
-            type="button"
-            onClick={generateReport}
-            disabled={generating || !user?.id}
-            style={{
-              width: "100%",
-              marginTop: "16px",
-              background: generating ? "#A0856A" : "#2D9B8A",
-              color: "white",
-              borderRadius: "12px",
-              padding: "14px",
-              fontSize: "14px",
-              fontWeight: 600,
-              border: "none",
-              cursor: generating ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "background 150ms",
-            }}
-          >
-            {generating ? (
-              <>
-                <SpinIcon size={16} />
-                Generating…
-              </>
-            ) : "Generate This Month's Report"}
-          </button>
-        )}
+          {/* Empty state */}
+          {savedReports.length === 0 && (
+            <div style={{ ...CARD, padding: "28px", textAlign: "center" }}>
+              <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6 }}>
+                {sentimentHistory.length < 2
+                  ? "Run at least 2 weekly sentiment analyses to unlock monthly report generation."
+                  : `Hit "Generate ${currentMonthLabel.split(" ")[0]}" above to create your first monthly report.`}
+              </p>
+            </div>
+          )}
+
+          {/* Month folders */}
+          {savedReports.map((report, idx) => {
+            const isOpen = openMonth === report.monthLabel;
+            const [monthName, year] = report.monthLabel.split(" ");
+            const isNewest = idx === 0;
+            const generatedDate = new Date(report.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+            return (
+              <div key={report.id} style={{ marginBottom: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenMonth(isOpen ? null : report.monthLabel)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    background: "#E8DCC8",
+                    borderRadius: isOpen ? "16px 16px 0 0" : "16px",
+                    border: "none",
+                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(44,26,14,0.15)"}`,
+                    padding: "13px 16px",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                    transition: "border-radius 200ms",
+                    textAlign: "left",
+                  }}
+                >
+                  <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: "6px" }}>
+                    <span style={{ fontSize: "15px", fontWeight: 700, color: "#2C1A0E" }}>{monthName}</span>
+                    <span style={{ fontSize: "12px", color: "#A0856A" }}>{year}</span>
+                  </div>
+                  <span style={{ fontSize: "11px", color: "#A0856A", marginRight: "10px", flexShrink: 0 }}>
+                    {generatedDate}
+                  </span>
+                  <ChevronIcon open={isOpen} />
+                </button>
+
+                {isOpen && (
+                  <div style={{
+                    background: "#E8DCC8",
+                    borderRadius: "0 0 16px 16px",
+                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(44,26,14,0.15)"}`,
+                    padding: "0 18px 18px",
+                    boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                  }}>
+                    <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "16px" }} />
+                    <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.75 }}>
+                      <MarkdownContent>{report.content}</MarkdownContent>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         {/* ── Sentiment Intelligence ── */}
         <UpgradeTooltip locked={!canAccess(plan, "sentimentAnalysis")} requiredPlan="Agency">
-        <div style={{ marginTop: "16px" }}>
+        <div>
 
           {/* Section header */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -825,38 +509,34 @@ ${reviewsText}`;
                 AI-powered · {ourReviews.length} review{ourReviews.length !== 1 ? "s" : ""} analyzed
               </p>
             </div>
-            {sentimentData && (() => {
-              const hoursLeft = sentimentLastRun
-                ? Math.ceil(24 - (Date.now() - new Date(sentimentLastRun).getTime()) / 3_600_000)
-                : 0;
-              const coolingDown = hoursLeft > 0;
-              return (
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  {coolingDown
-                    ? <span style={{ fontSize: "10px", color: "#A0856A", fontWeight: 600 }}>Refresh in {hoursLeft}h</span>
-                    : cacheStatus === "stale"
-                    ? <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
-                    : <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
-                  }
+            {sentimentData && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {coolingDown
+                  ? <span style={{ fontSize: "10px", color: "#A0856A", fontWeight: 600 }}>Next report Mon, {nextMondayLabel}</span>
+                  : cacheStatus === "stale"
+                  ? <span style={{ fontSize: "10px", color: "#C4874A", fontWeight: 600 }}>New reviews detected</span>
+                  : <span style={{ fontSize: "10px", color: "#2D9B8A", fontWeight: 600 }}>Up to date</span>
+                }
+                {!coolingDown && (
                   <button
                     type="button"
                     onClick={analyzeSentiment}
-                    disabled={sentimentLoading || coolingDown}
+                    disabled={sentimentLoading}
                     aria-label="Refresh sentiment"
                     style={{
                       background: "none", border: "none",
-                      cursor: (sentimentLoading || coolingDown) ? "default" : "pointer",
+                      cursor: sentimentLoading ? "default" : "pointer",
                       color: "#A0856A", padding: "2px", lineHeight: 0,
-                      opacity: (sentimentLoading || coolingDown) ? 0.4 : 1,
+                      opacity: sentimentLoading ? 0.4 : 1,
                     }}
                   >
                     <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
                       <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
                     </svg>
                   </button>
-                </div>
-              );
-            })()}
+                )}
+              </div>
+            )}
           </div>
 
           {ourReviews.length < 3 ? (
@@ -868,7 +548,7 @@ ${reviewsText}`;
           ) : !sentimentData ? (
             <div style={{ ...CARD, padding: "18px" }}>
               <p style={{ fontSize: "12px", color: "#7B5E45", marginBottom: "12px", lineHeight: 1.6 }}>
-                Run a full sentiment analysis — complaint themes, risk flags, executive summary, and operational recommendations.
+                Generate your weekly sentiment report — complaint themes, risk flags, executive summary, and operational recommendations. Refreshes every Monday.
               </p>
               <button
                 type="button"
@@ -882,11 +562,37 @@ ${reviewsText}`;
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                 }}
               >
-                {sentimentLoading ? <><SpinIcon size={13} />Analysing {ourReviews.length} reviews…</> : "Run Sentiment Analysis"}
+                {sentimentLoading ? <><SpinIcon size={13} />Analysing {ourReviews.length} reviews…</> : "Generate Weekly Sentiment Analysis Report"}
               </button>
             </div>
           ) : (
             <>
+              {/* ── Weekly report CTA — shown when a new week has started ── */}
+              {!coolingDown && (
+                <div style={{ ...CARD, padding: "16px", marginBottom: "10px", border: "1.5px solid rgba(45,155,138,0.3)" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "6px" }}>
+                    New Week Available
+                  </p>
+                  <p style={{ fontSize: "12px", color: "#7B5E45", marginBottom: "12px", lineHeight: 1.6 }}>
+                    Your weekly sentiment report is ready to generate. Results below are from last week.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={analyzeSentiment}
+                    disabled={sentimentLoading}
+                    style={{
+                      width: "100%", background: sentimentLoading ? "#A0856A" : "#2D9B8A",
+                      color: "white", borderRadius: "10px", padding: "10px",
+                      fontSize: "13px", fontWeight: 600, border: "none",
+                      cursor: sentimentLoading ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                    }}
+                  >
+                    {sentimentLoading ? <><SpinIcon size={13} />Analysing {ourReviews.length} reviews…</> : "Generate Weekly Sentiment Analysis Report"}
+                  </button>
+                </div>
+              )}
+
               {/* ── 1. Sentiment Breakdown ── */}
               <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -997,7 +703,7 @@ ${reviewsText}`;
                 </div>
               )}
 
-              {/* ── 4. Risk Flags (only rendered when risks exist) ── */}
+              {/* ── 4. Risk Flags ── */}
               {(sentimentData.risks ?? []).length > 0 && (
                 <div style={{ ...CARD, padding: "14px", marginBottom: "10px", borderLeft: "3px solid #C0392B" }}>
                   <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
@@ -1042,56 +748,7 @@ ${reviewsText}`;
                 </div>
               )}
 
-              {/* ── 6. Competitor Comparison (computed client-side, no extra API call) ── */}
-              {competitors.length > 0 && (() => {
-                const avgCompRating  = competitors.reduce((s, c) => s + c.rating, 0) / competitors.length;
-                const avgCompReviews = Math.round(competitors.reduce((s, c) => s + c.reviewCount, 0) / competitors.length);
-                const latestReport   = reports[0];
-                const ourRating      = latestReport?.avgRating;
-                const ourCount       = latestReport?.totalReviews;
-                return (
-                  <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "12px" }}>
-                      vs Competitors
-                    </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                      {ourRating != null && (
-                        <div>
-                          <p style={{ fontSize: "10px", color: "#A0856A", marginBottom: "4px" }}>Avg Rating</p>
-                          <p style={{ fontSize: "20px", fontWeight: 800, color: ourRating >= avgCompRating ? "#2D9B8A" : "#C0392B", lineHeight: 1 }}>
-                            {ourRating.toFixed(1)}★
-                          </p>
-                          <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
-                            {ourRating >= avgCompRating ? `+${(ourRating - avgCompRating).toFixed(1)}` : (ourRating - avgCompRating).toFixed(1)} vs competitor avg
-                          </p>
-                        </div>
-                      )}
-                      {ourCount != null && (
-                        <div>
-                          <p style={{ fontSize: "10px", color: "#A0856A", marginBottom: "4px" }}>Review Volume</p>
-                          <p style={{ fontSize: "20px", fontWeight: 800, color: ourCount >= avgCompReviews ? "#2D9B8A" : "#C0392B", lineHeight: 1 }}>
-                            {ourCount.toLocaleString()}
-                          </p>
-                          <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "2px" }}>
-                            Comp avg: {avgCompReviews.toLocaleString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {ourRating != null && (
-                      <p style={{ fontSize: "11px", color: "#7B5E45", marginTop: "12px", lineHeight: 1.6, paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)" }}>
-                        {ourRating > avgCompRating
-                          ? "You outperform competitors on ratings. Increase review volume to widen the lead."
-                          : ourRating === avgCompRating
-                          ? "You're on par with competitors. Focus on volume and response rate to differentiate."
-                          : "Competitors hold a rating advantage. Prioritize recovery mode and increase review requests."}
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* ── 7. Operational Recommendations ── */}
+              {/* ── 6. Operational Recommendations ── */}
               {(sentimentData.operationalRecommendations ?? []).length > 0 && (
                 <div style={{ ...CARD, padding: "14px", marginBottom: "12px" }}>
                   <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>

@@ -143,6 +143,13 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [inboxReviewCount, setInboxReviewCount] = useState<number | null>(null);
   const ourReviewCount = inboxReviewCount ?? dbReviewCount;
   const [ourAvgRating, setOurAvgRating] = useState<number | null>(null);
+  const [googleSourcedRating, setGoogleSourcedRating] = useState<number | null>(() => {
+    try {
+      const s = localStorage.getItem("vynta_google_rating");
+      if (s) { const n = parseFloat(s); if (!isNaN(n)) return n; }
+    } catch {}
+    return null;
+  });
   const [recentNegativeReviews, setRecentNegativeReviews] = useState<CrisisReview[]>([]);
   const [crisisDetected, setCrisisDetected] = useState(false);
   const [crisisActionPlan, setCrisisActionPlan] = useState<string | null>(null);
@@ -154,6 +161,21 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
     document.body.classList.toggle("modal-open", showScoreModal);
     return () => { document.body.classList.remove("modal-open"); };
   }, [showScoreModal]);
+
+  // Keep stat cards in sync when Reviews tab syncs new reviews
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { dbCount, inboxCount, googleRating } = (e as CustomEvent<{ dbCount?: number; inboxCount?: number | null; googleRating?: number | null }>).detail;
+      if (dbCount != null) setDbReviewCount(dbCount);
+      if (inboxCount != null) setInboxReviewCount(inboxCount);
+      if (googleRating != null) {
+        setGoogleSourcedRating(googleRating);
+        try { localStorage.setItem("vynta_google_rating", String(googleRating)); } catch {}
+      }
+    };
+    window.addEventListener("vynta:reviews-updated", handler);
+    return () => window.removeEventListener("vynta:reviews-updated", handler);
+  }, []);
 
   useEffect(() => {
     // Load settings from API
@@ -316,8 +338,9 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
   const usageLabel = limit === null ? "Unlimited" : `${count}/${limit} this month`;
 
   // ── Reputation Score ──────────────────────────────────────────────────────
-  const hasScoreData = ourAvgRating !== null && ourReviewCount !== null;
-  const ratingPts    = hasScoreData ? (ourAvgRating! / 5) * 40 : 0;
+  const displayRating = googleSourcedRating ?? ourAvgRating;
+  const hasScoreData = displayRating !== null && ourReviewCount !== null;
+  const ratingPts    = hasScoreData ? (displayRating! / 5) * 40 : 0;
   const volumePts    = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 25 : 0;
   const responseRate = hasScoreData && ourReviewCount! > 0 ? Math.min(history.length / ourReviewCount!, 1) : 0;
   const responsePts  = responseRate * 20;
@@ -334,7 +357,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
     {
       label: "Star Rating",
       pts: Math.round(ratingPts), max: 40,
-      detail: ourAvgRating !== null ? `${ourAvgRating}★ average` : "No reviews yet",
+      detail: displayRating !== null ? `${displayRating}★ average` : "No reviews yet",
       tip: "Aim for a 4.5+ average. Respond to negatives fast.",
     },
     {
@@ -361,7 +384,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
 
   const statCards = [
     { label: "Total Reviews", value: ourReviewCount !== null ? String(ourReviewCount) : "—", icon: "⭐" },
-    { label: "Avg Rating", value: ourAvgRating !== null ? String(ourAvgRating) : "—", icon: "📊" },
+    { label: "Avg Rating", value: displayRating !== null ? String(displayRating) : "—", icon: "📊" },
     { label: "Responses Used", value: String(history.length), icon: "💬" },
     { label: "Requests Sent", value: String(requestsSent), icon: "✉️" },
   ];

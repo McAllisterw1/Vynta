@@ -54,6 +54,7 @@ model UserSettings {
   defaultTone          String   @default("professional")
   messageTemplate      String   @default("")
   onboardingComplete   Boolean  @default(false)
+  initialImportPlaceId String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
@@ -158,6 +159,28 @@ model SentimentCache {
   data      Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SentimentHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart String   // "YYYY-MM-DD" — Monday of the analysis week
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+}
+
+model ReportSynthesis {
+  id         String   @id @default(cuid())
+  userId     String
+  monthLabel String   // "May 2026"
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, monthLabel])
+  @@index([userId])
 }
 
 model TrainingProgress {

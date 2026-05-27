@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AnalyticsScreen from "./AnalyticsScreen";
 import RequestCampaign from "./RequestCampaign";
 import OurReviewsScreen from "./OurReviewsScreen";
@@ -29,6 +29,8 @@ export default function DashboardShell({
 }: Props) {
   const [active, setActive] = useState(3); // Home
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
+  const [animating, setAnimating] = useState<number | null>(null);
+  const animRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [clientBusiness, setClientBusiness] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [wizardSettings, setWizardSettings] = useState<{
@@ -98,8 +100,12 @@ export default function DashboardShell({
   }
 
   const navigate = (i: number) => {
+    if (i === active) return;
     setDirection(i > active ? "forward" : "backward");
     setActive(i);
+    setAnimating(i);
+    if (animRef.current) clearTimeout(animRef.current);
+    animRef.current = setTimeout(() => setAnimating(null), 400);
   };
 
   const tab = (i: number) =>
@@ -168,20 +174,32 @@ export default function DashboardShell({
         )}
       </div>
 
-      {/* ── Screen content ── */}
+      {/* ── Screen content — all screens stay mounted to avoid re-fetch on navigation ── */}
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {active === 0 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><AnalyticsScreen plan={plan} /></div>}
-        {active === 1 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><RequestCampaign onBack={() => navigate(3)} plan={plan} onNavigate={navigate} /></div>}
-        {active === 2 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><OurReviewsScreen plan={plan} smartInboxEnabled={smartInboxEnabled} /></div>}
-        {active === 3 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><HomeScreen plan={plan} subscriptionStatus={subscriptionStatus} /></div>}
-        {active === 4 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><GoalsScreen onNavigate={navigate} plan={plan} /></div>}
-        {active === 5 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><CompetitorScreen /></div>}
-        {active === 6 && <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}><ReportsScreen plan={plan} /></div>}
-        {active === 7 && (
-          <div className={`screen-${direction}`} style={{ width: "100%", height: "100%" }}>
-            <SettingsPanel name={firstName} email={email} plan={plan} subscriptionStatus={subscriptionStatus} onBack={() => navigate(3)} onOpenWizard={openWizard} />
-          </div>
-        )}
+        <div className={animating === 0 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 0 ? "block" : "none" }}>
+          <AnalyticsScreen plan={plan} />
+        </div>
+        <div className={animating === 1 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 1 ? "block" : "none" }}>
+          <RequestCampaign onBack={() => navigate(3)} plan={plan} onNavigate={navigate} />
+        </div>
+        <div className={animating === 2 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 2 ? "block" : "none" }}>
+          <OurReviewsScreen plan={plan} smartInboxEnabled={smartInboxEnabled} />
+        </div>
+        <div className={animating === 3 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 3 ? "block" : "none" }}>
+          <HomeScreen plan={plan} subscriptionStatus={subscriptionStatus} />
+        </div>
+        <div className={animating === 4 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 4 ? "block" : "none" }}>
+          <GoalsScreen onNavigate={navigate} plan={plan} />
+        </div>
+        <div className={animating === 5 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 5 ? "block" : "none" }}>
+          <CompetitorScreen />
+        </div>
+        <div className={animating === 6 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 6 ? "block" : "none" }}>
+          <ReportsScreen plan={plan} />
+        </div>
+        <div className={animating === 7 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 7 ? "block" : "none" }}>
+          <SettingsPanel name={firstName} email={email} plan={plan} subscriptionStatus={subscriptionStatus} onBack={() => navigate(3)} onOpenWizard={openWizard} />
+        </div>
       </div>
 
       {/* Floating pill nav */}

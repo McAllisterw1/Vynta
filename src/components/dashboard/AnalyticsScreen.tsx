@@ -183,11 +183,11 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
   );
 
   const stats = [
-    { label: "Total Responses", value: String(history.length),      badge: "All time",    desc: "AI replies generated to customer reviews" },
-    { label: "Average Rating",  value: avgRating ?? "—",            badge: "out of 5",    desc: "Mean star rating across all logged responses" },
-    { label: "Requests Sent",   value: String(requestsSent),        badge: "none yet",    desc: "Review requests sent to customers via campaign" },
-    { label: "This Month",      value: String(monthlyUsage),        badge: "this period", desc: "AI responses generated in the current month" },
-    { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—", badge: "Most used", desc: "Your most-used AI reply personality" },
+    { label: "Total Responses", value: String(history.length),                                  badge: "All time",    desc: "AI replies generated to customer reviews" },
+    { label: "Avg Rating",      value: ourAvgRating !== null ? String(ourAvgRating) : "—",      badge: "Google avg",  desc: "Business rating calculated from imported Google reviews" },
+    { label: "Requests Sent",   value: String(requestsSent),                                    badge: "none yet",    desc: "Review requests sent to customers via campaign" },
+    { label: "This Month",      value: String(monthlyUsage),                                    badge: "this period", desc: "AI responses generated in the current month" },
+    { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—",                     badge: "Most used",   desc: "Your most-used AI reply personality" },
   ];
 
   return (
