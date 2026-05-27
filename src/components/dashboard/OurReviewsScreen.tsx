@@ -283,6 +283,14 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
           return;
         }
 
+        // Always broadcast the official Google rating so HomeScreen stays accurate
+        // regardless of whether new reviews were inserted
+        if (data.stats?.avgRating != null) {
+          window.dispatchEvent(new CustomEvent("vynta:reviews-updated", {
+            detail: { googleRating: data.stats.avgRating },
+          }));
+        }
+
         if (data.reviews.length > 0) {
           // Bulk insert via PUT
           const bulkRes = await fetch("/api/user/reviews", {
