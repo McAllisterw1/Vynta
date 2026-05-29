@@ -231,6 +231,28 @@ export default function CompetitorScreen() {
     try { return JSON.parse(raw) as Sentiment; } catch { return null; }
   };
 
+  interface ParsedAnalysis {
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+  }
+
+  const parseAnalysis = (raw: string | null): ParsedAnalysis | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Partial<ParsedAnalysis>;
+      if (parsed.summary || parsed.strengths || parsed.weaknesses) {
+        return {
+          summary:    parsed.summary ?? "",
+          strengths:  parsed.strengths ?? [],
+          weaknesses: parsed.weaknesses ?? [],
+        };
+      }
+    } catch {}
+    // Legacy plain-text fallback
+    return { summary: raw, strengths: [], weaknesses: [] };
+  };
+
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }`}</style>
@@ -434,12 +456,46 @@ export default function CompetitorScreen() {
                 </div>
 
                 {/* Narrative */}
-                {selected.analysisText && (
-                  <div style={{ ...CARD, padding: "14px" }}>
-                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>Vynta's Intel</p>
-                    <p style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.65 }}>{selected.analysisText}</p>
-                  </div>
-                )}
+                {(() => {
+                  const analysis = parseAnalysis(selected.analysisText);
+                  if (!analysis) return null;
+                  return (
+                    <>
+                      {analysis.summary && (
+                        <div style={{ ...CARD, padding: "14px" }}>
+                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>Overview</p>
+                          <p style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.65 }}>{analysis.summary}</p>
+                        </div>
+                      )}
+                      {analysis.strengths.length > 0 && (
+                        <div style={{ ...CARD, padding: "14px", borderLeft: "3px solid #2D9B8A" }}>
+                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", fontWeight: 600, marginBottom: "10px" }}>What They Do Well</p>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {analysis.strengths.map((s, i) => (
+                              <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                                <span style={{ color: "#2D9B8A", fontWeight: 700, fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>✓</span>
+                                <p style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.55, margin: 0 }}>{s}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {analysis.weaknesses.length > 0 && (
+                        <div style={{ ...CARD, padding: "14px", borderLeft: "3px solid #DC2626" }}>
+                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#DC2626", fontWeight: 600, marginBottom: "10px" }}>Where They're Weak</p>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {analysis.weaknesses.map((w, i) => (
+                              <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                                <span style={{ color: "#DC2626", fontWeight: 700, fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>✗</span>
+                                <p style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.55, margin: 0 }}>{w}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 <p style={{ fontSize: "10px", color: "#A0856A", textAlign: "center" }}>
                   Last analyzed {timeAgo(selected.lastAnalyzed)}

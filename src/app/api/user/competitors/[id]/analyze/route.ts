@@ -35,7 +35,7 @@ export async function POST(
       (Date.now() - competitor.createdAt.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    const prompt = `You are a reputation intelligence analyst. Analyze this competitor business.
+    const prompt = `You are a reputation intelligence analyst. Analyze this competitor business for a rival business owner who wants to understand how to compete against them.
 
 Business: ${competitor.name}
 Rating: ${competitor.rating}/5 stars
@@ -47,7 +47,9 @@ Return ONLY valid JSON, no markdown, no code fences:
   "sentiment": { "positive": <0-100 integer>, "neutral": <0-100 integer>, "negative": <0-100 integer> },
   "trend": "<improving|stable|declining>",
   "velocity": "<short string e.g. ~4 reviews/month>",
-  "summary": "<2-3 sentence competitive insight written for a rival business owner>"
+  "strengths": ["<specific thing they appear to be doing well>", "<another strength>", "<another strength>"],
+  "weaknesses": ["<specific thing they appear to be struggling with>", "<another weakness>", "<another weakness>"],
+  "summary": "<1-2 sentence overall competitive positioning — what kind of business they are and how strong a rival they represent>"
 }
 
 Estimation rules:
@@ -56,11 +58,14 @@ Estimation rules:
 - Below 3.5 → significant negative sentiment
 - sentiment values must sum to 100
 - velocity: for a business with ${competitor.reviewCount} reviews over typical business lifetime (3-5 years), estimate monthly rate
-- trend: use rating as signal — 4.5+ is improving, 3.5–4.4 stable, below is declining`;
+- trend: use rating as signal — 4.5+ is improving, 3.5–4.4 stable, below is declining
+- strengths: infer from high rating/volume what they likely do well (e.g. "Consistent service quality suggested by 4.8 rating across ${competitor.reviewCount} reviews", "High review volume indicates strong customer engagement")
+- weaknesses: even strong businesses have gaps — infer plausible ones from rating, volume, and typical patterns for this type of business (e.g. "Volume suggests possible inconsistency at scale", "Limited differentiation signals — high ratings but no standout factor visible")
+- Give 3 items for each of strengths and weaknesses. Be specific and actionable, not generic.`;
 
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
+      max_tokens: 900,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -83,6 +88,8 @@ Estimation rules:
       sentiment: { positive: number; neutral: number; negative: number };
       trend: string;
       velocity: string;
+      strengths: string[];
+      weaknesses: string[];
       summary: string;
     };
 
@@ -98,7 +105,11 @@ Estimation rules:
         sentiment:    JSON.stringify(parsed.sentiment),
         trend:        parsed.trend,
         velocity:     parsed.velocity,
-        analysisText: parsed.summary,
+        analysisText: JSON.stringify({
+          summary:    parsed.summary,
+          strengths:  parsed.strengths ?? [],
+          weaknesses: parsed.weaknesses ?? [],
+        }),
         lastAnalyzed: new Date(),
       },
     });
