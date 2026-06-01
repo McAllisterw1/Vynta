@@ -415,6 +415,24 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
     } catch {}
   }
 
+  async function toggleResponded(id: string) {
+    const review = reviews.find((r) => r.id === id);
+    if (!review) return;
+    const newResponded = !review.responded;
+    // In New tab, marking responded also moves the card to Seen
+    const alsoSeen = activeTab === "new" && newResponded;
+    setReviews((prev) =>
+      prev.map((r) => r.id === id ? { ...r, responded: newResponded, ...(alsoSeen ? { seen: true } : {}) } : r)
+    );
+    try {
+      await fetch(`/api/user/reviews/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ responded: newResponded, ...(alsoSeen ? { seen: true } : {}) }),
+      });
+    } catch {}
+  }
+
   async function saveReview() {
     if (!form.reviewerName.trim() || form.rating === 0) return;
     if (editingId) {
@@ -1228,17 +1246,35 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                     </>
                   )}
 
-                  {/* Bottom row: responded badge | edit */}
+                  {/* Bottom row: responded badge/toggle | edit */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "11px", paddingLeft: "51px" }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: "5px",
-                      background: review.responded ? "rgba(45,155,138,0.12)" : "rgba(196,135,74,0.12)",
-                      color: review.responded ? "#2D9B8A" : "#C4874A",
-                      borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600,
-                    }}>
-                      <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", display: "inline-block", flexShrink: 0 }} />
-                      {review.responded ? "Responded" : "Not Responded"}
-                    </span>
+                    {(activeTab === "new" || activeTab === "seen") ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleResponded(review.id)}
+                        title={review.responded ? "Mark as not responded" : "Mark as responded"}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: "5px",
+                          background: review.responded ? "rgba(45,155,138,0.12)" : "rgba(196,135,74,0.12)",
+                          color: review.responded ? "#2D9B8A" : "#C4874A",
+                          borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600,
+                          border: "none", cursor: "pointer", transition: "background 150ms, color 150ms",
+                        }}
+                      >
+                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", display: "inline-block", flexShrink: 0 }} />
+                        {review.responded ? "Responded" : "Not Responded"}
+                      </button>
+                    ) : (
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: "5px",
+                        background: review.responded ? "rgba(45,155,138,0.12)" : "rgba(196,135,74,0.12)",
+                        color: review.responded ? "#2D9B8A" : "#C4874A",
+                        borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600,
+                      }}>
+                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", display: "inline-block", flexShrink: 0 }} />
+                        {review.responded ? "Responded" : "Not Responded"}
+                      </span>
+                    )}
                     <button type="button" onClick={() => openEdit(review)}
                       style={{ background: "none", border: "none", cursor: "pointer", fontSize: "11px", color: "#A0856A", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: "4px" }}>
                       <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "11px", height: "11px" }}>

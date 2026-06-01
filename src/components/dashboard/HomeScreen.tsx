@@ -129,6 +129,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const { history, addEntry } = useResponseHistory();
   const { count, limit, increment, atLimit } = useMonthlyUsage(plan);
 
+  const [mounted, setMounted] = useState(false);
   const [requestsSent, setRequestsSent] = useState(0);
   const [businessName, setBusinessName] = useState("");
   const [reviewerName, setReviewerName] = useState("");
@@ -157,6 +158,11 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const [crisisDismissed, setCrisisDismissed] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
 
+  // Your Next Move — reads the cached weekly tip written by the Reports/Analytics screen
+  const [nextMoveTip, setNextMoveTip] = useState<string>("");
+
+  useEffect(() => { setMounted(true); }, []);
+
   useEffect(() => {
     document.body.classList.toggle("modal-open", showScoreModal);
     return () => { document.body.classList.remove("modal-open"); };
@@ -178,7 +184,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   }, []);
 
   useEffect(() => {
-    // Load settings from API
+    // Load settings
     fetch("/api/user/settings")
       .then((r) => r.json())
       .then((data: { businessName?: string; defaultTone?: string }) => {
@@ -187,7 +193,7 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
       })
       .catch(() => {});
 
-    // Load reviews from API for stats and crisis detection
+    // Load reviews for stats and crisis detection
     fetch("/api/user/reviews?slim=true")
       .then((r) => r.json())
       .then((reviews: CrisisReview[]) => {
@@ -197,7 +203,6 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
         setDbReviewCount(total);
         if (avg !== null) setOurAvgRating(parseFloat(avg.toFixed(1)));
 
-        // Crisis detection
         const cutoff = Date.now() - 48 * 60 * 60 * 1000;
         const negatives = reviews.filter((r) => {
           const dateStr = r.date;
@@ -213,26 +218,22 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
             if (dismissedRaw) {
               const { dismissedAt, reviewCount } = JSON.parse(dismissedRaw) as { dismissedAt: number; reviewCount: number };
               const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
-              if (negatives.length === reviewCount && hoursSince < 24) {
-                setCrisisDismissed(true);
-              }
+              if (negatives.length === reviewCount && hoursSince < 24) setCrisisDismissed(true);
             }
           } catch {}
         }
       })
       .catch(() => {});
 
-    // Load smart inbox for review count (may override reviews-based count)
+    // Smart inbox count
     fetch("/api/user/smart-inbox")
       .then((r) => r.json())
       .then((data: { lastKnownCount?: number } | null) => {
-        if (data?.lastKnownCount != null) {
-          setInboxReviewCount(data.lastKnownCount);
-        }
+        if (data?.lastKnownCount != null) setInboxReviewCount(data.lastKnownCount);
       })
       .catch(() => {});
 
-    // Load campaigns for requests sent count
+    // Campaigns for requests sent (still needed for rep score calc)
     fetch("/api/user/campaigns")
       .then((r) => r.json())
       .then((campaigns: Array<{ contacts: unknown[] }>) => {
@@ -241,11 +242,19 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
         setRequestsSent(total);
       })
       .catch(() => {});
+
+    // Read cached weekly tip from localStorage (written by Reports screen — no API call)
+    try {
+      const raw = localStorage.getItem("vynta_weekly_tip");
+      if (raw) {
+        const { tip } = JSON.parse(raw) as { tip: string; savedAt: number };
+        if (tip) setNextMoveTip(tip);
+      }
+    } catch {}
   }, []);
 
   const planData = getPlan(plan);
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
-
   const canSubmit = businessName.trim().length > 0 && reviewerName.trim().length > 0 && comment.trim().length > 0;
 
   async function fetchCrisisActionPlan() {
@@ -338,56 +347,41 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
   const usageLabel = limit === null ? "Unlimited" : `${count}/${limit} this month`;
 
   // ── Reputation Score ──────────────────────────────────────────────────────
-  const displayRating = googleSourcedRating ?? ourAvgRating;
-  const hasScoreData = displayRating !== null && ourReviewCount !== null;
-  const ratingPts    = hasScoreData ? (displayRating! / 5) * 40 : 0;
-  const volumePts    = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 25 : 0;
-  const responseRate = hasScoreData && ourReviewCount! > 0 ? Math.min(history.length / ourReviewCount!, 1) : 0;
-  const responsePts  = responseRate * 20;
-  const activityPts  = Math.min(requestsSent / 20, 1) * 15;
-  const repScore     = hasScoreData ? Math.round(ratingPts + volumePts + responsePts + activityPts) : null;
+  const displayRating  = googleSourcedRating ?? ourAvgRating;
+  const hasScoreData   = displayRating !== null && ourReviewCount !== null;
+  const ratingPts      = hasScoreData ? (displayRating! / 5) * 40 : 0;
+  const volumePts      = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 25 : 0;
+  const responseRate   = hasScoreData && ourReviewCount! > 0 ? Math.min(history.length / ourReviewCount!, 1) : 0;
+  const responsePts    = responseRate * 20;
+  const activityPts    = Math.min(requestsSent / 20, 1) * 15;
+  const repScore       = hasScoreData ? Math.round(ratingPts + volumePts + responsePts + activityPts) : null;
 
   const scoreGrade = repScore === null ? null
     : repScore >= 80 ? { label: "Excellent", color: "#2D9B8A" }
-    : repScore >= 65 ? { label: "Good",      color: "#4F46E5" }
+    : repScore >= 65 ? { label: "Good",      color: "#2D9B8A" }
     : repScore >= 50 ? { label: "Fair",       color: "#C4874A" }
     :                  { label: "Needs Work", color: "#DC2626" };
 
   const scoreBreakdown = [
-    {
-      label: "Star Rating",
-      pts: Math.round(ratingPts), max: 40,
-      detail: displayRating !== null ? `${displayRating}★ average` : "No reviews yet",
-      tip: "Aim for a 4.5+ average. Respond to negatives fast.",
-    },
-    {
-      label: "Review Volume",
-      pts: Math.round(volumePts), max: 25,
-      detail: ourReviewCount !== null ? `${ourReviewCount} reviews` : "No reviews yet",
-      tip: "50+ reviews builds strong trust signals.",
-    },
-    {
-      label: "Response Rate",
-      pts: Math.round(responsePts), max: 20,
-      detail: `${Math.round(responseRate * 100)}% of reviews responded`,
-      tip: "Responding to every review boosts your score.",
-    },
-    {
-      label: "Review Activity",
-      pts: Math.round(activityPts), max: 15,
-      detail: `${requestsSent} requests sent`,
-      tip: "Consistent outreach keeps new reviews coming.",
-    },
+    { label: "Star Rating",    pts: Math.round(ratingPts),   max: 40, detail: displayRating !== null ? `${displayRating}★ average` : "No reviews yet",          tip: "Aim for a 4.5+ average. Respond to negatives fast." },
+    { label: "Review Volume",  pts: Math.round(volumePts),   max: 25, detail: ourReviewCount !== null ? `${ourReviewCount} reviews` : "No reviews yet",          tip: "50+ reviews builds strong trust signals." },
+    { label: "Response Rate",  pts: Math.round(responsePts), max: 20, detail: `${Math.round(responseRate * 100)}% of reviews responded`,                         tip: "Responding to every review boosts your score." },
+    { label: "Review Activity",pts: Math.round(activityPts), max: 15, detail: `${requestsSent} requests sent`,                                                   tip: "Consistent outreach keeps new reviews coming." },
   ];
 
   const CIRC = 2 * Math.PI * 36; // radius 36
 
-  const statCards = [
-    { label: "Total Reviews", value: ourReviewCount !== null ? String(ourReviewCount) : "—", icon: "⭐" },
-    { label: "Avg Rating", value: displayRating !== null ? String(displayRating) : "—", icon: "📊" },
-    { label: "Responses Used", value: String(history.length), icon: "💬" },
-    { label: "Requests Sent", value: String(requestsSent), icon: "✉️" },
-  ];
+  // ── Your Next Move fallback — derived from existing state, no API call ────
+  const derivedNextMove = (() => {
+    if (!hasScoreData) return "Log your first reviews in the Reviews tab to unlock personalized AI recommendations.";
+    const unresponded = (dbReviewCount ?? 0) - history.length;
+    if (unresponded > 3) return `You have ${unresponded} reviews without a response — replying to each one will meaningfully boost your Reputation Score.`;
+    if (displayRating !== null && displayRating < 4.2) return "Your rating has room to grow. Prioritize responding to negative reviews and requesting 5-star reviews from satisfied customers.";
+    if ((ourReviewCount ?? 0) < 20) return "Volume builds trust — send a review request campaign to recent customers to grow your review count and strengthen your score.";
+    return "Your reputation is in solid shape. Keep momentum by responding to new reviews promptly and running a weekly sentiment analysis in Reports.";
+  })();
+
+  const nextMoveText = nextMoveTip || derivedNextMove;
 
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
@@ -400,47 +394,30 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
         .crisis-md h1, .crisis-md h2, .crisis-md h3 { margin: 12px 0 4px; }
       `}</style>
 
-      {/* Sticky top bar — plan badge only (Vynta branding lives in the global DashboardShell bar) */}
+      {/* Sticky top bar */}
       <header style={{ position: "sticky", top: 0, zIndex: 10, background: "#FAF5E8", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
         {planData && isActive ? (
           <span style={{ background: "#E8DCC8", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#C4874A", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "0 1px 4px rgba(44,26,14,0.1)" }}>
             {planData.name}
           </span>
         ) : (
-          <a href="/#pricing" style={{ fontSize: "12px", fontWeight: 600, color: "#4F46E5" }}>Get a plan →</a>
+          <a href="/#pricing" style={{ fontSize: "12px", fontWeight: 600, color: "#2D9B8A" }}>Get a plan →</a>
         )}
       </header>
 
-      {/* Scrollable content */}
-      <div style={{ padding: "24px 24px 120px" }}>
+      <div style={{ padding: "20px 20px 120px" }}>
 
         {/* ── Reputation Crisis Alert ── */}
         {crisisDetected && !crisisDismissed && (
           <UpgradeTooltip locked={!canAccess(plan, "crisisDetection")} requiredPlan="Agency">
-          <div style={{
-            background: "#1a0a0a",
-            border: "1px solid #C0392B",
-            borderRadius: "16px",
-            padding: "18px",
-            marginBottom: "16px",
-          }}>
-
-            {/* Header */}
+          <div style={{ background: "#1a0a0a", border: "1px solid #C0392B", borderRadius: "16px", padding: "18px", marginBottom: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-              <span style={{
-                width: "10px", height: "10px", borderRadius: "50%",
-                background: "#C0392B", flexShrink: 0, display: "inline-block",
-                animation: "crisis-pulse 1.5s ease-in-out infinite",
-              }} />
-              <p style={{ fontSize: "14px", fontWeight: 700, color: "white", margin: 0 }}>
-                ⚠️ Reputation Crisis Detected
-              </p>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#C0392B", flexShrink: 0, display: "inline-block", animation: "crisis-pulse 1.5s ease-in-out infinite" }} />
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "white", margin: 0 }}>⚠️ Reputation Crisis Detected</p>
             </div>
             <p style={{ fontSize: "12px", color: "rgba(192,57,43,0.85)", marginBottom: "14px", paddingLeft: "20px" }}>
               {recentNegativeReviews.length} negative review{recentNegativeReviews.length !== 1 ? "s" : ""} in the last 48 hours — act now
             </p>
-
-            {/* Review list */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "14px" }}>
               {recentNegativeReviews.map((r, i) => (
                 <div key={r.id ?? i} style={{ background: "rgba(192,57,43,0.1)", borderRadius: "8px", padding: "8px 12px" }}>
@@ -448,164 +425,101 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
                     <Stars rating={r.rating} size="sm" />
                     <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)" }}>{r.rating} star{r.rating !== 1 ? "s" : ""}</span>
                   </div>
-                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.78)", margin: 0, lineHeight: 1.5 }}>
-                    &ldquo;{r.text ?? "(no review text)"}&rdquo;
-                  </p>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.78)", margin: 0, lineHeight: 1.5 }}>&ldquo;{r.text ?? "(no review text)"}&rdquo;</p>
                 </div>
               ))}
             </div>
-
-            {/* Action plan / button */}
             {!crisisActionPlan ? (
               <>
-                <button
-                  type="button"
-                  onClick={fetchCrisisActionPlan}
-                  disabled={crisisLoading}
-                  style={{
-                    width: "100%",
-                    background: crisisLoading ? "rgba(192,57,43,0.55)" : "#C0392B",
-                    color: "white",
-                    borderRadius: "10px",
-                    padding: "12px",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    border: "none",
-                    cursor: crisisLoading ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    marginBottom: "8px",
-                    transition: "background 150ms",
-                  }}
-                >
+                <button type="button" onClick={fetchCrisisActionPlan} disabled={crisisLoading}
+                  style={{ width: "100%", background: crisisLoading ? "rgba(192,57,43,0.55)" : "#C0392B", color: "white", borderRadius: "10px", padding: "12px", fontSize: "13px", fontWeight: 700, border: "none", cursor: crisisLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px", transition: "background 150ms" }}>
                   {crisisLoading ? (
-                    <>
-                      <svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
-                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
-                      </svg>
-                      Building action plan…
-                    </>
+                    <><svg style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none"><circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" /></svg>Building action plan…</>
                   ) : "Get Action Plan"}
                 </button>
-                <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>
-                  Powered by Vynta
-                </p>
+                <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>Powered by Vynta</p>
               </>
             ) : (
               <>
                 <div style={{ height: "1px", background: "rgba(192,57,43,0.25)", margin: "4px 0 14px" }} />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(192,57,43,0.85)", fontWeight: 600, margin: 0 }}>
-                    Action Plan
-                  </p>
-                  <button
-                    type="button"
-                    onClick={fetchCrisisActionPlan}
-                    disabled={crisisLoading}
-                    aria-label="Regenerate action plan"
-                    style={{ background: "none", border: "none", cursor: crisisLoading ? "not-allowed" : "pointer", color: "rgba(255,255,255,0.35)", padding: "2px", lineHeight: 0 }}
-                  >
+                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(192,57,43,0.85)", fontWeight: 600, margin: 0 }}>Action Plan</p>
+                  <button type="button" onClick={fetchCrisisActionPlan} disabled={crisisLoading} aria-label="Regenerate action plan"
+                    style={{ background: "none", border: "none", cursor: crisisLoading ? "not-allowed" : "pointer", color: "rgba(255,255,255,0.35)", padding: "2px", lineHeight: 0 }}>
                     <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "13px", height: "13px" }}>
                       <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 0 1 1.36-.636A6.5 6.5 0 1 1 8 1.5v-.75a.25.25 0 0 1 .427-.177l2.25 2.25a.25.25 0 0 1 0 .354l-2.25 2.25A.25.25 0 0 1 8 5.25V3Z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
-                <div className="crisis-md">
-                  <MarkdownContent>{crisisActionPlan}</MarkdownContent>
-                </div>
+                <div className="crisis-md"><MarkdownContent>{crisisActionPlan}</MarkdownContent></div>
               </>
             )}
-
-            {/* Dismiss */}
-            <button
-              type="button"
-              onClick={dismissCrisis}
-              style={{
-                width: "100%",
-                marginTop: "14px",
-                background: "none",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "8px",
-                padding: "8px",
-                fontSize: "11px",
-                color: "rgba(255,255,255,0.3)",
-                cursor: "pointer",
-              }}
-            >
+            <button type="button" onClick={dismissCrisis}
+              style={{ width: "100%", marginTop: "14px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", padding: "8px", fontSize: "11px", color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>
               Dismiss until new reviews
             </button>
           </div>
           </UpgradeTooltip>
         )}
 
-        {/* Stat cards — 2×2 mobile, 4-col desktop */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }} className="sm:grid-cols-4">
-          {statCards.map(({ label, value, icon }) => (
-            <div key={label} style={{ ...CARD, padding: "16px" }}>
-              <div style={{ fontSize: "22px", marginBottom: "8px" }}>{icon}</div>
-              <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>{value}</p>
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "6px" }}>{label}</p>
-            </div>
-          ))}
-        </div>
+        {/* ── 3 Stat Cards: Total Reviews · Avg Rating · Rep Score ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "16px" }}>
 
-        {/* ── Reputation Score Card ── */}
-        <button
-          type="button"
-          onClick={() => repScore !== null && setShowScoreModal(true)}
-          style={{
-            ...CARD,
-            width: "100%",
-            padding: "18px 20px",
-            marginBottom: "16px",
-            display: "flex",
-            alignItems: "center",
-            gap: "18px",
-            cursor: repScore !== null ? "pointer" : "default",
-            border: "none",
-            textAlign: "left",
-          }}
-        >
-          {/* Ring */}
-          <div style={{ position: "relative", flexShrink: 0, width: "88px", height: "88px" }}>
-            <svg viewBox="0 0 88 88" style={{ width: "88px", height: "88px", transform: "rotate(-90deg)" }}>
-              <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(44,26,14,0.08)" strokeWidth="8" />
-              <circle
-                cx="44" cy="44" r="36" fill="none"
-                stroke={repScore !== null ? (scoreGrade?.color ?? "#4F46E5") : "rgba(44,26,14,0.08)"}
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={CIRC}
-                strokeDashoffset={repScore !== null ? CIRC * (1 - repScore / 100) : CIRC}
-                style={{ transition: "stroke-dashoffset 600ms cubic-bezier(0.4,0,0.2,1)" }}
-              />
-            </svg>
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: "22px", fontWeight: 800, color: repScore !== null ? (scoreGrade?.color ?? "#4F46E5") : "#A0856A", lineHeight: 1 }}>
-                {repScore ?? "—"}
-              </span>
-              <span style={{ fontSize: "8px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A", marginTop: "2px" }}>/ 100</span>
-            </div>
+          {/* Total Reviews */}
+          <div style={{ ...CARD, padding: "16px" }}>
+            <p style={{ fontSize: "2rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>
+              {ourReviewCount !== null ? ourReviewCount : "—"}
+            </p>
+            <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "6px", lineHeight: 1.3 }}>
+              Total Reviews
+            </p>
           </div>
 
-          {/* Text */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", fontWeight: 600, marginBottom: "4px" }}>
-              Reputation Score
+          {/* Avg Rating */}
+          <div style={{ ...CARD, padding: "16px" }}>
+            <p style={{ fontSize: "2rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1 }}>
+              {!mounted ? "—" : (displayRating !== null ? displayRating : "—")}
             </p>
-            <p className="font-display" style={{ fontSize: "1.2rem", fontWeight: 700, color: scoreGrade?.color ?? "#A0856A", marginBottom: "6px" }}>
-              {scoreGrade?.label ?? "Not enough data"}
+            <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginTop: "6px", lineHeight: 1.3 }}>
+              Avg Rating
             </p>
-            {repScore !== null && (
-              <p style={{ fontSize: "11px", color: "#4F46E5", fontWeight: 500 }}>
-                Tap to see breakdown →
+          </div>
+
+          {/* Reputation Score — circle ring, tappable */}
+          <button
+            type="button"
+            onClick={() => repScore !== null && setShowScoreModal(true)}
+            style={{ ...CARD, padding: "14px 10px", border: "none", cursor: repScore !== null ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px" }}
+          >
+            <div style={{ position: "relative", width: "56px", height: "56px" }}>
+              <svg viewBox="0 0 88 88" style={{ width: "56px", height: "56px", transform: "rotate(-90deg)" }}>
+                <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(44,26,14,0.08)" strokeWidth="8" />
+                <circle
+                  cx="44" cy="44" r="36" fill="none"
+                  stroke={repScore !== null ? (scoreGrade?.color ?? "#2D9B8A") : "rgba(44,26,14,0.08)"}
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={CIRC}
+                  strokeDashoffset={repScore !== null ? CIRC * (1 - repScore / 100) : CIRC}
+                  style={{ transition: "stroke-dashoffset 600ms cubic-bezier(0.4,0,0.2,1)" }}
+                />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: "17px", fontWeight: 800, color: repScore !== null ? (scoreGrade?.color ?? "#2D9B8A") : "#A0856A", lineHeight: 1 }}>
+                  {repScore ?? "—"}
+                </span>
+              </div>
+            </div>
+            <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", lineHeight: 1.3, textAlign: "center" }}>
+              Rep Score
+            </p>
+            {scoreGrade && (
+              <p style={{ fontSize: "10px", fontWeight: 700, color: scoreGrade.color, textAlign: "center", lineHeight: 1 }}>
+                {scoreGrade.label}
               </p>
             )}
-          </div>
-        </button>
+          </button>
+        </div>
 
         {/* ── Score Breakdown Modal ── */}
         {showScoreModal && repScore !== null && (
@@ -617,8 +531,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
               style={{ background: "#FAF5E8", borderRadius: "20px", width: "100%", maxWidth: "400px", maxHeight: "80vh", overflowY: "auto", padding: "24px", boxShadow: "0 8px 40px rgba(44,26,14,0.22)" }}
               onClick={(e) => e.stopPropagation()}
             >
-
-              {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
                 <div style={{ position: "relative", width: "72px", height: "72px", flexShrink: 0 }}>
                   <svg viewBox="0 0 88 88" style={{ width: "72px", height: "72px", transform: "rotate(-90deg)" }}>
@@ -637,7 +549,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
                 </div>
               </div>
 
-              {/* Breakdown rows */}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
                 {scoreBreakdown.map((item) => (
                   <div key={item.label}>
@@ -645,12 +556,11 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
                       <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{item.label}</span>
                       <span style={{ fontSize: "11px", color: "#A0856A" }}>{item.pts} / {item.max} pts</span>
                     </div>
-                    {/* Bar */}
                     <div style={{ height: "6px", background: "rgba(44,26,14,0.08)", borderRadius: "99px", overflow: "hidden", marginBottom: "4px" }}>
                       <div style={{
                         height: "100%",
                         width: `${(item.pts / item.max) * 100}%`,
-                        background: item.pts >= item.max * 0.8 ? "#2D9B8A" : item.pts >= item.max * 0.5 ? "#4F46E5" : "#C4874A",
+                        background: item.pts >= item.max * 0.8 ? "#2D9B8A" : item.pts >= item.max * 0.5 ? "#C4874A" : "#DC2626",
                         borderRadius: "99px",
                         transition: "width 500ms cubic-bezier(0.4,0,0.2,1)",
                       }} />
@@ -671,16 +581,43 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
           </div>
         )}
 
-        {/* Vynta AI Responder */}
+        {/* ── Your Next Move ── */}
+        <div style={{
+          background: "#E8DCC8",
+          borderRadius: "16px",
+          boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+          borderLeft: "4px solid #2D9B8A",
+          padding: "20px 20px 20px 18px",
+          marginBottom: "16px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "10px" }}>
+            <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "13px", height: "13px", color: "#2D9B8A", flexShrink: 0 }}>
+              <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+              <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+            </svg>
+            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#2D9B8A", fontWeight: 700 }}>
+              Your Next Move
+            </p>
+            {nextMoveTip && (
+              <span style={{ marginLeft: "auto", fontSize: "9px", color: "#A0856A", fontWeight: 500 }}>
+                AI · updated weekly
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: "15px", fontWeight: 600, color: "#2C1A0E", lineHeight: 1.65, margin: 0 }}>
+            {nextMoveText}
+          </p>
+        </div>
+
+        {/* ── Vynta AI Responder ── */}
         <div style={{ ...CARD, padding: "20px", marginBottom: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#4F46E5" }}>
+            <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E" }}>
               Vynta AI Responder
             </h2>
             <span style={{ fontSize: "10px", color: "#A0856A" }}>{usageLabel}</span>
           </div>
 
-          {/* Business + Stars */}
           <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
             <input
               type="text"
@@ -693,7 +630,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} type="button" onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
-                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#4F46E5" : "#C8B49A" }} fill="currentColor">
+                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#C4874A" : "#C8B49A" }} fill="currentColor">
                     <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
                   </svg>
                 </button>
@@ -719,8 +656,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             className="focus:outline-none focus:ring-2 focus:ring-[#C4874A]/30"
           />
 
-          {/* Tone pills */}
-          {/* Starter: Professional, Friendly, Apologetic, Savage free. All others locked. */}
           <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px", marginBottom: "14px", scrollbarWidth: "none" } as React.CSSProperties}>
             {TONES.map(({ value, emoji, name }) => {
               const FREE_TONES = new Set(["professional", "friendly", "apologetic", "savage"]);
@@ -751,7 +686,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             })}
           </div>
 
-          {/* Generate */}
           <button
             type="button"
             onClick={() => { setResponse(""); fetchDraft(); }}
@@ -777,7 +711,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             {loading && !response ? (
               <>
                 <svg style={{ width: "14px", height: "14px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                   <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                   <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
                 </svg>
@@ -819,7 +752,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
           )}
         </div>
 
-        {/* Response History */}
+        {/* ── Response History ── */}
         {history.length > 0 && (
           <div style={{ ...CARD, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 12px" }}>
@@ -831,6 +764,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
