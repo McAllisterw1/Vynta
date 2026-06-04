@@ -137,6 +137,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   const [businessAddress, setBusinessAddress] = useState("");
   const [businessUrl, setBusinessUrl]       = useState("");
   const [businessPhone, setBusinessPhone]   = useState("");
+  const [googleRating, setGoogleRating]     = useState<number | null>(null);
   const [bizSaved, setBizSaved]             = useState(false);
   const [bizSaving, setBizSaving]           = useState(false);
 
@@ -178,6 +179,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         businessName?: string; businessType?: string; businessAddress?: string;
         businessUrl?: string; businessPhone?: string; googleReviewUrl?: string;
         defaultTone?: string; messageTemplate?: string; initialImportPlaceId?: string | null;
+        googleRating?: number;
       }) => {
         if (data.businessName)    setBusinessName(data.businessName);
         if (data.businessType)    setBusinessType(data.businessType);
@@ -188,6 +190,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         if (data.defaultTone)     setDefaultTone(data.defaultTone);
         if (data.messageTemplate) setMessageTemplate(data.messageTemplate);
         if (data.initialImportPlaceId !== undefined) setInitialImportPlaceId(data.initialImportPlaceId ?? null);
+        if (data.googleRating && data.googleRating > 0) setGoogleRating(data.googleRating);
       })
       .catch(() => {});
 
@@ -487,6 +490,19 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
             <input type="tel" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)}
               placeholder="e.g. (704) 555-0123" style={FIELD} />
           </div>
+
+          {googleRating !== null && (
+            <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "3px" }}>Your Google Rating</p>
+                <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.4 }}>Pulled from Google via Outscraper. Updates on each review sync.</p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                <span style={{ fontSize: "1.4rem", fontWeight: 700, color: "#2D9B8A" }}>{googleRating.toFixed(1)}</span>
+                <span style={{ fontSize: "1rem", color: "#C4874A" }}>★</span>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <SaveButton onSave={saveBusinessProfile} saving={bizSaving} saved={bizSaved} />

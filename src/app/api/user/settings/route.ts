@@ -31,6 +31,7 @@ export async function PUT(request: NextRequest) {
     defaultTone: string;
     messageTemplate: string;
     onboardingComplete: boolean;
+    googleRating: number;
   }>;
 
   const settings = await prisma.userSettings.upsert({

@@ -169,6 +169,7 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
   const SYNC_COOLDOWN = 300; // 5 minutes
   const smartInboxSynced = useRef(false);
   const [inlineEdits, setInlineEdits] = useState<Record<string, { name: string; text: string; rating: number }>>({});
+  const [animatingId, setAnimatingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load reviews from API
@@ -283,12 +284,16 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
           return;
         }
 
-        // Always broadcast the official Google rating so HomeScreen stays accurate
-        // regardless of whether new reviews were inserted
+        // Always broadcast + persist the official Google rating
         if (data.stats?.avgRating != null) {
           window.dispatchEvent(new CustomEvent("vynta:reviews-updated", {
             detail: { googleRating: data.stats.avgRating },
           }));
+          fetch("/api/user/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ googleRating: data.stats.avgRating }),
+          }).catch(() => {});
         }
 
         if (data.reviews.length > 0) {
@@ -431,6 +436,15 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
         body: JSON.stringify({ responded: newResponded, ...(alsoSeen ? { seen: true } : {}) }),
       });
     } catch {}
+  }
+
+  async function handleRespondedClick(id: string) {
+    const review = reviews.find((r) => r.id === id);
+    if (!review || review.responded) { void toggleResponded(id); return; }
+    setAnimatingId(id);
+    await new Promise((r) => setTimeout(r, 480));
+    await toggleResponded(id);
+    setAnimatingId(null);
   }
 
   async function saveReview() {
@@ -855,8 +869,8 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                 disabled={syncing || cooldownSecs > 0 || !smartInboxConfig}
                 title={cooldownSecs > 0 ? `Available in ${Math.floor(cooldownSecs / 60)}:${String(cooldownSecs % 60).padStart(2, "0")}` : !smartInboxConfig ? "Loading…" : "Check for new Google reviews"}
                 style={{
-                  background: "rgba(79,70,229,0.1)",
-                  color: "#4F46E5",
+                  background: "rgba(45,155,138,0.1)",
+                  color: "#2D9B8A",
                   borderRadius: "20px",
                   padding: "9px 14px",
                   fontSize: "13px",
@@ -1016,7 +1030,7 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
             const longText = review.text.length > 120;
 
             return (
-              <div key={review.id} style={{ ...CARD, overflow: "hidden" }}>
+              <div key={review.id} style={{ ...CARD, overflow: "hidden", opacity: animatingId === review.id ? 0 : 1, transform: animatingId === review.id ? "translateY(-6px) scale(0.98)" : "none", transition: "opacity 300ms ease, transform 300ms ease" }}>
                 <div style={{ padding: "14px 14px 13px" }}>
 
                   {/* Row 1: avatar · name/stars/date · seen checkbox · delete */}
@@ -1251,18 +1265,26 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
                     {(activeTab === "new" || activeTab === "seen") ? (
                       <button
                         type="button"
-                        onClick={() => toggleResponded(review.id)}
+                        onClick={() => handleRespondedClick(review.id)}
                         title={review.responded ? "Mark as not responded" : "Mark as responded"}
                         style={{
                           display: "inline-flex", alignItems: "center", gap: "5px",
-                          background: review.responded ? "rgba(45,155,138,0.12)" : "rgba(196,135,74,0.12)",
-                          color: review.responded ? "#2D9B8A" : "#C4874A",
+                          background: animatingId === review.id ? "rgba(45,155,138,0.2)" : review.responded ? "rgba(45,155,138,0.12)" : "rgba(196,135,74,0.12)",
+                          color: animatingId === review.id ? "#2D9B8A" : review.responded ? "#2D9B8A" : "#C4874A",
                           borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600,
-                          border: "none", cursor: "pointer", transition: "background 150ms, color 150ms",
+                          border: "none", cursor: "pointer",
+                          transform: animatingId === review.id ? "scale(1.08)" : "scale(1)",
+                          transition: "background 150ms, color 150ms, transform 150ms",
                         }}
                       >
-                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", display: "inline-block", flexShrink: 0 }} />
-                        {review.responded ? "Responded" : "Not Responded"}
+                        {animatingId === review.id ? (
+                          <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "10px", height: "10px", flexShrink: 0 }}>
+                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                          </svg>
+                        ) : (
+                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", display: "inline-block", flexShrink: 0 }} />
+                        )}
+                        {animatingId === review.id ? "Done!" : review.responded ? "Responded" : "Not Responded"}
                       </button>
                     ) : (
                       <span style={{
