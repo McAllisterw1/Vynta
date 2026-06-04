@@ -115,7 +115,7 @@ export default function SignUpPage() {
               Create your account
             </h1>
             <p className="mt-1.5 text-sm text-tobacco-light">
-              Start your free trial — no credit card required
+              14-day free trial — cancel anytime
             </p>
           </div>
           <SignUp appearance={clerkAppearance} />
