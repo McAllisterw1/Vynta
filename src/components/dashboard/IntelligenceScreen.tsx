@@ -1461,6 +1461,7 @@ export default function IntelligenceScreen() {
   const [businessName,     setBusinessName]     = useState("");
   const [businessAddress,  setBusinessAddress]  = useState("");
   const [userTotalReviews, setUserTotalReviews] = useState<number | null>(null);
+  const [googleRating,     setGoogleRating]     = useState<number | null>(null);
   const [loading,          setLoading]          = useState(true);
 
   useEffect(() => {
@@ -1476,18 +1477,20 @@ export default function IntelligenceScreen() {
       if (Array.isArray(hist))  setSentimentHistory(hist as SentimentHistoryRecord[]);
       if (sentCache?.data)      setSentimentData(sentCache.data as SentimentAnalysis);
       if (Array.isArray(comps)) setCompetitors(comps as Competitor[]);
-      const s = settings as { businessType?: string; businessName?: string; businessAddress?: string };
+      const s = settings as { businessType?: string; businessName?: string; businessAddress?: string; googleRating?: number };
       if (s.businessType) setBusinessType(s.businessType);
       if (s.businessName) setBusinessName(s.businessName);
       if (s.businessAddress) setBusinessAddress(s.businessAddress);
+      if (s.googleRating && s.googleRating > 0) setGoogleRating(s.googleRating);
       const inboxData = inbox as { lastKnownCount?: number } | null;
       if (inboxData?.lastKnownCount) setUserTotalReviews(inboxData.lastKnownCount);
     }).finally(() => setLoading(false));
   }, []);
 
-  const userRating = reviews.length > 0
-    ? parseFloat((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1))
-    : null;
+  const userRating = googleRating ??
+    (reviews.length > 0
+      ? parseFloat((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1))
+      : null);
 
   const TABS: { key: IntelTab; label: string }[] = [
     { key: "business",      label: "My Business"   },

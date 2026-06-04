@@ -16,7 +16,7 @@ interface OutscraperReviewItem {
 
 interface OutscraperResponse {
   status?: string;
-  data?: Array<{ reviews_data?: OutscraperReviewItem[] }>;
+  data?: Array<{ rating?: number; reviews_data?: OutscraperReviewItem[] }>;
 }
 
 function parseDate(dateStr: string): string {
@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
     const data = (await res.json()) as OutscraperResponse;
     if (data.status !== "Success") throw new Error(`Outscraper: ${data.status ?? "unknown error"}`);
 
-    const rawReviews = (data.data?.[0]?.reviews_data ?? []).filter((r) => r.author_title);
+    const businessData = data.data?.[0];
+    const googleRating = businessData?.rating ?? 0;
+    const rawReviews = (businessData?.reviews_data ?? []).filter((r) => r.author_title);
 
     // Sort newest first, cap at 500
     rawReviews.sort((a, b) => (b.review_timestamp ?? 0) - (a.review_timestamp ?? 0));
@@ -142,10 +144,13 @@ export async function POST(request: NextRequest) {
       await prisma.review.createMany({ data: toInsert });
     }
 
-    // Mark import complete for this placeId
+    // Mark import complete, store real Google rating
     await prisma.userSettings.update({
       where: { userId },
-      data: { initialImportPlaceId: placeId },
+      data: {
+        initialImportPlaceId: placeId,
+        ...(googleRating > 0 && { googleRating }),
+      },
     });
 
     const total = reviews.length;

@@ -51,6 +51,7 @@ model UserSettings {
   businessUrl     String   @default("")
   businessPhone   String   @default("")
   googleReviewUrl      String   @default("")
+  googleRating         Float    @default(0)
   defaultTone          String   @default("professional")
   messageTemplate      String   @default("")
   onboardingComplete   Boolean  @default(false)
