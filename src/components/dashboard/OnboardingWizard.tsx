@@ -110,6 +110,9 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
   const [verifyChecked, setVerifyChecked] = useState(false);
   const [inboxDone, setInboxDone]         = useState(hasSmartInbox);
 
+  // Step 4 — Review import (fires in background when done step mounts)
+  const [importStatus, setImportStatus]   = useState<"idle" | "importing" | "done" | "error">("idle");
+
   async function saveStep1() {
     setSaving(true);
     try {
@@ -203,6 +206,22 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
     }
   }
 
+  async function triggerImport(placeId: string) {
+    if (!placeId || importStatus !== "idle") return;
+    setImportStatus("importing");
+    try {
+      const res = await fetch("/api/user/initial-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId }),
+      });
+      const data = await res.json() as { success?: boolean; alreadyDone?: boolean; error?: string };
+      setImportStatus(data.success || data.alreadyDone ? "done" : "error");
+    } catch {
+      setImportStatus("error");
+    }
+  }
+
   async function complete() {
     try {
       await fetch("/api/user/settings", {
@@ -277,7 +296,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
               <div key={label} style={{ display: "flex", alignItems: "center", gap: "6px", flex: i < STEPS.length - 1 ? 1 : undefined }}>
                 <div style={{
                   width: "22px", height: "22px", borderRadius: "50%",
-                  background: i < progressStep ? "#4F46E5" : i === progressStep ? "#4F46E5" : "rgba(44,26,14,0.1)",
+                  background: i < progressStep ? "#2D9B8A" : i === progressStep ? "#2D9B8A" : "rgba(44,26,14,0.1)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0, transition: "background 300ms",
                 }}>
@@ -290,7 +309,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
                   )}
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div style={{ flex: 1, height: "2px", background: i < progressStep ? "#4F46E5" : "rgba(44,26,14,0.1)", borderRadius: "99px", transition: "background 300ms" }} />
+                  <div style={{ flex: 1, height: "2px", background: i < progressStep ? "#2D9B8A" : "rgba(44,26,14,0.1)", borderRadius: "99px", transition: "background 300ms" }} />
                 )}
               </div>
             ))}
@@ -301,18 +320,35 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
         {step === 0 && (
           <div style={{ padding: "32px 24px 28px" }}>
             <div style={{ fontSize: "32px", marginBottom: "16px" }}>👋</div>
-            <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "10px" }}>
+            <h1 className="font-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
               Welcome to Vynta{firstName ? `, ${firstName}` : ""}!
             </h1>
-            <p style={{ fontSize: "14px", color: "#A0856A", lineHeight: 1.6, marginBottom: "28px" }}>
-              Let's get your dashboard set up in 3 quick steps — your business profile, your review tools, and your Smart Inbox. Takes about 2 minutes.
+            <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6, marginBottom: "20px" }}>
+              Setup takes about 2 minutes. Before you start, have these ready:
             </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
+              {[
+                { emoji: "📍", label: "Your Google Place ID", note: "Find it at developers.google.com/maps/documentation/places/web-service/place-id" },
+                { emoji: "⭐", label: "Your Google Review Link", note: "From your Google Business Profile → Share review form" },
+                { emoji: "💳", label: "A payment method", note: "14-day free trial — you won't be charged until it ends" },
+              ].map(({ emoji, label, note }) => (
+                <div key={label} style={{ display: "flex", gap: "12px", alignItems: "flex-start", background: "#E8DCC8", borderRadius: "10px", padding: "10px 13px" }}>
+                  <span style={{ fontSize: "16px", lineHeight: 1, marginTop: "1px" }}>{emoji}</span>
+                  <div>
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", marginBottom: "1px" }}>{label}</p>
+                    <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.4 }}>{note}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button type="button" onClick={() => setStep(1)} style={{
-              width: "100%", background: "#4F46E5", color: "white",
+              width: "100%", background: "#2D9B8A", color: "white",
               borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 700,
-              border: "none", cursor: "pointer", marginBottom: "12px",
+              border: "none", cursor: "pointer", marginBottom: "10px",
             }}>
-              Let's get started →
+              I'm ready, let's go →
             </button>
             <button type="button" onClick={dismiss} style={{
               width: "100%", background: "none", border: "none",
@@ -327,7 +363,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
         {step === 1 && (
           <div style={{ padding: "20px 20px 24px" }}>
             <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", margin: "14px 0 4px" }}>Business Profile</h2>
-            <p style={{ fontSize: "12px", color: "#4F46E5", marginBottom: "18px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "12px", color: "#2D9B8A", marginBottom: "18px", lineHeight: 1.5 }}>
               This powers Vynta's AI — she'll use your business details to give smarter advice and write better review responses.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -362,7 +398,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
             <button type="button" onClick={saveStep1} disabled={!businessName.trim() || saving}
               style={{
                 width: "100%", marginTop: "20px",
-                background: !businessName.trim() ? "rgba(79,70,229,0.4)" : "#4F46E5",
+                background: !businessName.trim() ? "rgba(45,155,138,0.4)" : "#2D9B8A",
                 color: "white", borderRadius: "12px", padding: "13px",
                 fontSize: "13px", fontWeight: 700, border: "none",
                 cursor: !businessName.trim() || saving ? "not-allowed" : "pointer",
@@ -377,7 +413,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
         {step === 2 && (
           <div style={{ padding: "20px 20px 24px" }}>
             <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", margin: "14px 0 4px" }}>Review Tools</h2>
-            <p style={{ fontSize: "12px", color: "#4F46E5", marginBottom: "18px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "12px", color: "#2D9B8A", marginBottom: "18px", lineHeight: 1.5 }}>
               Set your Google review link so campaigns send customers to the right place, and pick how Vynta sounds when she responds.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -394,7 +430,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
               </div>
               <div>
                 <label style={LABEL}>Outbound Message Template</label>
-                <p style={{ fontSize: "11px", color: "#4F46E5", marginBottom: "6px", lineHeight: 1.5 }}>
+                <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "6px", lineHeight: 1.5 }}>
                   Sent when you request a review. Use{" "}
                   <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
                   <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
@@ -409,7 +445,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
             <button type="button" onClick={saveStep2} disabled={saving}
               style={{
                 width: "100%", marginTop: "20px",
-                background: "#4F46E5", color: "white",
+                background: "#2D9B8A", color: "white",
                 borderRadius: "12px", padding: "13px",
                 fontSize: "13px", fontWeight: 700, border: "none",
                 cursor: saving ? "not-allowed" : "pointer",
@@ -424,12 +460,12 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
         {step === 3 && (
           <div style={{ padding: "20px 20px 24px" }}>
             <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", margin: "14px 0 4px" }}>Smart Inbox</h2>
-            <p style={{ fontSize: "12px", color: "#4F46E5", marginBottom: "18px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "12px", color: "#2D9B8A", marginBottom: "18px", lineHeight: 1.5 }}>
               Link your business on Google so Vynta can monitor your review count and pull new reviews automatically.
             </p>
 
             {inboxDone ? (
-              <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
+              <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
                 <div style={{ fontSize: "28px", marginBottom: "8px" }}>✅</div>
                 <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "4px" }}>Smart Inbox is active</p>
                 <p style={{ fontSize: "11px", color: "#A0856A" }}>Your business is verified and linked to Vynta.</p>
@@ -437,7 +473,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
             ) : lookupResult ? (
               /* Confirm step */
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.18)", borderRadius: "10px", padding: "14px" }}>
+                <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "14px" }}>
                   <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>We found this business</p>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>{lookupResult.businessName}</p>
                   <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -449,7 +485,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
                 <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
                   <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
                     <input type="checkbox" checked={verifyChecked} onChange={(e) => setVerifyChecked(e.target.checked)}
-                      style={{ marginTop: "2px", accentColor: "#4F46E5", flexShrink: 0 }} />
+                      style={{ marginTop: "2px", accentColor: "#2D9B8A", flexShrink: 0 }} />
                     <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
                       I confirm I am the owner or authorized manager of this business and have the right to track and respond to its Google reviews.
                     </span>
@@ -463,7 +499,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
                   </button>
                   <button type="button" onClick={confirmAndActivate} disabled={!verifyChecked || inboxActivating}
                     style={{
-                      flex: 2, background: !verifyChecked || inboxActivating ? "rgba(79,70,229,0.4)" : "#4F46E5",
+                      flex: 2, background: !verifyChecked || inboxActivating ? "rgba(45,155,138,0.4)" : "#2D9B8A",
                       color: "white", borderRadius: "10px", padding: "11px",
                       fontSize: "13px", fontWeight: 600, border: "none",
                       cursor: !verifyChecked || inboxActivating ? "not-allowed" : "pointer",
@@ -481,7 +517,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
                 <a
                   href="https://developers.google.com/maps/documentation/places/web-service/place-id"
                   target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: "10px", color: "#4F46E5", lineHeight: 1.5 }}
+                  style={{ fontSize: "10px", color: "#2D9B8A", lineHeight: 1.5 }}
                 >
                   How to find your Place ID →
                 </a>
@@ -494,7 +530,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
                 <button type="button" onClick={lookupBusiness}
                   disabled={!inboxPlaceId.trim() || inboxLooking}
                   style={{
-                    background: !inboxPlaceId.trim() || inboxLooking ? "rgba(79,70,229,0.4)" : "#4F46E5",
+                    background: !inboxPlaceId.trim() || inboxLooking ? "rgba(45,155,138,0.4)" : "#2D9B8A",
                     color: "white", borderRadius: "10px", padding: "11px",
                     fontSize: "13px", fontWeight: 600, border: "none",
                     cursor: !inboxPlaceId.trim() || inboxLooking ? "not-allowed" : "pointer",
@@ -510,7 +546,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
             <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
               {inboxDone ? (
                 <button type="button" onClick={() => setStep(4)}
-                  style={{ width: "100%", background: "#4F46E5", color: "white", borderRadius: "12px", padding: "13px", fontSize: "13px", fontWeight: 700, border: "none", cursor: "pointer" }}>
+                  style={{ width: "100%", background: "#2D9B8A", color: "white", borderRadius: "12px", padding: "13px", fontSize: "13px", fontWeight: 700, border: "none", cursor: "pointer" }}>
                   Continue →
                 </button>
               ) : (
@@ -524,32 +560,67 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
         )}
 
         {/* ── Step 4: Done ── */}
-        {step === 4 && (
-          <div style={{ padding: "28px 24px 32px" }}>
-            <div style={{ fontSize: "40px", marginBottom: "16px" }}>🎉</div>
-            <h2 className="font-display" style={{ fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
-              You're all set!
-            </h2>
-            <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6, marginBottom: "24px" }}>
-              Vynta is ready to go. Here's what's been configured for {businessName.trim() || "your business"}:
-            </p>
+        {step === 4 && (() => {
+          // Fire import once when this step mounts
+          if (inboxDone && inboxPlaceId && importStatus === "idle") {
+            void triggerImport(inboxPlaceId);
+          }
+          return (
+            <div style={{ padding: "28px 24px 32px" }}>
+              <div style={{ fontSize: "40px", marginBottom: "16px" }}>🎉</div>
+              <h2 className="font-display" style={{ fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+                You&apos;re all set!
+              </h2>
+              <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6, marginBottom: "24px" }}>
+                Vynta is ready to go. Here&apos;s what&apos;s been configured for {businessName.trim() || "your business"}:
+              </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "28px" }}>
-              <CheckRow label="Business profile" done={!!businessName.trim()} />
-              <CheckRow label="Google Review Link" done={!!googleReviewUrl.trim()} note={!googleReviewUrl.trim() ? "Add it in Settings → Review Tools" : undefined} />
-              <CheckRow label="Response tone" done={true} note={TONES.find(t => t.value === defaultTone)?.label} />
-              <CheckRow label="Smart Inbox" done={inboxDone} note={!inboxDone ? "Set up anytime in Settings" : undefined} />
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
+                <CheckRow label="Business profile" done={!!businessName.trim()} />
+                <CheckRow label="Google Review Link" done={!!googleReviewUrl.trim()} note={!googleReviewUrl.trim() ? "Add it in Settings → Review Tools" : undefined} />
+                <CheckRow label="Response tone" done={true} note={TONES.find(t => t.value === defaultTone)?.label} />
+                <CheckRow label="Smart Inbox" done={inboxDone} note={!inboxDone ? "Set up anytime in Settings" : undefined} />
+              </div>
+
+              {/* Review import status */}
+              {inboxDone && inboxPlaceId && (
+                <div style={{
+                  marginBottom: "20px",
+                  background: importStatus === "done" ? "rgba(45,155,138,0.08)" : importStatus === "error" ? "rgba(220,38,38,0.06)" : "rgba(44,26,14,0.04)",
+                  border: `1px solid ${importStatus === "done" ? "rgba(45,155,138,0.2)" : importStatus === "error" ? "rgba(220,38,38,0.15)" : "rgba(44,26,14,0.08)"}`,
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  display: "flex", alignItems: "center", gap: "10px",
+                }}>
+                  {importStatus === "importing" && <Spinner />}
+                  {importStatus === "done" && (
+                    <svg viewBox="0 0 20 20" fill="#2D9B8A" style={{ width: 16, height: 16, flexShrink: 0 }}>
+                      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {importStatus === "error" && (
+                    <svg viewBox="0 0 20 20" fill="#DC2626" style={{ width: 16, height: 16, flexShrink: 0 }}>
+                      <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  <p style={{ fontSize: "12px", color: importStatus === "done" ? "#2D9B8A" : importStatus === "error" ? "#DC2626" : "#A0856A", fontWeight: 500 }}>
+                    {importStatus === "importing" && "Importing your Google reviews… this takes ~30 seconds"}
+                    {importStatus === "done" && "Google reviews imported — your dashboard is ready"}
+                    {importStatus === "error" && "Review import failed — you can retry in the Reviews tab"}
+                  </p>
+                </div>
+              )}
+
+              <button type="button" onClick={complete} style={{
+                width: "100%", background: "#2C1A0E", color: "white",
+                borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 700,
+                border: "none", cursor: "pointer",
+              }}>
+                {importStatus === "importing" ? "Go to dashboard (import continues in background)" : "Let's go →"}
+              </button>
             </div>
-
-            <button type="button" onClick={complete} style={{
-              width: "100%", background: "#2C1A0E", color: "white",
-              borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 700,
-              border: "none", cursor: "pointer",
-            }}>
-              Let's go →
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
       </div>
     </div>
@@ -561,7 +632,7 @@ function CheckRow({ label, done, note }: { label: string; done: boolean; note?: 
     <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "#E8DCC8", borderRadius: "10px", padding: "10px 14px" }}>
       <div style={{
         width: "20px", height: "20px", borderRadius: "50%", flexShrink: 0,
-        background: done ? "#4F46E5" : "rgba(44,26,14,0.1)",
+        background: done ? "#2D9B8A" : "rgba(44,26,14,0.1)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         {done ? (
