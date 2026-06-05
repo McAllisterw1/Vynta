@@ -1,9 +1,9 @@
 const bullets = [
-  "Customers check reviews before they call.",
-  "A few bad reviews can quietly kill leads.",
-  "Busy teams forget to ask happy customers for reviews.",
-  "Generic responses make your business look inactive.",
-  "Vynta keeps your reputation working even when your team is busy.",
+  "Customers check your reviews before they ever call you.",
+  "A complaint spike can quietly kill new leads for weeks before you notice.",
+  "You have no idea what your competitors are doing better than you right now.",
+  "Most businesses are leaving real revenue on the table and don't know it.",
+  "Vynta watches your reputation 24/7, spots threats early, and tells you exactly what to do next.",
 ];
 
 export default function Pain() {
@@ -30,7 +30,7 @@ export default function Pain() {
               href="/sign-up"
               className="mt-10 inline-block rounded bg-teal px-7 py-3 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
             >
-              Start Getting More Reviews
+              Get Your Free Intelligence Report
             </a>
           </div>
 

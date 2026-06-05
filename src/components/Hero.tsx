@@ -2,8 +2,8 @@ import ReputationAuditWidget from "@/components/ReputationAuditWidget";
 
 const stats = [
   { value: "87%", label: "of customers check reviews before calling" },
-  { value: "3×", label: "more reviews just from asking the right way" },
-  { value: "< 60s", label: "to generate a professional response" },
+  { value: "3×", label: "more insight than any review tool you've used" },
+  { value: "24/7", label: "early warning system watching your reputation" },
 ];
 
 export default function Hero() {
@@ -37,7 +37,7 @@ export default function Hero() {
             <div className="flex items-center gap-3 mb-8">
               <div className="h-px w-10 bg-teal" />
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-teal">
-                For any local business that runs on reputation
+                Reputation Intelligence for Local Businesses
               </span>
             </div>
 
@@ -46,21 +46,21 @@ export default function Hero() {
               className="font-display font-bold text-tobacco leading-[1.08] tracking-tight max-w-3xl mb-6"
               style={{ fontSize: "clamp(2.6rem, 6.5vw, 5rem)" }}
             >
-              Win More Customers with a{" "}
+              Your Reputation Is a{" "}
               <em style={{
                 fontStyle: "italic",
-                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+                background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
-              }}>Reputation Built to Last</em>
+              }}>Gold Mine.</em>{" "}Start Working It.
             </h1>
 
             {/* Subheadline */}
             <p className="mb-10 max-w-xl text-base leading-relaxed text-tobacco-mid">
-              Vynta helps local businesses quickly request, manage, and respond to
-              Google reviews — so you build trust online and turn your reputation into
-              real revenue.
+              Vynta goes beyond review management. Get early warnings before complaints
+              spike, see exactly what revenue you&apos;re leaving on the table, and know
+              precisely where competitors are beating you — all in one intelligence platform.
             </p>
 
             {/* CTAs */}
@@ -69,7 +69,7 @@ export default function Hero() {
                 href="/sign-up"
                 className="rounded bg-teal px-8 py-3.5 text-sm font-medium text-cream transition-colors hover:bg-teal-dark"
               >
-                Start Getting More Reviews
+                See Your Reputation Intelligence
               </a>
               <a
                 href="#features"
@@ -87,7 +87,7 @@ export default function Hero() {
               {stats.map((stat, i) => (
                 <div key={stat.label} className="flex items-center gap-10">
                   <div>
-                    <div className="font-display text-3xl font-semibold" style={{ color: "#4F46E5" }}>{stat.value}</div>
+                    <div className="font-display text-3xl font-semibold text-teal">{stat.value}</div>
                     <div className="mt-0.5 text-sm text-tobacco-light">{stat.label}</div>
                   </div>
                   {i < stats.length - 1 && (
