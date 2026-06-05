@@ -71,7 +71,7 @@ export default function Features() {
             Everything you need to{" "}
             <em style={{
               fontStyle: "italic",
-              background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
+              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",

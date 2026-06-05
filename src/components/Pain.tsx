@@ -24,7 +24,13 @@ export default function Pain() {
               style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}
             >
               Your reputation is either winning jobs —
-              <em style={{ fontStyle: "italic", color: "#C49A6C" }}> or losing them.</em>
+              <em style={{
+                fontStyle: "italic",
+                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}> or losing them.</em>
             </h2>
             <a
               href="/sign-up"
