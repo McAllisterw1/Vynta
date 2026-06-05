@@ -47,13 +47,10 @@ export default function Hero() {
               style={{ fontSize: "clamp(2.6rem, 6.5vw, 5rem)" }}
             >
               Your Reputation Is a{" "}
-              <em style={{
-                fontStyle: "italic",
-                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}>Gold Mine.</em>{" "}Start Working It.
+              <em
+                className="bg-clip-text text-transparent"
+                style={{ fontStyle: "italic", backgroundImage: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)" }}
+              >Gold Mine.</em>{" "}Start Working It.
             </h1>
 
             {/* Subheadline */}

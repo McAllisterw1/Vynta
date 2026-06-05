@@ -51,14 +51,8 @@ export default function Trust() {
               <div className="h-px w-8 bg-sand/40" />
             </div>
             <p
-              className="font-display text-2xl font-semibold leading-snug max-w-xl md:text-3xl"
-              style={{
-                fontStyle: "italic",
-                background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
+              className="font-display text-2xl font-semibold leading-snug max-w-xl md:text-3xl bg-clip-text text-transparent"
+              style={{ fontStyle: "italic", backgroundImage: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)" }}
             >
               &ldquo;Your next customer is reading your reviews right now.&rdquo;
             </p>

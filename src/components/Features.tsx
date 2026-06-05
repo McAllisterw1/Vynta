@@ -69,13 +69,10 @@ export default function Features() {
           </div>
           <h2 className="font-display text-4xl font-bold text-tobacco leading-tight md:text-5xl">
             Everything you need to{" "}
-            <em style={{
-              fontStyle: "italic",
-              background: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}>own your reputation</em>
+            <em
+              className="bg-clip-text text-transparent"
+              style={{ fontStyle: "italic", backgroundImage: "linear-gradient(135deg, #2D9B8A 0%, #4F46E5 100%)" }}
+            >own your reputation</em>
           </h2>
           <p className="text-tobacco-light leading-relaxed">
             Not just review management — a full intelligence platform that tells you what&apos;s happening, why it matters, and exactly what to do next.
