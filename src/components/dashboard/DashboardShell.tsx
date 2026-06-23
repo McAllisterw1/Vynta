@@ -149,7 +149,8 @@ export default function DashboardShell({
       .catch(() => setCheckingOut(false))
   }, [])
 
-  const needsSubscription = !checkingOut && (!plan || subscriptionStatus === "canceled")
+  const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing"
+  const needsSubscription = !checkingOut && !isActive
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [animating, setAnimating] = useState<number | null>(null);
   const animRef = useRef<ReturnType<typeof setTimeout> | null>(null);
