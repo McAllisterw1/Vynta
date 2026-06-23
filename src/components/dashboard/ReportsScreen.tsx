@@ -41,6 +41,14 @@ interface ReportSynthesisRecord {
   createdAt: string;
 }
 
+interface Competitor {
+  name: string;
+  rating: number;
+  reviewCount: number;
+  analysisText: string | null;
+  sentiment: string | null;
+}
+
 const CARD: React.CSSProperties = {
   background: "#E8DCC8",
   borderRadius: "16px",
@@ -130,6 +138,12 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
   const [cacheStatus, setCacheStatus] = useState<"match" | "stale" | null>(null);
   const [sentimentLastRun, setSentimentLastRun] = useState<string | null>(null);
 
+  // Weekly sentiment collapsible
+  const [weeklyOpen, setWeeklyOpen] = useState(false);
+
+  // Competitors (for attack list in monthly report)
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+
   useEffect(() => {
     // Load saved monthly reports and auto-open the most recent
     fetch("/api/user/report-synthesis")
@@ -147,6 +161,14 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
       .then((r) => r.json())
       .then((data: SentimentHistoryRecord[]) => {
         if (Array.isArray(data)) setSentimentHistory(data);
+      })
+      .catch(() => {});
+
+    // Load competitors for attack list
+    fetch("/api/user/competitors")
+      .then((r) => r.json())
+      .then((data: Competitor[]) => {
+        if (Array.isArray(data)) setCompetitors(data);
       })
       .catch(() => {});
 
@@ -289,6 +311,15 @@ ${reviewsText}`;
     try {
       const weeks = sentimentHistory.slice(0, 4).reverse();
 
+      // Detect data gaps — flag if most recent week is >14 days old
+      const mostRecentWeek = sentimentHistory[0];
+      const daysSinceLastAnalysis = mostRecentWeek
+        ? Math.floor((Date.now() - new Date(mostRecentWeek.weekStart + "T12:00:00").getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      const dataGapNote = daysSinceLastAnalysis !== null && daysSinceLastAnalysis > 14
+        ? `⚠️ DATA GAP DETECTED: The most recent weekly analysis is ${daysSinceLastAnalysis} days old. This likely means the Smart Inbox was disconnected or no new reviews came in during this period. Call this out explicitly in the Month in Review section.`
+        : "";
+
       const weeksText = weeks
         .map((record) => {
           const d = record.data;
@@ -309,18 +340,59 @@ ${reviewsText}`;
         })
         .join("\n\n");
 
+      // Build competitor context for attack list
+      const competitorText = competitors.length > 0
+        ? competitors.map((c) => {
+            let weaknesses = "";
+            try {
+              const a = JSON.parse(c.analysisText ?? "{}") as { weaknesses?: string[] };
+              weaknesses = (a.weaknesses ?? []).join(", ");
+            } catch {}
+            let negPct = "";
+            try {
+              const s = JSON.parse(c.sentiment ?? "{}") as { negative?: number };
+              if (s.negative) negPct = `, ${s.negative}% negative sentiment`;
+            } catch {}
+            return `${c.name} (${c.rating}★, ${c.reviewCount} reviews${negPct}${weaknesses ? ` — complaints: ${weaknesses}` : ""})`;
+          }).join("\n")
+        : "No competitor data available";
+
+      // Collect all recurring complaint themes across weeks
+      const allComplaintThemes = weeks.flatMap((w) =>
+        (w.data.complaintThemes ?? []).map((t) => t.theme)
+      );
+      const themeFrequency: Record<string, number> = {};
+      for (const t of allComplaintThemes) {
+        themeFrequency[t] = (themeFrequency[t] ?? 0) + 1;
+      }
+      const recurringComplaints = Object.entries(themeFrequency)
+        .sort((a, b) => b[1] - a[1])
+        .map(([theme, count]) => `${theme} (${count} of ${weeks.length} weeks)`)
+        .join(", ");
+
       const system =
         "You are Vynta's AI reporting engine for local businesses. Write comprehensive, data-driven monthly business intelligence reports in clear markdown.";
       const prompt = `Synthesize these ${weeks.length} weekly sentiment analyses into a monthly business intelligence report.
 
-${weeksText}
+${dataGapNote ? dataGapNote + "\n\n" : ""}${weeksText}
 
-Write a comprehensive monthly report in markdown with these sections:
+Competitor landscape:
+${competitorText}
+
+Recurring complaint themes this month: ${recurringComplaints || "none"}
+
+Write a comprehensive monthly report in markdown with EXACTLY these sections in this order:
 ## Month in Review
 ## Sentiment Trend
+(include a markdown table comparing metrics week-over-week)
 ## Recurring Themes
 ## Risk Assessment
 ## Strategic Recommendations
+## Attack List
+(This is the most important action section. Write 6-8 numbered, specific action items the business owner should execute this month. Mix two types:
+  - OWN REVIEWS: Items that directly address recurring complaint themes from their own reviews — be specific about the exact issue and what to do
+  - COMPETITOR GAPS: Items where competitors are getting complaints or underperforming — phrase as "Your competitors are getting complaints about [X]. Win those customers by doing [specific action]."
+Label each item with [OWN] or [COMPETITOR GAP]. Rank by urgency.)
 
 Be specific, compare week-over-week changes where data exists, and keep every recommendation actionable.`;
 
@@ -593,192 +665,226 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                 </div>
               )}
 
-              {/* ── 1. Sentiment Breakdown ── */}
-              <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A" }}>
-                    Sentiment Breakdown
-                  </p>
+              {/* ── Weekly detail — collapsible ── */}
+              <button
+                type="button"
+                onClick={() => setWeeklyOpen((o) => !o)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  background: "#E8DCC8",
+                  borderRadius: weeklyOpen ? "16px 16px 0 0" : "16px",
+                  border: "none",
+                  borderLeft: "3px solid rgba(45,155,138,0.4)",
+                  padding: "12px 16px",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                  marginBottom: weeklyOpen ? 0 : "10px",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>This Week&apos;s Sentiment Detail</span>
                   <span style={{
-                    fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "20px",
+                    marginLeft: "10px",
+                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px",
                     background: sentimentData.trending === "improving" ? "rgba(45,155,138,0.12)" : sentimentData.trending === "declining" ? "rgba(192,57,43,0.1)" : "rgba(44,26,14,0.06)",
                     color: sentimentData.trending === "improving" ? "#2D9B8A" : sentimentData.trending === "declining" ? "#C0392B" : "#7B5E45",
                   }}>
-                    {sentimentData.trending === "improving" ? "↑ Improving" : sentimentData.trending === "declining" ? "↓ Declining" : "→ Stable"}
+                    {sentimentData.positive}% positive · {sentimentData.trending === "improving" ? "↑ Improving" : sentimentData.trending === "declining" ? "↓ Declining" : "→ Stable"}
                   </span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "14px" }}>
-                  {([
-                    { label: "Positive", value: sentimentData.positive, color: "#2D9B8A" },
-                    { label: "Neutral",  value: sentimentData.neutral,  color: "#C4874A" },
-                    { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
-                  ] as const).map(({ label, value, color }) => (
-                    <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
-                      <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", borderRadius: "99px", background: color, width: `${value}%`, transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)" }} />
-                      </div>
-                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>{value}%</span>
-                    </div>
-                  ))}
-                </div>
-                <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>{sentimentData.summary}</p>
-              </div>
+                <ChevronIcon open={weeklyOpen} />
+              </button>
 
-              {/* ── 2. Executive Summary ── */}
-              {sentimentData.executiveSummary && (
-                <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", marginBottom: "12px" }}>
-                    Executive Summary
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
-                    {([
-                      { icon: "✅", label: "Improved",     value: sentimentData.executiveSummary.improved },
-                      { icon: "⚠️", label: "Declined",     value: sentimentData.executiveSummary.declined },
-                      { icon: "🚨", label: "Biggest Risk", value: sentimentData.executiveSummary.biggestRisk },
-                      { icon: "💡", label: "Opportunity",  value: sentimentData.executiveSummary.biggestOpportunity },
-                    ] as const).map(({ icon, label, value }) => (
-                      <div key={label} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                        <span style={{ fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
-                        <div style={{ minWidth: 0 }}>
-                          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A" }}>{label} </span>
-                          <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{value}</span>
+              {weeklyOpen && (
+                <div style={{
+                  background: "#E8DCC8",
+                  borderRadius: "0 0 16px 16px",
+                  borderLeft: "3px solid rgba(45,155,138,0.4)",
+                  padding: "0 14px 14px",
+                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                  marginBottom: "10px",
+                }}>
+                  <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "14px" }} />
+
+                  {/* 1. Sentiment Breakdown */}
+                  <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "14px" }}>
+                      {([
+                        { label: "Positive", value: sentimentData.positive, color: "#2D9B8A" },
+                        { label: "Neutral",  value: sentimentData.neutral,  color: "#C4874A" },
+                        { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
+                      ] as const).map(({ label, value, color }) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
+                          <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", borderRadius: "99px", background: color, width: `${value}%`, transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)" }} />
+                          </div>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>{value}%</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>{sentimentData.summary}</p>
+                  </div>
+
+                  {/* 2. Executive Summary */}
+                  {sentimentData.executiveSummary && (
+                    <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", marginBottom: "12px" }}>
+                        Executive Summary
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+                        {([
+                          { icon: "✅", label: "Improved",     value: sentimentData.executiveSummary.improved },
+                          { icon: "⚠️", label: "Declined",     value: sentimentData.executiveSummary.declined },
+                          { icon: "🚨", label: "Biggest Risk", value: sentimentData.executiveSummary.biggestRisk },
+                          { icon: "💡", label: "Opportunity",  value: sentimentData.executiveSummary.biggestOpportunity },
+                        ] as const).map(({ icon, label, value }) => (
+                          <div key={label} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                            <span style={{ fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A" }}>{label} </span>
+                              <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{value}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{ paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                          <span style={{ fontSize: "13px", flexShrink: 0 }}>→</span>
+                          <div>
+                            <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#2D9B8A" }}>Recommended Action </span>
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{sentimentData.executiveSummary.recommendedAction}</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                    <div style={{ paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                      <span style={{ fontSize: "13px", flexShrink: 0 }}>→</span>
-                      <div>
-                        <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#2D9B8A" }}>Recommended Action </span>
-                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{sentimentData.executiveSummary.recommendedAction}</span>
+                    </div>
+                  )}
+
+                  {/* 3. Complaint + Praise Themes */}
+                  {((sentimentData.complaintThemes?.length ?? 0) > 0 || (sentimentData.praiseThemes?.length ?? 0) > 0) && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      <div style={{ ...CARD, padding: "14px" }}>
+                        <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
+                          Top Complaints
+                        </p>
+                        {(sentimentData.complaintThemes ?? []).length === 0 ? (
+                          <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {(sentimentData.complaintThemes ?? []).map((t) => (
+                              <div key={t.theme} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                                <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
+                                <span style={{
+                                  fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0,
+                                  background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(44,26,14,0.06)",
+                                  color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? "#C4874A" : "#7B5E45",
+                                }}>
+                                  {t.severity.toUpperCase()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ ...CARD, padding: "14px" }}>
+                        <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "10px" }}>
+                          Top Praise
+                        </p>
+                        {(sentimentData.praiseThemes ?? []).length === 0 ? (
+                          <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {(sentimentData.praiseThemes ?? []).map((t) => (
+                              <div key={t} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#2D9B8A", flexShrink: 0 }} />
+                                <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500 }}>{t}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* ── 3. Complaint + Praise Themes ── */}
-              {((sentimentData.complaintThemes?.length ?? 0) > 0 || (sentimentData.praiseThemes?.length ?? 0) > 0) && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                  <div style={{ ...CARD, padding: "14px" }}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
-                      Top Complaints
-                    </p>
-                    {(sentimentData.complaintThemes ?? []).length === 0 ? (
-                      <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
-                    ) : (
+                  {/* 4. Risk Flags */}
+                  {(sentimentData.risks ?? []).length > 0 && (
+                    <div style={{ ...CARD, padding: "14px", marginBottom: "10px", borderLeft: "3px solid #C0392B" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
+                        Risk Flags
+                      </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {(sentimentData.complaintThemes ?? []).map((t) => (
-                          <div key={t.theme} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-                            <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
+                        {(sentimentData.risks ?? []).map((r) => (
+                          <div key={r.description} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
                             <span style={{
-                              fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0,
-                              background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(44,26,14,0.06)",
-                              color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? "#C4874A" : "#7B5E45",
+                              fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0, marginTop: "1px",
+                              background: r.severity === "high" ? "rgba(192,57,43,0.12)" : "rgba(196,135,74,0.1)",
+                              color: r.severity === "high" ? "#C0392B" : "#C4874A",
                             }}>
-                              {t.severity.toUpperCase()}
+                              {r.severity.toUpperCase()}
                             </span>
+                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{r.description}</span>
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ ...CARD, padding: "14px" }}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "10px" }}>
-                      Top Praise
-                    </p>
-                    {(sentimentData.praiseThemes ?? []).length === 0 ? (
-                      <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
-                    ) : (
+                    </div>
+                  )}
+
+                  {/* 5. Actionable Insights */}
+                  {(sentimentData.actionableInsights ?? []).length > 0 && (
+                    <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                        Actionable Insights
+                      </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {(sentimentData.praiseThemes ?? []).map((t) => (
-                          <div key={t} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-                            <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#2D9B8A", flexShrink: 0 }} />
-                            <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500 }}>{t}</span>
+                        {(sentimentData.actionableInsights ?? []).map((insight) => (
+                          <div key={insight} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                            <span style={{
+                              width: "18px", height: "18px", borderRadius: "50%", background: "rgba(45,155,138,0.12)",
+                              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
+                            }}>
+                              <span style={{ fontSize: "9px", color: "#2D9B8A", fontWeight: 700 }}>→</span>
+                            </span>
+                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{insight}</span>
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* ── 4. Risk Flags ── */}
-              {(sentimentData.risks ?? []).length > 0 && (
-                <div style={{ ...CARD, padding: "14px", marginBottom: "10px", borderLeft: "3px solid #C0392B" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#C0392B", marginBottom: "10px" }}>
-                    Risk Flags
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {(sentimentData.risks ?? []).map((r) => (
-                      <div key={r.description} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
-                        <span style={{
-                          fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0, marginTop: "1px",
-                          background: r.severity === "high" ? "rgba(192,57,43,0.12)" : "rgba(196,135,74,0.1)",
-                          color: r.severity === "high" ? "#C0392B" : "#C4874A",
-                        }}>
-                          {r.severity.toUpperCase()}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{r.description}</span>
+                  {/* 6. Operational Recommendations */}
+                  {(sentimentData.operationalRecommendations ?? []).length > 0 && (
+                    <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                        Operational Recommendations
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {(sentimentData.operationalRecommendations ?? []).map((rec, i) => (
+                          <div key={rec} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                            <span style={{
+                              width: "18px", height: "18px", borderRadius: "50%", background: "#2C1A0E",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              flexShrink: 0, marginTop: "1px", fontSize: "9px", color: "white", fontWeight: 700,
+                            }}>
+                              {i + 1}
+                            </span>
+                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{rec}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* ── 5. Actionable Insights ── */}
-              {(sentimentData.actionableInsights ?? []).length > 0 && (
-                <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
-                    Actionable Insights
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {(sentimentData.actionableInsights ?? []).map((insight) => (
-                      <div key={insight} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                        <span style={{
-                          width: "18px", height: "18px", borderRadius: "50%", background: "rgba(45,155,138,0.12)",
-                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
-                        }}>
-                          <span style={{ fontSize: "9px", color: "#2D9B8A", fontWeight: 700 }}>→</span>
+                  {/* Keywords */}
+                  {(sentimentData.keywords ?? []).length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {(sentimentData.keywords ?? []).map((kw) => (
+                        <span key={kw} style={{ background: "rgba(44,26,14,0.08)", color: "#7B5E45", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600 }}>
+                          {kw}
                         </span>
-                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{insight}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── 6. Operational Recommendations ── */}
-              {(sentimentData.operationalRecommendations ?? []).length > 0 && (
-                <div style={{ ...CARD, padding: "14px", marginBottom: "12px" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
-                    Operational Recommendations
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {(sentimentData.operationalRecommendations ?? []).map((rec, i) => (
-                      <div key={rec} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                        <span style={{
-                          width: "18px", height: "18px", borderRadius: "50%", background: "#2C1A0E",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          flexShrink: 0, marginTop: "1px", fontSize: "9px", color: "white", fontWeight: 700,
-                        }}>
-                          {i + 1}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{rec}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Keywords */}
-              {(sentimentData.keywords ?? []).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {(sentimentData.keywords ?? []).map((kw) => (
-                    <span key={kw} style={{ background: "rgba(44,26,14,0.08)", color: "#7B5E45", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600 }}>
-                      {kw}
-                    </span>
-                  ))}
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>
