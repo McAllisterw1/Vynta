@@ -225,13 +225,18 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
       })
       .catch(() => {});
 
-    // Smart inbox count
-    fetch("/api/user/smart-inbox")
-      .then((r) => r.json())
-      .then((data: { lastKnownCount?: number } | null) => {
-        if (data?.lastKnownCount != null) setInboxReviewCount(data.lastKnownCount);
-      })
-      .catch(() => {});
+    // Smart inbox count — prefer Outscraper total, fall back to DB count
+    Promise.all([
+      fetch("/api/user/smart-inbox").then((r) => r.json()).catch(() => null),
+      fetch("/api/user/reviews?slim=true").then((r) => r.json()).catch(() => []),
+    ]).then(([inbox, reviews]) => {
+      const inboxCount = (inbox as { lastKnownCount?: number } | null)?.lastKnownCount;
+      if (inboxCount && inboxCount > 0) {
+        setInboxReviewCount(inboxCount);
+      } else if (Array.isArray(reviews) && reviews.length > 0) {
+        setInboxReviewCount(reviews.length);
+      }
+    }).catch(() => {});
 
     // Campaigns for requests sent (still needed for rep score calc)
     fetch("/api/user/campaigns")

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     const res = await fetch(
       `https://api.app.outscraper.com/maps/reviews-v3?${params.toString()}`,
-      { headers: { "X-API-KEY": apiKey } }
+      { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(45_000) }
     );
 
     if (!res.ok) throw new Error(`Outscraper returned ${res.status}`);

@@ -72,11 +72,11 @@ export async function PUT(request: NextRequest) {
     (r) => !r.externalId || !existingSet.has(r.externalId)
   );
 
-  if (toInsert.length === 0) return NextResponse.json({ inserted: 0 });
+  if (toInsert.length === 0) return NextResponse.json({ count: 0 });
 
   await prisma.review.createMany({
     data: toInsert.map((r) => ({ userId, ...r })),
   });
 
-  return NextResponse.json({ inserted: toInsert.length });
+  return NextResponse.json({ count: toInsert.length });
 }
