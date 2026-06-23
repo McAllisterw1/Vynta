@@ -11,10 +11,107 @@ import SettingsPanel from "./SettingsPanel";
 import OnboardingWizard from "./OnboardingWizard";
 import CompetitorScreen from "./CompetitorScreen";
 
+const PLANS_INFO = [
+  { key: "starter",      label: "Starter",      price: "$490/yr",    desc: "Essential tools for one location" },
+  { key: "professional", label: "Professional",  price: "$990/yr",    desc: "Full suite for serious businesses" },
+  { key: "agency",       label: "Agency",        price: "$1,990/yr",  desc: "Multi-location & competitor tracking" },
+] as const
+
+function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void }) {
+  const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function startCheckout(plan: string) {
+    setLoading(plan)
+    setError(null)
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      })
+      const data = await res.json() as { url?: string; error?: string }
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setError(data.error ?? "Something went wrong. Try again or email Vynta.Wil@gmail.com")
+        setLoading(null)
+      }
+    } catch {
+      setError("Something went wrong. Try again or email Vynta.Wil@gmail.com")
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#FAF5E8", zIndex: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}>
+      <div style={{ maxWidth: "460px", width: "100%", textAlign: "center" }}>
+        {/* Logo mark */}
+        <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: "20px", width: "auto", margin: "0 auto 24px" }}>
+          <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5" stroke="#C4874A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="5" cy="3" r="2" fill="#C4874A" /><circle cx="17" cy="3" r="2" fill="#C4874A" /><circle cx="29" cy="3" r="2" fill="#C4874A" /><circle cx="41" cy="3" r="2" fill="#C4874A" /><circle cx="53" cy="3" r="2" fill="#C4874A" />
+        </svg>
+
+        <h2 style={{ fontSize: "24px", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+          {canceled ? "Your trial has ended" : "Start your free trial"}
+        </h2>
+        <p style={{ fontSize: "14px", color: "#A0856A", marginBottom: "32px", lineHeight: 1.6 }}>
+          {canceled
+            ? "Pick a plan to get back in. Your data is safe and waiting."
+            : "14 days free. Card required — no charge until your trial ends."}
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+          {PLANS_INFO.map(({ key, label, price, desc }) => (
+            <button
+              key={key}
+              onClick={() => startCheckout(key)}
+              disabled={!!loading}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: key === "professional" ? "#2D9B8A" : "#E8DCC8",
+                color: key === "professional" ? "white" : "#2C1A0E",
+                border: "none", borderRadius: "14px", padding: "16px 20px",
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading && loading !== key ? 0.5 : 1,
+                transition: "opacity 150ms",
+                textAlign: "left",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: 700 }}>{label}</div>
+                <div style={{ fontSize: "12px", opacity: 0.75, marginTop: "2px" }}>{desc}</div>
+              </div>
+              <div style={{ fontSize: "14px", fontWeight: 700, flexShrink: 0, marginLeft: "16px" }}>
+                {loading === key ? "Loading…" : price}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <p style={{ fontSize: "12px", color: "#DC2626", marginBottom: "12px" }}>{error}</p>
+        )}
+
+        <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "20px" }}>
+          Questions? Email <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>Vynta.Wil@gmail.com</a>
+        </p>
+
+        <button onClick={onLeave} style={{ background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", textDecoration: "underline" }}>
+          Leave Vynta
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   userName: string;
   plan: string | null;
   subscriptionStatus: string | null;
+  subscriptionId: string | null;
+  trialEnd: number | null;
+  paymentFailed: boolean;
   email: string;
   firstName: string;
 }
@@ -24,10 +121,35 @@ export default function DashboardShell({
   userName,
   plan,
   subscriptionStatus,
+  subscriptionId,
+  trialEnd,
+  paymentFailed,
   email,
   firstName,
 }: Props) {
+  const trialDaysLeft = trialEnd && subscriptionStatus === "trialing"
+    ? Math.max(0, Math.ceil((trialEnd * 1000 - Date.now()) / 86400000))
+    : null;
+
   const [active, setActive] = useState(3); // Home
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  useEffect(() => {
+    const pending = localStorage.getItem("pendingPlan")
+    if (!pending || plan) return
+    localStorage.removeItem("pendingPlan")
+    setCheckingOut(true)
+    fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: pending }),
+    })
+      .then(r => r.json())
+      .then((data: { url?: string }) => { if (data.url) window.location.href = data.url })
+      .catch(() => setCheckingOut(false))
+  }, [])
+
+  const needsSubscription = !checkingOut && (!plan || subscriptionStatus === "canceled")
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [animating, setAnimating] = useState<number | null>(null);
   const animRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,6 +260,51 @@ export default function DashboardShell({
         body.modal-open nav { display: none !important; }
       `}</style>
 
+      {/* ── Payment failed banner ── */}
+      {paymentFailed && (
+        <div style={{
+          background: "#DC2626", color: "white", textAlign: "center",
+          padding: "7px 16px", fontSize: "12px", fontWeight: 600, flexShrink: 0, zIndex: 30,
+        }}>
+          Your payment failed — update your card to keep access.{" "}
+          <button
+            onClick={() => setActive(7)}
+            style={{ color: "white", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}
+          >
+            Go to Settings
+          </button>
+        </div>
+      )}
+
+      {/* ── Trial banner ── */}
+      {!paymentFailed && trialDaysLeft !== null && (
+        <div style={{
+          background: trialDaysLeft <= 2 ? "#DC2626" : trialDaysLeft <= 5 ? "#C4874A" : "#2D9B8A",
+          color: "white",
+          textAlign: "center",
+          padding: "7px 16px",
+          fontSize: "12px",
+          fontWeight: 600,
+          flexShrink: 0,
+          zIndex: 30,
+        }}>
+          {trialDaysLeft === 0
+            ? "Your free trial ends today — your card will be charged at midnight."
+            : `Free trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} remaining.`}
+          {trialDaysLeft <= 5 && (
+            <>{" "}<button onClick={() => setActive(7)} style={{ color: "white", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>Manage billing</button></>
+          )}
+        </div>
+      )}
+
+      {/* ── Hard paywall ── */}
+      {needsSubscription && (
+        <Paywall
+          canceled={subscriptionStatus === "canceled"}
+          onLeave={() => { window.location.href = "/" }}
+        />
+      )}
+
       {/* ── Global brand bar ── */}
       <div style={{
         height: "42px", flexShrink: 0,
@@ -198,7 +365,7 @@ export default function DashboardShell({
           <ReportsScreen plan={plan} />
         </div>
         <div className={animating === 7 ? `screen-${direction}` : ""} style={{ position: "absolute", inset: 0, display: active === 7 ? "block" : "none" }}>
-          <SettingsPanel name={firstName} email={email} plan={plan} subscriptionStatus={subscriptionStatus} onBack={() => navigate(3)} onOpenWizard={openWizard} />
+          <SettingsPanel name={firstName} email={email} plan={plan} subscriptionStatus={subscriptionStatus} subscriptionId={subscriptionId} onBack={() => navigate(3)} onOpenWizard={openWizard} />
         </div>
       </div>
 

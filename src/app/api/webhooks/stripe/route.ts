@@ -8,10 +8,11 @@ async function updateUserPlan(
   plan: string,
   subscriptionId: string,
   subscriptionStatus: string,
+  trialEnd?: number | null,
 ) {
   const clerk = await clerkClient()
   await clerk.users.updateUserMetadata(userId, {
-    publicMetadata: { plan, subscriptionId, subscriptionStatus },
+    publicMetadata: { plan, subscriptionId, subscriptionStatus, trialEnd: trialEnd ?? null },
   })
 }
 
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       if (!userId || !plan || !subscriptionId) break
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      await updateUserPlan(userId, plan, subscriptionId, subscription.status)
+      await updateUserPlan(userId, plan, subscriptionId, subscription.status, subscription.trial_end)
       break
     }
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       const plan = subscription.metadata?.plan
 
       if (!userId || !plan) break
-      await updateUserPlan(userId, plan, subscription.id, subscription.status)
+      await updateUserPlan(userId, plan, subscription.id, subscription.status, subscription.trial_end)
       break
     }
 
@@ -59,7 +60,45 @@ export async function POST(request: Request) {
       if (!userId) break
       const clerk = await clerkClient()
       await clerk.users.updateUserMetadata(userId, {
-        publicMetadata: { plan: null, subscriptionId: null, subscriptionStatus: 'canceled' },
+        publicMetadata: { plan: null, subscriptionId: null, subscriptionStatus: 'canceled', paymentFailed: false },
+      })
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice
+      const parent = invoice.parent
+      if (parent?.type !== 'subscription_details') break
+      const sub = parent.subscription_details?.subscription
+      const subId = typeof sub === 'string' ? sub : sub?.id
+      if (!subId) break
+
+      const subscription = await stripe.subscriptions.retrieve(subId)
+      const userId = subscription.metadata?.userId
+      if (!userId) break
+
+      const clerk = await clerkClient()
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { paymentFailed: true },
+      })
+      break
+    }
+
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice
+      const parent = invoice.parent
+      if (parent?.type !== 'subscription_details') break
+      const sub = parent.subscription_details?.subscription
+      const subId = typeof sub === 'string' ? sub : sub?.id
+      if (!subId) break
+
+      const subscription = await stripe.subscriptions.retrieve(subId)
+      const userId = subscription.metadata?.userId
+      if (!userId) break
+
+      const clerk = await clerkClient()
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { paymentFailed: false },
       })
       break
     }

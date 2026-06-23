@@ -29,6 +29,7 @@ interface Props {
   email: string;
   plan: string | null;
   subscriptionStatus: string | null;
+  subscriptionId: string | null;
   onBack?: () => void;
   onOpenWizard?: () => void;
 }
@@ -124,7 +125,44 @@ function SaveButton({ onSave, saving, saved, disabled }: { onSave: () => void; s
   );
 }
 
-export default function SettingsPanel({ name, email, plan, subscriptionStatus, onBack, onOpenWizard }: Props) {
+function ManageBillingButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/billing-portal", { method: "POST" });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) window.location.href = data.url;
+    } catch {}
+    setLoading(false);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      style={{
+        background: "#2D9B8A",
+        color: "white",
+        borderRadius: "10px",
+        padding: "8px 16px",
+        fontSize: "12px",
+        fontWeight: 600,
+        border: "none",
+        cursor: loading ? "not-allowed" : "pointer",
+        opacity: loading ? 0.6 : 1,
+        flexShrink: 0,
+      }}
+    >
+      {loading ? "Loading…" : "Manage"}
+    </button>
+  );
+}
+
+export default function SettingsPanel({ name, email, plan, subscriptionStatus, subscriptionId, onBack, onOpenWizard }: Props) {
   const { signOut } = useClerk();
   const router = useRouter();
   const { history, clearHistory } = useResponseHistory();
@@ -164,6 +202,11 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
 
   // ── Data ──
   const [cleared, setCleared] = useState(false);
+
+  // ── Cancel subscription ──
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [canceledUntil, setCanceledUntil] = useState<Date | null>(null);
 
   // ── Import ──
   const [initialImportPlaceId, setInitialImportPlaceId] = useState<string | null>(null);
@@ -369,6 +412,19 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
   async function handleSignOut() {
     await signOut();
     router.push("/");
+  }
+
+  async function cancelSubscription() {
+    if (canceling) return;
+    setCanceling(true);
+    try {
+      const res = await fetch("/api/user/cancel-subscription", { method: "POST" });
+      const data = await res.json() as { currentPeriodEnd?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
+      if (data.currentPeriodEnd) setCanceledUntil(new Date(data.currentPeriodEnd * 1000));
+      setCancelConfirm(false);
+    } catch {}
+    setCanceling(false);
   }
 
   const importDone = !!initialImportPlaceId && initialImportPlaceId === inboxConfig?.placeId;
@@ -844,6 +900,66 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
         </button>
       </div>
 
+      {/* ════════════════════════════════════
+          Manage subscription
+      ════════════════════════════════════ */}
+      {isActive && subscriptionId && (
+        <div style={{ ...CARD, padding: "16px 20px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Billing & Subscription</p>
+              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Update payment method, view invoices, change plan</p>
+            </div>
+            <ManageBillingButton />
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════
+          Cancel subscription
+      ════════════════════════════════════ */}
+      {isActive && subscriptionId && (
+        <div style={{ ...CARD, padding: "16px 20px", marginBottom: "12px" }}>
+          {canceledUntil ? (
+            <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+              Subscription canceled.{" "}
+              <strong style={{ color: "#2C1A0E" }}>
+                You have full access through{" "}
+                {canceledUntil.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+              </strong>{" "}
+              No further charges.
+            </p>
+          ) : cancelConfirm ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <p style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
+                <strong>Are you sure?</strong> You&apos;ll keep full access through the end of your current billing period — no refunds on annual plans.
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button type="button" onClick={() => setCancelConfirm(false)}
+                  style={{ flex: 1, background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "8px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                  Nevermind
+                </button>
+                <button type="button" onClick={cancelSubscription} disabled={canceling}
+                  style={{ flex: 1, background: canceling ? "rgba(220,38,38,0.4)" : "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "8px", padding: "8px", fontSize: "12px", fontWeight: 600, color: "#DC2626", cursor: canceling ? "not-allowed" : "pointer" }}>
+                  {canceling ? "Canceling…" : "Yes, Cancel"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Cancel Subscription</p>
+                <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Access continues through your billing period</p>
+              </div>
+              <button type="button" onClick={() => setCancelConfirm(true)}
+                style={{ background: "none", border: "1px solid rgba(220,38,38,0.25)", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, color: "#DC2626", cursor: "pointer", flexShrink: 0 }}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Restart setup wizard */}
       {onOpenWizard && (
         <button type="button" onClick={onOpenWizard}
@@ -855,6 +971,16 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, o
           Restart Setup Wizard
         </button>
       )}
+
+      {/* Support */}
+      <div style={{ ...CARD, padding: "14px 20px", marginBottom: "12px", textAlign: "center" }}>
+        <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+          Need help? Email the founder directly —{" "}
+          <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>
+            Vynta.Wil@gmail.com
+          </a>
+        </p>
+      </div>
 
       {/* Sign out */}
       <button type="button" onClick={handleSignOut}

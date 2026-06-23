@@ -13,6 +13,7 @@ export default async function SettingsPage() {
 
   const plan = (user.publicMetadata?.plan as string | undefined) ?? null;
   const subscriptionStatus = (user.publicMetadata?.subscriptionStatus as string | undefined) ?? null;
+  const subscriptionId = (user.publicMetadata?.subscriptionId as string | undefined) ?? null;
   const userName = user.firstName ?? user.emailAddresses[0]?.emailAddress.split("@")[0] ?? "there";
   const email = user.emailAddresses[0]?.emailAddress ?? "";
 
@@ -25,6 +26,7 @@ export default async function SettingsPage() {
           email={email}
           plan={plan}
           subscriptionStatus={subscriptionStatus}
+          subscriptionId={subscriptionId}
         />
       </main>
     </div>

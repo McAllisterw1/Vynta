@@ -174,7 +174,7 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <PricingButton featured>{plan.cta}</PricingButton>
+                <PricingButton plan={plan.slug} featured>{plan.cta}</PricingButton>
               </div>
             ) : (
               /* ── Non-featured (Professional, Agency) — yearly billing ── */
@@ -227,7 +227,7 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                <PricingButton>{plan.cta}</PricingButton>
+                <PricingButton plan={plan.slug}>{plan.cta}</PricingButton>
               </div>
             )
           )}

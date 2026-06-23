@@ -13,7 +13,7 @@ export default function SuccessPage() {
 
       <h1 className="font-display text-3xl font-bold text-tobacco mb-3">You're all set.</h1>
       <p className="text-tobacco-light max-w-sm leading-relaxed mb-8">
-        Your subscription is active. Head to your dashboard to start collecting reviews.
+        Your 14-day free trial has started. No charge until your trial ends — head to your dashboard to get started.
       </p>
 
       <Link

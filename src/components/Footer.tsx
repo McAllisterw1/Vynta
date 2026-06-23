@@ -11,6 +11,16 @@ export default function Footer() {
     <footer className="bg-tobacco border-t border-tobacco-mid py-12">
       <div className="mx-auto max-w-6xl px-6">
 
+        {/* Contact */}
+        <div className="mb-8 text-center">
+          <p className="text-sm text-sand-light/50">
+            Questions? Email the founder directly —{" "}
+            <a href="mailto:Vynta.Wil@gmail.com" className="text-sand-light/70 hover:text-sand-light transition-colors underline underline-offset-2">
+              Vynta.Wil@gmail.com
+            </a>
+          </p>
+        </div>
+
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
 
           {/* Brand */}

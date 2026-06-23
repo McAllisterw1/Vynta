@@ -1,8 +1,8 @@
 export const PLANS = {
   starter: {
     name: 'Starter',
-    price: 49,
-    priceId: 'price_1Tb8Bf2XpGjFKfUMuZ87NFry',
+    yearlyPrice: 490,
+    yearlyPriceId: 'price_1Tb8Bf2XpGjFKfUMuZ87NFry',
     monthlyRequestLimit: 200,
     maxLocations: 1,
     aiAutoPosting: false,
@@ -12,7 +12,7 @@ export const PLANS = {
   // Grandfathered — existing Growth customers keep this plan
   growth: {
     name: 'Growth',
-    price: 199,
+    yearlyPrice: 199,
     monthlyRequestLimit: null,
     maxLocations: 5,
     aiAutoPosting: true,
@@ -22,8 +22,7 @@ export const PLANS = {
   professional: {
     name: 'Professional',
     yearlyPrice: 990,
-    // TODO: replace with Stripe yearly price ID for Professional ($990/yr)
-    yearlyPriceId: 'price_1TTYgRFVvYQFnNKtkLbjDOre',
+    yearlyPriceId: 'price_1TZJqY2XpGjFKfUM6PyKkcMO',
     monthlyRequestLimit: null,
     maxLocations: 5,
     aiAutoPosting: true,
@@ -33,8 +32,7 @@ export const PLANS = {
   agency: {
     name: 'Agency',
     yearlyPrice: 1990,
-    // TODO: replace with Stripe yearly price ID for Agency ($1,990/yr)
-    yearlyPriceId: 'price_1TTYlGFVvYQFnNKtl6DXtrYm',
+    yearlyPriceId: 'price_1TZJqX2XpGjFKfUM4FK5CLrD',
     monthlyRequestLimit: null,
     maxLocations: null,
     aiAutoPosting: true,
