@@ -772,6 +772,13 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                 </a>{" "}
                 and I&apos;ll take care of it personally.
               </p>
+              <button
+                type="button"
+                onClick={deactivateSmartInbox}
+                style={{ marginTop: "10px", background: "none", border: "none", padding: 0, fontSize: "10px", color: "rgba(160,133,106,0.5)", cursor: "pointer", textDecoration: "underline" }}
+              >
+                Reset Smart Inbox
+              </button>
             </div>
           </div>
         ) : lookupResult ? (
