@@ -702,10 +702,15 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
               )}
             </div>
 
-            <button type="button" onClick={deactivateSmartInbox}
-              style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 16px", fontSize: "12px", fontWeight: 600, color: "#A0856A", cursor: "pointer" }}>
-              Deactivate Smart Inbox
-            </button>
+            <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.18)", borderRadius: "10px", padding: "11px 14px" }}>
+              <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.6 }}>
+                Need to make changes to Smart Inbox? Email{" "}
+                <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", fontWeight: 600, textDecoration: "none" }}>
+                  Vynta.Wil@gmail.com
+                </a>{" "}
+                and I&apos;ll take care of it personally.
+              </p>
+            </div>
           </div>
         ) : lookupResult ? (
           /* ── Step 2: Confirm found business ── */
