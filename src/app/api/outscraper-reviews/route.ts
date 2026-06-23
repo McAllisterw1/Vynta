@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     // async=true forces a live Google scrape instead of returning cached data
     const params = new URLSearchParams({
       query: placeId,
-      reviewsLimit: "25",
+      reviewsLimit: "50",
       sort: "newest",
       language: "en",
       async: "true",
