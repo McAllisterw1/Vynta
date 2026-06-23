@@ -19,8 +19,7 @@ interface OutscraperPlace {
   reviews_data?: OutscraperReviewItem[];
 }
 
-interface OutscraperPollResponse {
-  id?: string;
+interface OutscraperResponse {
   status?: string;
   data?: OutscraperPlace[];
 }
@@ -34,10 +33,6 @@ function parseDate(dateStr: string): string {
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function POST(request: NextRequest) {
@@ -55,49 +50,26 @@ export async function POST(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: "Outscraper not configured" }, { status: 500 });
 
   try {
-    // async=true forces a live Google scrape instead of returning cached data
     const params = new URLSearchParams({
       query: placeId,
       reviewsLimit: "50",
       sort: "newest",
       language: "en",
-      async: "true",
+      async: "false",
     });
 
-    const submitRes = await fetch(
+    const res = await fetch(
       `https://api.app.outscraper.com/maps/reviews-v3?${params.toString()}`,
-      { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(10_000) }
+      { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(45_000) }
     );
 
-    if (!submitRes.ok) throw new Error(`Outscraper returned ${submitRes.status}`);
+    if (!res.ok) throw new Error(`Outscraper returned ${res.status}`);
 
-    const submitJson = (await submitRes.json()) as OutscraperPollResponse;
-    const requestId = submitJson.id;
-    if (!requestId) throw new Error("Outscraper did not return a request ID");
+    const data = (await res.json()) as OutscraperResponse;
+    if (data.status !== "Success") throw new Error(`Outscraper: ${data.status ?? "unknown error"}`);
 
-    // Poll for results — up to 45 seconds (15 × 3s)
-    let place: OutscraperPlace | undefined;
-    for (let i = 0; i < 15; i++) {
-      await sleep(3000);
-      const pollRes = await fetch(
-        `https://api.app.outscraper.com/requests/${requestId}`,
-        { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(8_000) }
-      );
-      const pollJson = (await pollRes.json()) as OutscraperPollResponse;
-
-      if (pollJson.status === "Success") {
-        place = pollJson.data?.[0];
-        break;
-      }
-      if (pollJson.status === "ERROR" || pollJson.status === "Failed") {
-        throw new Error("Outscraper scrape job failed");
-      }
-      // Still "Pending" — keep polling
-    }
-
-    if (!place) throw new Error("Outscraper timed out — please try syncing again in a moment");
-
-    const rawReviews = place.reviews_data ?? [];
+    const place = data.data?.[0];
+    const rawReviews = place?.reviews_data ?? [];
 
     const reviews = rawReviews
       .filter((r) => r.author_title)
@@ -114,7 +86,7 @@ export async function POST(request: NextRequest) {
         seen: false,
       }));
 
-    const stats = place.reviews != null
+    const stats = place?.reviews != null
       ? { totalReviews: place.reviews, avgRating: place.rating ?? null }
       : null;
 
