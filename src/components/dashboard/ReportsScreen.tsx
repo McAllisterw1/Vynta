@@ -470,7 +470,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                 AI synthesis of weekly analyses
               </p>
             </div>
-            {sentimentHistory.length >= 2 && (
+            {sentimentHistory.length >= 2 && !hasCurrentMonth && (
               <button
                 type="button"
                 onClick={generateMonthlyReport}
@@ -492,9 +492,9 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                 }}
               >
                 {monthlyGenerating ? (
-                  <><SpinIcon size={12} />{hasCurrentMonth ? "Regenerating…" : "Generating…"}</>
+                  <><SpinIcon size={12} />Generating…</>
                 ) : (
-                  hasCurrentMonth ? `Regenerate ${currentMonthLabel.split(" ")[0]}` : `Generate ${currentMonthLabel.split(" ")[0]}`
+                  `Generate ${currentMonthLabel.split(" ")[0]}`
                 )}
               </button>
             )}
