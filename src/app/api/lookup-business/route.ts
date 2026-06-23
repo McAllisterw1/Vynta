@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,12 @@ interface SerperResponse {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
+  const { allowed } = checkRateLimit(ip, 2, 24 * 60 * 60 * 1000)
+  if (!allowed) {
+    return NextResponse.json({ error: "You've used your free lookups for today. Sign up to get full access." }, { status: 429 })
+  }
+
   const { businessName, zipCode } = (await request.json()) as {
     businessName: string;
     zipCode: string;
