@@ -632,7 +632,10 @@ Return only valid JSON with no markdown, no code fences, no explanation.`;
         formatDate(r.date).toLowerCase().includes(q)
       );
     })
-    .sort((a, b) => activeTab === "negative" ? a.rating - b.rating : 0);
+    .sort((a, b) => {
+    if (activeTab === "negative") return a.rating - b.rating;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
