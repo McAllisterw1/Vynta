@@ -414,13 +414,25 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
     router.push("/");
   }
 
+  const isTrialing = subscriptionStatus === "trialing";
+
   async function cancelSubscription() {
     if (canceling) return;
     setCanceling(true);
     try {
-      const res = await fetch("/api/user/cancel-subscription", { method: "POST" });
-      const data = await res.json() as { currentPeriodEnd?: number; error?: string };
+      const res = await fetch("/api/user/cancel-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immediate: isTrialing }),
+      });
+      const data = await res.json() as { currentPeriodEnd?: number; immediate?: boolean; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
+      if (data.immediate) {
+        setCanceledUntil(null);
+        // Reload so paywall shows — metadata was updated server-side
+        window.location.reload();
+        return;
+      }
       if (data.currentPeriodEnd) setCanceledUntil(new Date(data.currentPeriodEnd * 1000));
       setCancelConfirm(false);
     } catch {}
@@ -907,8 +919,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
         <div style={{ ...CARD, padding: "16px 20px", marginBottom: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Billing & Subscription</p>
-              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Update payment method, view invoices, change plan</p>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Payment Method & Billing</p>
+              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Update your card, view invoices, or change plan</p>
             </div>
             <ManageBillingButton />
           </div>
@@ -932,7 +944,11 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           ) : cancelConfirm ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <p style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
-                <strong>Are you sure?</strong> You&apos;ll keep full access through the end of your current billing period — no refunds on annual plans.
+                {isTrialing ? (
+                  <><strong>Cancel your free trial?</strong> Your access ends immediately and you will not be charged. You can sign up again any time.</>
+                ) : (
+                  <><strong>Are you sure?</strong> You&apos;ll keep full access through the end of your current billing period — no refunds on annual plans.</>
+                )}
               </p>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="button" onClick={() => setCancelConfirm(false)}
@@ -941,15 +957,19 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                 </button>
                 <button type="button" onClick={cancelSubscription} disabled={canceling}
                   style={{ flex: 1, background: canceling ? "rgba(220,38,38,0.4)" : "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "8px", padding: "8px", fontSize: "12px", fontWeight: 600, color: "#DC2626", cursor: canceling ? "not-allowed" : "pointer" }}>
-                  {canceling ? "Canceling…" : "Yes, Cancel"}
+                  {canceling ? "Canceling…" : isTrialing ? "End Trial Now" : "Yes, Cancel"}
                 </button>
               </div>
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Cancel Subscription</p>
-                <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Access continues through your billing period</p>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>
+                  {isTrialing ? "Cancel Free Trial" : "Cancel Subscription"}
+                </p>
+                <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>
+                  {isTrialing ? "End your trial immediately — no charge" : "Access continues through your billing period"}
+                </p>
               </div>
               <button type="button" onClick={() => setCancelConfirm(true)}
                 style={{ background: "none", border: "1px solid rgba(220,38,38,0.25)", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, color: "#DC2626", cursor: "pointer", flexShrink: 0 }}>

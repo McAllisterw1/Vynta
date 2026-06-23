@@ -1,9 +1,10 @@
 import Stripe from "stripe";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { NextRequest } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -13,6 +14,17 @@ export async function POST() {
 
   if (!subscriptionId) {
     return Response.json({ error: "No active subscription found" }, { status: 400 });
+  }
+
+  const body = await request.json().catch(() => ({})) as { immediate?: boolean };
+
+  if (body.immediate) {
+    // Cancel immediately — used during trial so no charge is ever made
+    await stripe.subscriptions.cancel(subscriptionId);
+    await clerk.users.updateUserMetadata(userId, {
+      publicMetadata: { subscriptionStatus: "canceled" },
+    });
+    return Response.json({ canceled: true, immediate: true });
   }
 
   const subscription = await stripe.subscriptions.update(subscriptionId, {
