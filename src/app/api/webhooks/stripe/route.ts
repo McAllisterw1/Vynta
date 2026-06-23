@@ -9,10 +9,17 @@ async function updateUserPlan(
   subscriptionId: string,
   subscriptionStatus: string,
   trialEnd?: number | null,
+  billingInterval?: string | null,
 ) {
   const clerk = await clerkClient()
   await clerk.users.updateUserMetadata(userId, {
-    publicMetadata: { plan, subscriptionId, subscriptionStatus, trialEnd: trialEnd ?? null },
+    publicMetadata: {
+      plan,
+      subscriptionId,
+      subscriptionStatus,
+      trialEnd: trialEnd ?? null,
+      ...(billingInterval && { billingInterval }),
+    },
   })
 }
 
@@ -34,12 +41,13 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session
       const userId = session.metadata?.userId
       const plan = session.metadata?.plan
+      const interval = session.metadata?.interval ?? 'annual'
       const subscriptionId = session.subscription as string
 
       if (!userId || !plan || !subscriptionId) break
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      await updateUserPlan(userId, plan, subscriptionId, subscription.status, subscription.trial_end)
+      await updateUserPlan(userId, plan, subscriptionId, subscription.status, subscription.trial_end, interval)
       break
     }
 

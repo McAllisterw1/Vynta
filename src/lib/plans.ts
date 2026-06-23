@@ -1,43 +1,41 @@
 export const PLANS = {
   starter: {
     name: 'Starter',
-    yearlyPrice: 490,
-    yearlyPriceId: 'price_1Tb8Bf2XpGjFKfUMuZ87NFry',
+    annualPrice: 990,
+    monthlyPrice: 99,
+    annualPriceId: 'price_1TlbVl2XpGjFKfUMbKp1XHAx',
+    monthlyPriceId: 'price_1TlbYy2XpGjFKfUM5QbCvKIa',
+    annualSavings: 198,
     monthlyRequestLimit: 200,
     maxLocations: 1,
-    aiAutoPosting: false,
-    competitorBenchmarking: false,
-    whiteLabelDashboard: false,
   },
   // Grandfathered — existing Growth customers keep this plan
   growth: {
     name: 'Growth',
-    yearlyPrice: 199,
+    annualPrice: 199,
+    monthlyPrice: 199,
     monthlyRequestLimit: null,
     maxLocations: 5,
-    aiAutoPosting: true,
-    competitorBenchmarking: true,
-    whiteLabelDashboard: false,
   },
   professional: {
     name: 'Professional',
-    yearlyPrice: 990,
-    yearlyPriceId: 'price_1TZJqY2XpGjFKfUM6PyKkcMO',
+    annualPrice: 1490,
+    monthlyPrice: 149,
+    annualPriceId: 'price_1Tlbqc2XpGjFKfUMxwXQOUnk',
+    monthlyPriceId: 'price_1TlbZh2XpGjFKfUMDg4At86j',
+    annualSavings: 298,
     monthlyRequestLimit: null,
-    maxLocations: 5,
-    aiAutoPosting: true,
-    competitorBenchmarking: true,
-    whiteLabelDashboard: false,
+    maxLocations: 1,
   },
   agency: {
     name: 'Agency',
-    yearlyPrice: 1990,
-    yearlyPriceId: 'price_1TZJqX2XpGjFKfUM4FK5CLrD',
+    annualPrice: 4990,
+    monthlyPrice: 499,
+    annualPriceId: 'price_1TlbXp2XpGjFKfUMaEUvshu0',
+    monthlyPriceId: 'price_1TlbaB2XpGjFKfUMw4uEqnMD',
+    annualSavings: 998,
     monthlyRequestLimit: null,
-    maxLocations: null,
-    aiAutoPosting: true,
-    competitorBenchmarking: true,
-    whiteLabelDashboard: true,
+    maxLocations: 5,
   },
 } as const
 
@@ -63,7 +61,7 @@ export const PLAN_FEATURES = {
     weeklyReport: false,
     reviewTraining: false,
     aiConsultant: false,
-    goals: false,
+    goals: true,
     monthlyReports: false,
     competitorComparison: false,
     sentimentAnalysis: false,
@@ -78,14 +76,14 @@ export const PLAN_FEATURES = {
     smsCampaigns: true,
     requestHistory: true,
     scorePredictor: true,
-    weeklyReport: false,
+    weeklyReport: true,
     reviewTraining: true,
     aiConsultant: true,
-    goals: false,
-    monthlyReports: false,
-    competitorComparison: false,
-    sentimentAnalysis: false,
-    crisisDetection: false,
+    goals: true,
+    monthlyReports: true,
+    competitorComparison: true,
+    sentimentAnalysis: true,
+    crisisDetection: true,
   },
   agency: {
     reviewLogging: true,
@@ -111,7 +109,7 @@ export type FeatureKey = keyof typeof PLAN_FEATURES.starter
 
 export function getPlanFeatures(plan: string | null | undefined) {
   if (plan === 'agency') return PLAN_FEATURES.agency
-  if (plan === 'professional') return PLAN_FEATURES.professional
+  if (plan === 'professional' || plan === 'growth') return PLAN_FEATURES.professional
   return PLAN_FEATURES.starter
 }
 

@@ -11,15 +11,16 @@ import SettingsPanel from "./SettingsPanel";
 import OnboardingWizard from "./OnboardingWizard";
 import CompetitorScreen from "./CompetitorScreen";
 
-const PLANS_INFO = [
-  { key: "starter",      label: "Starter",      price: "$490/yr",    desc: "Essential tools for one location" },
-  { key: "professional", label: "Professional",  price: "$990/yr",    desc: "Full suite for serious businesses" },
-  { key: "agency",       label: "Agency",        price: "$1,990/yr",  desc: "Multi-location & competitor tracking" },
+const PAYWALL_PLANS = [
+  { key: "starter",      label: "Starter",       annualPrice: 990,  monthlyPrice: 99,  desc: "Reputation management essentials" },
+  { key: "professional", label: "Professional",   annualPrice: 1490, monthlyPrice: 149, desc: "Full intelligence suite" },
+  { key: "agency",       label: "Agency",         annualPrice: 4990, monthlyPrice: 499, desc: "Multi-location management" },
 ] as const
 
 function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [billing, setBilling] = useState<"annual" | "monthly">("annual")
 
   async function startCheckout(plan: string) {
     setLoading(plan)
@@ -28,7 +29,7 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, interval: billing }),
       })
       const data = await res.json() as { url?: string; error?: string }
       if (data.url) {
@@ -45,8 +46,7 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#FAF5E8", zIndex: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}>
-      <div style={{ maxWidth: "460px", width: "100%", textAlign: "center" }}>
-        {/* Logo mark */}
+      <div style={{ maxWidth: "480px", width: "100%", textAlign: "center" }}>
         <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: "20px", width: "auto", margin: "0 auto 24px" }}>
           <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5" stroke="#C4874A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           <circle cx="5" cy="3" r="2" fill="#C4874A" /><circle cx="17" cy="3" r="2" fill="#C4874A" /><circle cx="29" cy="3" r="2" fill="#C4874A" /><circle cx="41" cy="3" r="2" fill="#C4874A" /><circle cx="53" cy="3" r="2" fill="#C4874A" />
@@ -55,14 +55,33 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
         <h2 style={{ fontSize: "24px", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
           {canceled ? "Your trial has ended" : "Start your free trial"}
         </h2>
-        <p style={{ fontSize: "14px", color: "#A0856A", marginBottom: "32px", lineHeight: 1.6 }}>
-          {canceled
-            ? "Pick a plan to get back in. Your data is safe and waiting."
-            : "14 days free. Card required — no charge until your trial ends."}
+        <p style={{ fontSize: "14px", color: "#A0856A", marginBottom: "24px", lineHeight: 1.6 }}>
+          {canceled ? "Pick a plan to get back in. Your data is safe and waiting." : "14 days free. Card required — no charge until your trial ends."}
         </p>
 
+        {/* Billing toggle */}
+        <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "8px" }}>
+          <button onClick={() => setBilling("annual")} style={{ padding: "8px 20px", borderRadius: "999px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: billing === "annual" ? "#2D9B8A" : "#E8DCC8", color: billing === "annual" ? "white" : "#A0856A", transition: "all 150ms" }}>
+            Pay annually
+          </button>
+          <button onClick={() => setBilling("monthly")} style={{ padding: "8px 20px", borderRadius: "999px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: billing === "monthly" ? "#2D9B8A" : "#E8DCC8", color: billing === "monthly" ? "white" : "#A0856A", transition: "all 150ms" }}>
+            Pay monthly
+          </button>
+        </div>
+
+        {billing === "monthly" && (
+          <p style={{ fontSize: "11px", color: "#C4874A", marginBottom: "16px", fontWeight: 600 }}>
+            12-month commitment · billed monthly · early cancellation does not waive remaining payments
+          </p>
+        )}
+        {billing === "annual" && (
+          <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "16px", fontWeight: 600 }}>
+            Pay upfront and save — best value
+          </p>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
-          {PLANS_INFO.map(({ key, label, price, desc }) => (
+          {PAYWALL_PLANS.map(({ key, label, annualPrice, monthlyPrice, desc }) => (
             <button
               key={key}
               onClick={() => startCheckout(key)}
@@ -74,8 +93,7 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
                 border: "none", borderRadius: "14px", padding: "16px 20px",
                 cursor: loading ? "not-allowed" : "pointer",
                 opacity: loading && loading !== key ? 0.5 : 1,
-                transition: "opacity 150ms",
-                textAlign: "left",
+                transition: "opacity 150ms", textAlign: "left",
               }}
             >
               <div>
@@ -83,15 +101,13 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
                 <div style={{ fontSize: "12px", opacity: 0.75, marginTop: "2px" }}>{desc}</div>
               </div>
               <div style={{ fontSize: "14px", fontWeight: 700, flexShrink: 0, marginLeft: "16px" }}>
-                {loading === key ? "Loading…" : price}
+                {loading === key ? "Loading…" : billing === "annual" ? `$${annualPrice.toLocaleString()}/yr` : `$${monthlyPrice}/mo`}
               </div>
             </button>
           ))}
         </div>
 
-        {error && (
-          <p style={{ fontSize: "12px", color: "#DC2626", marginBottom: "12px" }}>{error}</p>
-        )}
+        {error && <p style={{ fontSize: "12px", color: "#DC2626", marginBottom: "12px" }}>{error}</p>}
 
         <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "20px" }}>
           Questions? Email <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>Vynta.Wil@gmail.com</a>
@@ -137,12 +153,14 @@ export default function DashboardShell({
   useEffect(() => {
     const pending = localStorage.getItem("pendingPlan")
     if (!pending || plan) return
+    const interval = localStorage.getItem("pendingInterval") ?? "annual"
     localStorage.removeItem("pendingPlan")
+    localStorage.removeItem("pendingInterval")
     setCheckingOut(true)
     fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: pending }),
+      body: JSON.stringify({ plan: pending, interval }),
     })
       .then(r => r.json())
       .then((data: { url?: string }) => { if (data.url) window.location.href = data.url })
