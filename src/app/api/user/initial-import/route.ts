@@ -16,7 +16,7 @@ interface OutscraperReviewItem {
 
 interface OutscraperResponse {
   status?: string;
-  data?: Array<{ rating?: number; reviews_data?: OutscraperReviewItem[] }>;
+  data?: Array<{ rating?: number; reviews?: number; reviews_data?: OutscraperReviewItem[] }>;
 }
 
 function parseDate(dateStr: string): string {
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
 
     const businessData = data.data?.[0];
     const googleRating = businessData?.rating ?? 0;
+    const googleTotalReviews = businessData?.reviews ?? null;
     const rawReviews = (businessData?.reviews_data ?? []).filter((r) => r.author_title);
 
     // Sort newest first, cap at 500
@@ -152,6 +153,14 @@ export async function POST(request: NextRequest) {
         ...(googleRating > 0 && { googleRating }),
       },
     });
+
+    // Update lastKnownCount on SmartInbox if Outscraper returned the real total
+    if (googleTotalReviews != null && googleTotalReviews > 0) {
+      await prisma.smartInbox.updateMany({
+        where: { userId },
+        data: { lastKnownCount: googleTotalReviews },
+      });
+    }
 
     const total = reviews.length;
     return NextResponse.json({

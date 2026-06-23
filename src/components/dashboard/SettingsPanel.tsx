@@ -199,6 +199,10 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
   const [editingPlaceId, setEditingPlaceId] = useState(false);
   const [placeIdDraft, setPlaceIdDraft]     = useState("");
   const [placeIdSaving, setPlaceIdSaving]   = useState(false);
+  const [confirmedReviewCount, setConfirmedReviewCount] = useState("");
+  const [editingReviewCount, setEditingReviewCount] = useState(false);
+  const [reviewCountDraft, setReviewCountDraft] = useState("");
+  const [reviewCountSaving, setReviewCountSaving] = useState(false);
 
   // ── Data ──
   const [cleared, setCleared] = useState(false);
@@ -321,6 +325,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
         reviewCount: data.reviewCount ?? null,
         starRating: data.starRating ?? null,
       });
+      setConfirmedReviewCount(data.reviewCount != null ? String(data.reviewCount) : "");
     } catch (err) {
       setInboxError(err instanceof Error ? err.message : "Couldn't find that business. Check your Place ID.");
     } finally {
@@ -333,7 +338,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
     setInboxActivating(true);
     setInboxError("");
     try {
-      const count = lookupResult.reviewCount ?? 0;
+      const count = parseInt(confirmedReviewCount, 10) || 0;
       const now = new Date().toISOString();
       const res = await fetch("/api/user/smart-inbox", {
         method: "POST",
@@ -401,6 +406,22 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
       setEditingPlaceId(false);
     } catch {}
     setPlaceIdSaving(false);
+  }
+
+  async function saveReviewCount() {
+    const count = parseInt(reviewCountDraft, 10);
+    if (isNaN(count) || count < 0) return;
+    setReviewCountSaving(true);
+    try {
+      await fetch("/api/user/smart-inbox", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lastKnownCount: count }),
+      });
+      setInboxConfig((prev) => prev ? { ...prev, lastKnownCount: count } : prev);
+      setEditingReviewCount(false);
+    } catch {}
+    setReviewCountSaving(false);
   }
 
   function handleClearHistory() {
@@ -702,6 +723,47 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
               )}
             </div>
 
+            {/* Total Review Count editor */}
+            <div style={{ borderTop: "1px solid rgba(44,26,14,0.06)", paddingTop: "12px", marginBottom: "12px" }}>
+              <p style={LABEL}>Total Google Reviews</p>
+              {editingReviewCount ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={reviewCountDraft}
+                    onChange={(e) => setReviewCountDraft(e.target.value)}
+                    placeholder="e.g. 3021"
+                    style={FIELD}
+                    autoFocus
+                  />
+                  <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5 }}>
+                    Enter your exact Google total to fix the count shown on your Home screen.
+                  </p>
+                  <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
+                    <button type="button" onClick={() => setEditingReviewCount(false)}
+                      style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                    <button type="button" onClick={saveReviewCount} disabled={reviewCountSaving}
+                      style={{ background: "#2C1A0E", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: reviewCountSaving ? "not-allowed" : "pointer", opacity: reviewCountSaving ? 0.6 : 1 }}>
+                      {reviewCountSaving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ fontSize: "12px", color: inboxConfig.lastKnownCount > 0 ? "#2C1A0E" : "#A0856A" }}>
+                    {inboxConfig.lastKnownCount > 0 ? inboxConfig.lastKnownCount.toLocaleString() : "Not set"}
+                  </span>
+                  <button type="button" onClick={() => { setReviewCountDraft(String(inboxConfig.lastKnownCount || "")); setEditingReviewCount(true); }}
+                    style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "#A0856A", cursor: "pointer", flexShrink: 0 }}>
+                    {inboxConfig.lastKnownCount > 0 ? "Edit" : "Set"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.18)", borderRadius: "10px", padding: "11px 14px" }}>
               <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.6 }}>
                 Need to make changes to Smart Inbox? Email{" "}
@@ -722,11 +784,23 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                 {lookupResult.starRating !== null && (
                   <span style={{ fontSize: "12px", color: "#A0856A" }}>⭐ {lookupResult.starRating.toFixed(1)} stars</span>
                 )}
-                {lookupResult.reviewCount !== null && (
-                  <span style={{ fontSize: "12px", color: "#A0856A" }}>{lookupResult.reviewCount.toLocaleString()} reviews</span>
-                )}
                 <span style={{ fontSize: "12px", color: "#A0856A" }}>Zip {inboxZip.trim()}</span>
               </div>
+            </div>
+
+            <div>
+              <label style={LABEL}>Total Google Reviews</label>
+              <input
+                type="number"
+                min={0}
+                value={confirmedReviewCount}
+                onChange={(e) => setConfirmedReviewCount(e.target.value)}
+                placeholder="e.g. 3021"
+                style={FIELD}
+              />
+              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "5px", lineHeight: 1.5 }}>
+                Pre-filled from Google. Correct if wrong — Vynta uses this as your baseline.
+              </p>
             </div>
 
             <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
