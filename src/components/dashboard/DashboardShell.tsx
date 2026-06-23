@@ -110,7 +110,7 @@ function Paywall({ canceled, onLeave }: { canceled: boolean; onLeave: () => void
         {error && <p style={{ fontSize: "12px", color: "#DC2626", marginBottom: "12px" }}>{error}</p>}
 
         <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "20px" }}>
-          Questions? Email <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>Vynta.Wil@gmail.com</a>
+          Questions? Email <a href="mailto:Vynta.Wil@gmail.com" className="paywall-email-link" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>Vynta.Wil@gmail.com</a>
         </p>
 
         <button onClick={onLeave} style={{ background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", textDecoration: "underline" }}>
@@ -277,6 +277,7 @@ export default function DashboardShell({
         .screen-forward  { animation: slideInFromRight 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
         .screen-backward { animation: slideInFromLeft  400ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
         body.modal-open nav { display: none !important; }
+        .paywall-email-link:hover { color: #1D4ED8 !important; }
       `}</style>
 
       {/* ── Payment failed banner ── */}
