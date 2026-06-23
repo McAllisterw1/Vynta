@@ -166,7 +166,7 @@ export default function OurReviewsScreen({ plan, smartInboxEnabled }: { plan?: s
   const [syncing, setSyncing] = useState(false);
   const [smartInboxConfig, setSmartInboxConfig] = useState<SmartInboxConfig | null>(null);
   const [cooldownSecs, setCooldownSecs] = useState(0);
-  const SYNC_COOLDOWN = 300; // 5 minutes
+  const SYNC_COOLDOWN = 3600; // 1 hour
   const smartInboxSynced = useRef(false);
   const [inlineEdits, setInlineEdits] = useState<Record<string, { name: string; text: string; rating: number }>>({});
   const [animatingId, setAnimatingId] = useState<string | null>(null);
