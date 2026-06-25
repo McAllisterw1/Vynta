@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import type { PDFReportData } from "@/components/pdf/VyntaReport";
+
+const DownloadReportButton = dynamic(
+  () => import("@/components/pdf/DownloadReportButton"),
+  { ssr: false }
+);
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -1509,11 +1516,32 @@ export default function IntelligenceScreen() {
       <div style={{ padding: "28px 24px 120px" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: "16px" }}>
-          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: DARK, lineHeight: 1.1 }}>
-            Intelligence
-          </h1>
-          <p style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>Your reputation command center</p>
+        <div style={{ marginBottom: "16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+          <div>
+            <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: DARK, lineHeight: 1.1 }}>
+              Intelligence
+            </h1>
+            <p style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>Your reputation command center</p>
+          </div>
+          {!loading && sentimentData && businessName && (
+            <DownloadReportButton
+              data={{
+                businessName,
+                rating: userRating,
+                totalReviews: userTotalReviews,
+                positive: sentimentData.positive,
+                trending: sentimentData.trending,
+                praiseThemes: sentimentData.praiseThemes,
+                complaintThemes: sentimentData.complaintThemes,
+                topAction: null,
+                competitors: competitors.slice(0, 5).map(c => ({ name: c.name, rating: c.rating, reviewCount: c.reviewCount })),
+                isProspect: false,
+                generatedDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+              } satisfies PDFReportData}
+              label="↓ Download Report"
+              style={{ fontSize: "12px", padding: "8px 14px" }}
+            />
+          )}
         </div>
 
         {/* Priority Actions — always visible */}

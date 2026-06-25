@@ -24,6 +24,7 @@ interface SentimentAnalysis {
     recommendedAction: string;
   };
   operationalRecommendations: string[];
+  competitorOpportunities?: Array<{ competitor: string; weakness: string; opportunity: string }>;
   lastAnalyzedAt?: string;
 }
 
@@ -229,6 +230,19 @@ export default function ReportsScreen({ plan }: { plan?: string | null } = {}) {
       .filter((line) => line.trim().length > 5)
       .join("\n");
 
+    const competitorWeakContext = competitors
+      .filter((c) => c.analysisText)
+      .map((c) => {
+        try {
+          const a = JSON.parse(c.analysisText ?? "{}") as { weaknesses?: string[] };
+          const w = (a.weaknesses ?? []).slice(0, 3);
+          if (!w.length) return null;
+          return `${c.name}: ${w.join("; ")}`;
+        } catch { return null; }
+      })
+      .filter(Boolean)
+      .join("\n");
+
     const msg = `Analyze these customer reviews for a local business and return ONLY a raw JSON object — no markdown, no backticks, no extra text.
 
 Return exactly this structure:
@@ -250,7 +264,8 @@ Return exactly this structure:
     "biggestOpportunity": "<biggest opportunity for this business>",
     "recommendedAction": "<single most important recommended action>"
   },
-  "operationalRecommendations": ["<concrete operational recommendation>"]
+  "operationalRecommendations": ["<concrete operational recommendation>"],
+  "competitorOpportunities": [{ "competitor": "<competitor name>", "weakness": "<what they're failing at>", "opportunity": "<specific action to win their customers>" }]
 }
 
 Rules:
@@ -258,7 +273,9 @@ Rules:
 - Only include praiseThemes actually present (max 5)
 - Only flag genuine risks (max 3, empty array if none)
 - 2-4 actionableInsights, 2-3 operationalRecommendations
-- Do not fabricate data not found in the reviews
+- competitorOpportunities: 1-3 specific ways to win customers from competitor weaknesses listed below (empty array if no competitor data provided)
+- Do not fabricate data not found in the reviews or competitor data
+${competitorWeakContext ? `\nCompetitor weak spots:\n${competitorWeakContext}` : ""}
 
 Reviews:
 ${reviewsText}`;
@@ -267,7 +284,7 @@ ${reviewsText}`;
       const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+        body: JSON.stringify({ system, messages: [{ role: "user", content: msg }], maxTokens: 1500 }),
       });
       const data = (await res.json()) as { response?: string };
       const raw = (data.response ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
@@ -399,7 +416,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
       const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ system, messages: [{ role: "user", content: prompt }], maxTokens: 4096 }),
       });
       const data = (await res.json()) as { response?: string };
 
@@ -470,7 +487,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                 AI synthesis of weekly analyses
               </p>
             </div>
-            {sentimentHistory.length >= 2 && !hasCurrentMonth && (
+            {sentimentHistory.length >= 2 && (
               <button
                 type="button"
                 onClick={generateMonthlyReport}
@@ -493,6 +510,8 @@ Be specific, compare week-over-week changes where data exists, and keep every re
               >
                 {monthlyGenerating ? (
                   <><SpinIcon size={12} />Generating…</>
+                ) : hasCurrentMonth ? (
+                  `Regenerate ${currentMonthLabel.split(" ")[0]}`
                 ) : (
                   `Generate ${currentMonthLabel.split(" ")[0]}`
                 )}
@@ -509,6 +528,13 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   : `Hit "Generate ${currentMonthLabel.split(" ")[0]}" above to create your first monthly report.`}
               </p>
             </div>
+          )}
+
+          {/* Regenerate note */}
+          {savedReports.length > 0 && hasCurrentMonth && !monthlyGenerating && (
+            <p style={{ fontSize: "10px", color: "#A0856A", marginBottom: "10px", marginTop: "-4px" }}>
+              Regenerate to get a fresh report with updated competitor data and full complaint themes.
+            </p>
           )}
 
           {/* Month folders */}
@@ -869,6 +895,24 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                               {i + 1}
                             </span>
                             <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{rec}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 7. Rival Opportunities */}
+                  {(sentimentData.competitorOpportunities ?? []).length > 0 && (
+                    <div style={{ ...CARD, padding: "14px", marginBottom: "10px", borderLeft: "3px solid #2D9B8A" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "12px" }}>
+                        Rival Opportunities
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {(sentimentData.competitorOpportunities ?? []).map((opp) => (
+                          <div key={opp.competitor} style={{ borderLeft: "2px solid rgba(45,155,138,0.3)", paddingLeft: "10px" }}>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#A0856A", marginBottom: "3px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{opp.competitor}</p>
+                            <p style={{ fontSize: "11px", color: "#7B5E45", marginBottom: "4px" }}>Weak on: {opp.weakness}</p>
+                            <p style={{ fontSize: "12px", color: "#2C1A0E", fontWeight: 500 }}>→ {opp.opportunity}</p>
                           </div>
                         ))}
                       </div>

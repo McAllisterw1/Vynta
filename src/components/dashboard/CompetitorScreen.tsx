@@ -189,6 +189,7 @@ export default function CompetitorScreen() {
   const [analyzeError, setAnalyzeError] = useState("");
   const [deleting, setDeleting]         = useState<string | null>(null);
   const [hoveredId, setHoveredId]       = useState<string | null>(null);
+  const [intelOpen, setIntelOpen]       = useState(true);
 
   // Add-rival form
   const [addName, setAddName]           = useState("");
@@ -370,6 +371,78 @@ export default function CompetitorScreen() {
             </button>
           </div>
         )}
+
+        {/* ── Rival Intel Board ── */}
+        {(() => {
+          const intelItems = competitors
+            .filter((c) => c.analysisText)
+            .map((c) => {
+              const analysis = parseAnalysis(c.analysisText);
+              if (!analysis || analysis.weaknesses.length === 0) return null;
+              const weaknesses = analysis.weaknesses.slice(0, 2);
+              return { name: c.name, items: weaknesses.map((w) => ({ weakness: w, action: weaknessToAction(w) })) };
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== null);
+
+          if (intelItems.length === 0) return null;
+
+          return (
+            <div style={{ marginBottom: "14px" }}>
+              <button
+                type="button"
+                onClick={() => setIntelOpen((o) => !o)}
+                style={{
+                  display: "flex", alignItems: "center", width: "100%",
+                  background: "#E8DCC8",
+                  borderRadius: intelOpen ? "14px 14px 0 0" : "14px",
+                  border: "none",
+                  borderLeft: "3px solid #2D9B8A",
+                  padding: "11px 14px",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A" }}>Rival Intel Board</span>
+                  <span style={{ background: "rgba(45,155,138,0.12)", color: "#2D9B8A", borderRadius: "20px", padding: "2px 8px", fontSize: "9px", fontWeight: 700 }}>
+                    {intelItems.length} rival{intelItems.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "13px", height: "13px", color: "#A0856A", transform: intelOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 200ms", flexShrink: 0 }}>
+                  <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {intelOpen && (
+                <div style={{
+                  background: "#E8DCC8",
+                  borderRadius: "0 0 14px 14px",
+                  borderLeft: "3px solid #2D9B8A",
+                  padding: "2px 14px 14px",
+                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+                }}>
+                  <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", margin: "10px 0 12px" }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {intelItems.map((item) => (
+                      <div key={item.name} style={{ background: "rgba(44,26,14,0.03)", borderRadius: "10px", padding: "11px 12px" }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>{item.name}</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+                          {item.items.map(({ weakness, action }, i) => (
+                            <div key={i} style={{ paddingLeft: "0" }}>
+                              <p style={{ fontSize: "11px", color: "#DC2626", marginBottom: "3px" }}>✗ {weakness}</p>
+                              <p style={{ fontSize: "11px", color: "#2C1A0E", paddingLeft: "14px" }}>→ {action}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Competitor cards ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

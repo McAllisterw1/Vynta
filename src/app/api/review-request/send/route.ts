@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import twilio from "twilio"
 import { nanoid } from "nanoid"
 import { addDays } from "date-fns"
+import { auth } from "@clerk/nextjs/server"
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -10,6 +11,9 @@ const twilioClient = twilio(
 )
 
 export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { businessId, name, email, phone, channel, platformUrl, businessName } = await req.json()
 

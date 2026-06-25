@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,9 @@ Guidelines:
 }
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { reviewerName, rating, comment, businessName, tone, competitorContext } = await request.json() as { reviewerName: string; rating: number; comment: string; businessName: string; tone: string; competitorContext?: string };
 
   if (!reviewerName || !comment || !businessName) {
