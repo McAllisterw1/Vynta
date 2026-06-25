@@ -9,9 +9,9 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  "How do I ask for reviews without being awkward?",
-  "What should I do first this week to get more reviews?",
-  "How do I respond to a bad review professionally?",
+  "What are my biggest complaint themes right now?",
+  "Where are my competitors weakest and how do I capitalize?",
+  "What's my single most important action this week?",
 ];
 
 const MODULE_NAMES = [
@@ -24,66 +24,148 @@ const MODULE_NAMES = [
   "How Trust Is Built Online",
 ];
 
+interface SlimReview { rating: number; responded: boolean; date: string; }
+interface SentimentCache {
+  data?: {
+    positive?: number; neutral?: number; negative?: number; trending?: string;
+    complaintThemes?: Array<{ theme: string; severity: string }>;
+    praiseThemes?: string[];
+    risks?: Array<{ description: string; severity: string }>;
+    executiveSummary?: { improved?: string; declined?: string; biggestRisk?: string; biggestOpportunity?: string; recommendedAction?: string };
+    operationalRecommendations?: string[];
+  };
+}
+interface CompetitorRaw {
+  name: string; rating: number; reviewCount: number;
+  analysisText?: string | null; sentiment?: string | null;
+  trend?: string | null; velocity?: string | null;
+}
+
 async function buildSystemPrompt(): Promise<string> {
-  const [settingsRes, reviewsRes, trainingRes, competitorsRes] = await Promise.allSettled([
+  const [settingsRes, reviewsRes, competitorsRes, sentimentRes, inboxRes] = await Promise.allSettled([
     fetch("/api/user/settings"),
-    fetch("/api/user/reviews"),
-    fetch("/api/user/training"),
+    fetch("/api/user/reviews?slim=true"),
     fetch("/api/user/competitors"),
+    fetch("/api/user/sentiment-cache"),
+    fetch("/api/user/smart-inbox"),
   ]);
 
+  // ── Business settings ──────────────────────────────────────────────────────
   let businessName = "this business";
-  let totalReviews = 0;
-  let avgRating: number | null = null;
-  let completedModules: string[] = [];
-  let competitorText = "none added yet";
+  let businessType = "local business";
+  let googleRating: number | null = null;
 
   if (settingsRes.status === "fulfilled" && settingsRes.value.ok) {
-    const s = await settingsRes.value.json() as { businessName?: string | null };
+    const s = await settingsRes.value.json() as { businessName?: string; businessType?: string; googleRating?: number };
     businessName = s.businessName || "this business";
+    businessType  = s.businessType  || "local business";
+    if (s.googleRating && s.googleRating > 0) googleRating = s.googleRating;
   }
+
+  // ── Reviews ────────────────────────────────────────────────────────────────
+  let importedCount = 0;
+  let avgImported: number | null = null;
+  let unresponded = 0;
+  let recentNeg = 0;
 
   if (reviewsRes.status === "fulfilled" && reviewsRes.value.ok) {
-    const reviews = await reviewsRes.value.json() as Array<{ rating: number }>;
-    totalReviews = reviews.length;
+    const reviews = await reviewsRes.value.json() as SlimReview[];
+    importedCount = reviews.length;
     if (reviews.length > 0) {
-      avgRating = Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10;
+      avgImported = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10;
+      unresponded  = reviews.filter(r => !r.responded).length;
+      const cutoff = Date.now() - 30 * 86400000;
+      recentNeg    = reviews.filter(r => r.rating <= 3 && new Date(r.date).getTime() >= cutoff).length;
     }
   }
 
-  if (trainingRes.status === "fulfilled" && trainingRes.value.ok) {
-    const t = await trainingRes.value.json() as { completed?: boolean[] } | null;
-    if (t?.completed) {
-      completedModules = t.completed
-        .map((done, i) => (done ? MODULE_NAMES[i] : null))
-        .filter((n): n is string => n !== null);
+  // ── Smart Inbox total ──────────────────────────────────────────────────────
+  let totalGoogleReviews: number | null = null;
+  if (inboxRes.status === "fulfilled" && inboxRes.value.ok) {
+    const inbox = await inboxRes.value.json() as { lastKnownCount?: number } | null;
+    if (inbox?.lastKnownCount) totalGoogleReviews = inbox.lastKnownCount;
+  }
+
+  // ── Sentiment intelligence ─────────────────────────────────────────────────
+  let sentimentBlock = "(No weekly sentiment analysis run yet — advise user to go to Reports tab and run one)";
+  if (sentimentRes.status === "fulfilled" && sentimentRes.value.ok) {
+    const raw = await sentimentRes.value.json() as SentimentCache | null;
+    const d = raw?.data;
+    if (d) {
+      const complaints = d.complaintThemes?.map(t => `${t.theme} [${t.severity}]`).join(", ") || "none";
+      const praise     = d.praiseThemes?.join(", ") || "none";
+      const risks      = d.risks?.map(r => `${r.description} [${r.severity}]`).join("; ") || "none";
+      const opRecs     = d.operationalRecommendations?.join("; ") || "none";
+      const ex         = d.executiveSummary;
+      sentimentBlock = [
+        `Sentiment: ${d.positive ?? 0}% positive / ${d.neutral ?? 0}% neutral / ${d.negative ?? 0}% negative — trend: ${d.trending ?? "stable"}`,
+        `Complaint themes: ${complaints}`,
+        `Praise themes: ${praise}`,
+        `Active risks: ${risks}`,
+        `What improved: ${ex?.improved ?? "unknown"}`,
+        `What declined: ${ex?.declined ?? "unknown"}`,
+        `Biggest risk: ${ex?.biggestRisk ?? "none identified"}`,
+        `Biggest opportunity: ${ex?.biggestOpportunity ?? "unknown"}`,
+        `Recommended action: ${ex?.recommendedAction ?? "unknown"}`,
+        `Operational recs: ${opRecs}`,
+      ].join("\n");
     }
   }
 
+  // ── Competitors ────────────────────────────────────────────────────────────
+  let competitorBlock = "No competitors tracked yet — advise user to add rivals in the Rivals tab.";
   if (competitorsRes.status === "fulfilled" && competitorsRes.value.ok) {
-    const comps = await competitorsRes.value.json() as Array<{ name: string; rating: number; reviewCount: number }>;
+    const comps = await competitorsRes.value.json() as CompetitorRaw[];
     if (comps.length > 0) {
-      competitorText = comps.map((c) => `${c.name} (${c.rating}⭐, ${c.reviewCount} reviews)`).join(", ");
+      competitorBlock = comps.map(c => {
+        const lines = [`${c.name} — ${c.rating}★, ${c.reviewCount.toLocaleString()} reviews, trend: ${c.trend ?? "unknown"}, velocity: ${c.velocity ?? "unknown"}`];
+        try {
+          const a = JSON.parse(c.analysisText ?? "{}") as { weaknesses?: string[]; strengths?: string[] };
+          if (a.weaknesses?.length) lines.push(`  Weaknesses: ${a.weaknesses.join("; ")}`);
+          if (a.strengths?.length)  lines.push(`  Strengths: ${a.strengths.join("; ")}`);
+        } catch {}
+        try {
+          const s = JSON.parse(c.sentiment ?? "{}") as { positive?: number; negative?: number };
+          if (s.positive != null) lines.push(`  Sentiment: ${s.positive}% positive, ${s.negative ?? 0}% negative`);
+        } catch {}
+        return lines.join("\n");
+      }).join("\n\n");
     }
   }
 
-  const statsLine = avgRating !== null
-    ? `${totalReviews} reviews, ${avgRating} star average`
-    : `${totalReviews} reviews logged`;
+  // ── Final prompt ───────────────────────────────────────────────────────────
+  const ratingLine = googleRating != null
+    ? `${googleRating}★ on Google`
+    : avgImported != null
+    ? `${avgImported}★ average (from imported reviews)`
+    : "unknown";
 
-  const trainingLine = completedModules.length > 0
-    ? completedModules.join(", ")
-    : "none yet";
+  const reviewCountLine = totalGoogleReviews
+    ? `${totalGoogleReviews.toLocaleString()} total on Google (${importedCount} imported into Vynta)`
+    : `${importedCount} imported`;
 
-  return `You are Vynta — a sharp, straight-talking reputation strategist who has helped hundreds of local businesses dominate their Google rankings. You are working with ${businessName} right now.
+  return `You are Vynta AI — a sharp, data-driven reputation strategist embedded inside the Vynta dashboard. You have live access to every piece of data this business has in Vynta. Every answer you give must be grounded in the real data below. Do not give generic advice when you have specific data to reference.
 
-You know the local service business game cold. You give direct, specific advice — no hedging, no filler. When there's an easy win, you point to it immediately. When something isn't working, you say so plainly and tell them what to do instead. You have a confident edge but you're rooting for them.
+━━ BUSINESS PROFILE ━━
+Name: ${businessName}
+Type: ${businessType}
+Rating: ${ratingLine}
+Reviews: ${reviewCountLine}
+Unresponded reviews: ${unresponded}
+Low-rated reviews in last 30 days: ${recentNeg}
 
-Business stats: ${statsLine}.
-Training completed: ${trainingLine}.
-Competitors: ${competitorText}.
+━━ SENTIMENT INTELLIGENCE (latest weekly analysis) ━━
+${sentimentBlock}
 
-Keep responses tight — 2-4 sentences unless a step-by-step answer genuinely needs more. Never start a response with "Great question" or any filler opener. Get straight to the point.`;
+━━ COMPETITORS ━━
+${competitorBlock}
+
+━━ HOW TO RESPOND ━━
+- Reference actual numbers, competitor names, and complaint themes when answering
+- Be direct and specific — no hedging, no filler
+- 2-4 sentences max unless a step-by-step answer is genuinely needed
+- Never open with "Great question" or any filler
+- If asked about something not in the data above, say so clearly rather than guessing`;
 }
 
 export default function TrainingConsultant() {
@@ -116,7 +198,7 @@ export default function TrainingConsultant() {
       const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: systemPrompt, messages: updated }),
+        body: JSON.stringify({ system: systemPrompt, messages: updated, maxTokens: 2048 }),
       });
       const data = await res.json() as { response?: string };
       setMessages([...updated, { role: "assistant", content: data.response ?? "Sorry, I couldn't generate a response. Please try again." }]);
