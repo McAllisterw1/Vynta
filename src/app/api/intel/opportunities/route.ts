@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   });
 
   const system =
-    "You are a revenue and opportunity analyst for local businesses. Your job is to find specific, quantified opportunities based on real data. Be specific — reference actual numbers, competitor names, and complaint themes. Never give generic advice.";
+    "You are a revenue and opportunity analyst for local businesses. Your job is to find specific, actionable opportunities based on real data. Reference actual numbers, competitor names, and complaint themes. Never give generic advice. IMPORTANT: All revenue figures are directional estimates — always use hedged language: 'potential', 'estimated', 'may recover', 'at risk'. Never say 'you will earn', 'you lost', 'this cost you', or 'guaranteed'. Always express revenue as a range, not a single number.";
 
   const prompt = `Analyze this business and find their biggest opportunities.
 
@@ -118,7 +118,7 @@ Rules:
 - revenueOpportunities: 3-4 items, reference real numbers and names
 - competitorGaps: 2-3 items, one per competitor weakness found
 - quickWins: exactly 3 items, prioritize low effort high impact
-- estimatedValue must be specific e.g. '$2,400/mo in recovered repeat visits' or '18% more profile clicks'
+- estimatedValue must be a range with hedged language e.g. 'potential $1,800–$3,200/mo in recovered visits' or 'estimated 15–20% more profile clicks' — never a single definitive number
 - timeToImpact e.g. 'immediate', '2-4 weeks', '30 days', '60-90 days'`;
 
   try {

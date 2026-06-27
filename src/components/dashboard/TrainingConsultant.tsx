@@ -102,7 +102,10 @@ async function buildSystemPrompt(): Promise<string> {
         parts.push(`Estimated monthly profit at risk: ${formatCurrency(est.profitMonthlyLow)}–${formatCurrency(est.profitMonthlyHigh)}`);
       }
       if (est.ltv) parts.push(`Customer lifetime value: ~${formatCurrency(est.ltv)}`);
-      revenueBlock = parts.join("\n");
+      revenueBlock = [
+        "NOTE: All figures below are directional estimates based on published research (BrightLocal, HBR). They represent potential revenue at risk — not confirmed losses.",
+        ...parts,
+      ].join("\n");
     }
   }
 
@@ -279,9 +282,16 @@ ${intelBlock}
 - When discussing problems (unresponded reviews, low rating, complaint themes), tie them back to the revenue at risk numbers when available
 - For TLDR requests: summarize the relevant section concisely in 3-5 bullet points
 - For breakdown requests: organize by theme or category with specific examples from the data
-- Be direct and specific — no hedging, no filler
-- Never open with "Great question" or any filler
-- If asked about something not in the data above, say so clearly rather than guessing`;
+- Be direct and specific — no filler, never open with "Great question"
+- If asked about something not in the data above, say so clearly rather than guessing
+
+━━ REVENUE LANGUAGE RULES — STRICT ━━
+All revenue figures in the data above are directional estimates, not confirmed losses.
+ALWAYS use: "estimated", "potential", "may be contributing to", "revenue at risk", "directional estimate"
+NEVER say: "you lost", "this cost you", "you are losing exactly", "guaranteed", "proven", or any single exact dollar amount without a range
+Correct: "Your unresponded reviews may be contributing to an estimated $X–$Y in monthly revenue at risk"
+Incorrect: "You lost $2,400 this month because of bad reviews"
+If the user pushes for a definitive number, explain that the estimates are directional and based on published research, not confirmed transaction data`;
 }
 
 export default function TrainingConsultant() {
