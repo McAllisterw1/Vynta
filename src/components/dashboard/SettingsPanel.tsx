@@ -520,7 +520,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
   }
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 0", background: "#120804" }}>
+    <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 0" }}>
 
       <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "white", marginBottom: "20px" }}>Settings</h1>
 
