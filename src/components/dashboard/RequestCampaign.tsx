@@ -8,27 +8,28 @@ const FALLBACK_TEMPLATE =
   "Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}";
 
 const CARD: React.CSSProperties = {
-  background: "#E8DCC8",
+  background: "rgba(255,255,255,0.05)",
   borderRadius: "16px",
-  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+  border: "1px solid rgba(255,255,255,0.07)",
 };
 
 const FIELD: React.CSSProperties = {
-  background: "#fff9f2",
+  background: "rgba(255,255,255,0.07)",
   borderRadius: "10px",
-  border: "1px solid rgba(196,135,74,0.2)",
+  border: "1px solid rgba(45,155,138,0.2)",
   padding: "11px 14px",
   fontSize: "14px",
-  color: "#2C1A0E",
+  color: "rgba(255,255,255,0.9)",
   width: "100%",
   outline: "none",
+  colorScheme: "dark" as const,
 };
 
 const LABEL: React.CSSProperties = {
   fontSize: "10px",
   textTransform: "uppercase",
   letterSpacing: "0.1em",
-  color: "#A0856A",
+  color: "rgba(255,255,255,0.35)",
   display: "block",
   marginBottom: "6px",
   fontWeight: 600,
@@ -158,7 +159,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
     <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
       {/* Styled tab bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid rgba(255,255,255,0.07)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
         {(["send", "history"] as const).map((t) => {
           const active = tab === t;
           return (
@@ -174,8 +175,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
                 border: "none",
                 background: "none",
                 cursor: "pointer",
-                borderBottom: `3px solid ${active ? "#2C1A0E" : "transparent"}`,
-                color: active ? "#2C1A0E" : "#A0856A",
+                borderBottom: `3px solid ${active ? "#2D9B8A" : "transparent"}`,
+                color: active ? "white" : "rgba(255,255,255,0.4)",
                 marginBottom: "-2px",
                 transition: "color 150ms, border-color 150ms",
               }}
@@ -218,7 +219,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
           )}
 
           {/* Branded identity pill */}
-          <div style={{ background: "#E8DCC8", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0 }}>
+          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0, border: "1px solid rgba(255,255,255,0.07)" }}>
             <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#C4874A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg viewBox="0 0 62 19" fill="none" style={{ width: "20px", height: "auto" }}>
                 <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
@@ -226,8 +227,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
               </svg>
             </div>
             <div>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>Vynta Reputation Management</p>
-              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "1px" }}>Review requests sent via Vynta</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Vynta Reputation Management</p>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "1px" }}>Review requests sent via Vynta</p>
             </div>
           </div>
 
@@ -268,7 +269,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
                       type="button"
                       onClick={() => removeContact(c.id)}
                       disabled={contacts.length === 1}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#A0856A", opacity: contacts.length === 1 ? 0.3 : 1, padding: "4px" }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: contacts.length === 1 ? 0.3 : 1, padding: "4px" }}
                       aria-label="Remove"
                     >
                       <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "16px", height: "16px" }}>
@@ -313,7 +314,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
               disabled={validContacts.length === 0 || sent}
               style={{
                 width: "100%",
-                background: "#2C1A0E",
+                background: "#2D9B8A",
                 color: "white",
                 borderRadius: "12px",
                 padding: "14px",
@@ -340,8 +341,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 120px" }}>
           {campaigns.length === 0 ? (
             <div style={{ ...CARD, padding: "48px 24px", textAlign: "center" }}>
-              <p style={{ fontSize: "14px", color: "#A0856A" }}>No campaigns sent yet.</p>
-              <p style={{ fontSize: "12px", color: "#A0856A", marginTop: "4px" }}>Add a customer above and send your first review request.</p>
+              <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.45)" }}>No campaigns sent yet.</p>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "4px" }}>Add a customer above and send your first review request.</p>
               <button type="button" onClick={() => setTab("send")} style={{ marginTop: "12px", background: "none", border: "none", cursor: "pointer", fontSize: "13px", color: "#2D9B8A", fontWeight: 600 }}>
                 Send your first campaign →
               </button>
@@ -352,19 +353,19 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
                 <div key={campaign.id} style={{ ...CARD, padding: "18px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
                     <div>
-                      <p style={{ fontSize: "15px", fontWeight: 600, color: "#2C1A0E" }}>{campaign.businessName || "Unnamed"}</p>
-                      <p style={{ fontSize: "12px", color: "#A0856A", marginTop: "2px" }}>
+                      <p style={{ fontSize: "15px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{campaign.businessName || "Unnamed"}</p>
+                      <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>
                         {new Date(campaign.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#2C1A0E" }}>{campaign.contacts.length} contact{campaign.contacts.length !== 1 ? "s" : ""}</p>
-                      <p style={{ fontSize: "11px", color: "#A0856A" }}>{channelsUsed(campaign)}</p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{campaign.contacts.length} contact{campaign.contacts.length !== 1 ? "s" : ""}</p>
+                      <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>{channelsUsed(campaign)}</p>
                     </div>
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
                     {campaign.contacts.map((c) => (
-                      <span key={c.id} style={{ background: "white", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", color: "#5C3A1E", boxShadow: "0 1px 3px rgba(44,26,14,0.06)" }}>
+                      <span key={c.id} style={{ background: "rgba(255,255,255,0.08)", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", color: "rgba(255,255,255,0.8)" }}>
                         {c.name || c.email || c.phone}
                       </span>
                     ))}

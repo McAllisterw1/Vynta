@@ -156,16 +156,16 @@ interface OpportunitiesData {
 // ── Style constants ───────────────────────────────────────────────────────────
 
 const CARD: React.CSSProperties = {
-  background: "#E8DCC8",
+  background: "rgba(255,255,255,0.05)",
   borderRadius: "16px",
-  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+  border: "1px solid rgba(255,255,255,0.07)",
 };
 
 const TEAL  = "#2D9B8A";
 const AMBER = "#C4874A";
 const RED   = "#DC2626";
-const DARK  = "#2C1A0E";
-const MUTED = "#A0856A";
+const DARK  = "rgba(255,255,255,0.9)";
+const MUTED = "rgba(255,255,255,0.45)";
 
 const COMP_COLORS = ["#C4874A", "#8B6F5E", "#4A9B8A", "#C4A47A", "#7B5E45"];
 
@@ -192,7 +192,7 @@ function lsSet(key: string, data: unknown) {
 // ── Chart option factories ────────────────────────────────────────────────────
 
 const BASE_TICK = { font: { size: 10 as const }, color: MUTED };
-const BASE_GRID = { color: "rgba(44,26,14,0.05)" as const };
+const BASE_GRID = { color: "rgba(255,255,255,0.05)" as const };
 
 function lineOpts() {
   return {
@@ -274,7 +274,7 @@ function Skeleton({ height = 120 }: { height?: number }) {
     <div style={{
       height,
       borderRadius: "12px",
-      background: "rgba(44,26,14,0.06)",
+      background: "rgba(255,255,255,0.07)",
       animation: "pulse 1.5s ease-in-out infinite",
     }} />
   );
@@ -307,7 +307,7 @@ const INTEL_CACHE_KEYS = [
 // ── Early Warning System ──────────────────────────────────────────────────────
 
 const SEV_COLOR: Record<string, string> = { high: RED, medium: AMBER, low: "#7B5E45" };
-const SEV_BG: Record<string, string>    = { high: "rgba(220,38,38,0.1)", medium: "rgba(196,135,74,0.12)", low: "rgba(44,26,14,0.07)" };
+const SEV_BG: Record<string, string>    = { high: "rgba(220,38,38,0.1)", medium: "rgba(196,135,74,0.12)", low: "rgba(255,255,255,0.07)" };
 const BORDER_BY_TYPE: Record<string, string> = { warning: RED, positive: TEAL, info: AMBER };
 
 function EarlyWarningSystem() {
@@ -357,7 +357,7 @@ function EarlyWarningSystem() {
       ) : error ? (
         <ErrorMsg msg="Unable to load early warnings — try refreshing" />
       ) : !data || data.insufficient_data ? (
-        <div style={{ background: "rgba(44,26,14,0.04)", borderRadius: "10px", padding: "12px 14px" }}>
+        <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "12px 14px" }}>
           <p style={{ fontSize: "12px", color: MUTED, lineHeight: 1.6 }}>
             Run at least 2 weekly sentiment analyses in Reports to enable early warnings.
           </p>
@@ -495,7 +495,7 @@ Return a JSON array of exactly 3 short, specific, actionable priority actions ra
             <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
               <span style={{
                 width: "18px", height: "18px", borderRadius: "50%",
-                background: i === 0 ? TEAL : i === 1 ? AMBER : "rgba(44,26,14,0.15)",
+                background: i === 0 ? TEAL : i === 1 ? AMBER : "rgba(255,255,255,0.1)",
                 color: i < 2 ? "white" : DARK,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0, fontSize: "9px", fontWeight: 700, marginTop: "1px",
@@ -651,7 +651,7 @@ function MyBusinessTab({
                     <span style={{ fontSize: "11px", color: DARK, fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
                     <span style={{
                       fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0,
-                      background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(44,26,14,0.06)",
+                      background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(255,255,255,0.07)",
                       color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? AMBER : "#7B5E45",
                     }}>{t.severity.toUpperCase()}</span>
                   </div>
@@ -849,7 +849,7 @@ Return exactly this JSON:
                 <p style={{ fontSize: "12px", color: DARK, lineHeight: 1.55 }}>{value}</p>
               </div>
             ))}
-            <div style={{ borderTop: "1px solid rgba(44,26,14,0.08)", paddingTop: "10px" }}>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "10px" }}>
               <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginBottom: "10px" }}>
                 Recommended Actions
               </p>
@@ -872,7 +872,7 @@ Return exactly this JSON:
             type="button"
             onClick={runThreat}
             style={{
-              width: "100%", background: DARK, color: "white", borderRadius: "10px",
+              width: "100%", background: "#2D9B8A", color: "white", borderRadius: "10px",
               padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer",
             }}
           >
@@ -1013,7 +1013,7 @@ Return exactly this JSON:
             <p style={{ fontSize: "2rem", fontWeight: 700, color: TEAL, lineHeight: 1 }}>{userRating?.toFixed(1) ?? "—"}</p>
             <p style={{ fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginTop: "4px" }}>Your Rating</p>
           </div>
-          <div style={{ textAlign: "center", padding: "14px 10px", background: "rgba(44,26,14,0.04)", borderRadius: "12px" }}>
+          <div style={{ textAlign: "center", padding: "14px 10px", background: "rgba(255,255,255,0.04)", borderRadius: "12px" }}>
             <p style={{ fontSize: "2rem", fontWeight: 700, color: DARK, lineHeight: 1 }}>{marketAvgRating.toFixed(1)}</p>
             <p style={{ fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginTop: "4px" }}>Market Avg</p>
           </div>
@@ -1040,7 +1040,7 @@ Return exactly this JSON:
                 <span style={{ fontSize: "11px", color: DARK, fontWeight: 500 }}>{label}</span>
                 <span style={{ fontSize: "12px", fontWeight: 700, color }}>{value}%</span>
               </div>
-              <div style={{ height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
+              <div style={{ height: "8px", borderRadius: "99px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${value}%`, background: color, borderRadius: "99px", transition: "width 600ms" }} />
               </div>
             </div>
@@ -1077,13 +1077,13 @@ Return exactly this JSON:
               <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: AMBER, marginBottom: "5px" }}>Opportunity Gap</p>
               <p style={{ fontSize: "12px", color: DARK, lineHeight: 1.55 }}>{intel.opportunityGap}</p>
             </div>
-            <div style={{ background: "rgba(44,26,14,0.04)", borderRadius: "12px", padding: "12px 14px" }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "12px", padding: "12px 14px" }}>
               <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#7B5E45", marginBottom: "5px" }}>What Top Businesses Do</p>
               <p style={{ fontSize: "12px", color: DARK, lineHeight: 1.55 }}>{intel.whatTopBusinessesDo}</p>
             </div>
           </div>
         ) : (
-          <button type="button" onClick={runIntel} style={{ width: "100%", background: DARK, color: "white", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
+          <button type="button" onClick={runIntel} style={{ width: "100%", background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
             Generate Market Intelligence
           </button>
         )}
@@ -1134,19 +1134,19 @@ Return exactly this JSON:
             </div>
 
             {/* 2. Market Position */}
-            <div style={{ background: "rgba(44,26,14,0.03)", border: "1px solid rgba(44,26,14,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
               <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginBottom: "10px" }}>Market Position</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginBottom: "12px" }}>
                 {searchIntel.marketPosition.topPlayers.map((p, i) => (
                   <div key={i} style={{ display: "flex", gap: "9px", alignItems: "flex-start" }}>
-                    <span style={{ width: "18px", height: "18px", borderRadius: "50%", background: DARK, color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "9px", fontWeight: 700 }}>{i + 1}</span>
+                    <span style={{ width: "18px", height: "18px", borderRadius: "50%", background: "#2D9B8A", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "9px", fontWeight: 700 }}>{i + 1}</span>
                     <span style={{ fontSize: "12px", color: DARK, lineHeight: 1.5 }}>
                       <strong>{p.name}</strong> — {p.note}
                     </span>
                   </div>
                 ))}
               </div>
-              <div style={{ borderTop: "1px solid rgba(44,26,14,0.08)", paddingTop: "10px" }}>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "10px" }}>
                 <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: AMBER, marginBottom: "7px" }}>Opportunities</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                   {searchIntel.marketPosition.opportunities.map((o, i) => (
@@ -1161,7 +1161,7 @@ Return exactly this JSON:
 
             {/* 3. Competitor Online Presence */}
             {searchIntel.competitorOnlinePresence.length > 0 && (
-              <div style={{ background: "rgba(44,26,14,0.03)", border: "1px solid rgba(44,26,14,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
+              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
                 <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginBottom: "10px" }}>Competitor Online Presence</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   {searchIntel.competitorOnlinePresence.map((c, i) => (
@@ -1179,7 +1179,7 @@ Return exactly this JSON:
             )}
 
             {/* 4. Market Trends */}
-            <div style={{ background: "rgba(44,26,14,0.03)", border: "1px solid rgba(44,26,14,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "13px 14px" }}>
               <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginBottom: "10px" }}>Market Trends</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
                 {searchIntel.marketTrends.emerging.map((t, i) => (
@@ -1194,7 +1194,7 @@ Return exactly this JSON:
 
           </div>
         ) : businessAddress ? (
-          <button type="button" onClick={runSearch} style={{ width: "100%", background: DARK, color: "white", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
+          <button type="button" onClick={runSearch} style={{ width: "100%", background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
             Run Search Intelligence
           </button>
         ) : (
@@ -1306,7 +1306,7 @@ function OpportunitiesTab({
           <button
             type="button"
             onClick={runFetch}
-            style={{ marginTop: "10px", background: DARK, color: "white", borderRadius: "10px", padding: "9px 18px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
+            style={{ marginTop: "10px", background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "9px 18px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
           >
             Try Again
           </button>
@@ -1321,7 +1321,7 @@ function OpportunitiesTab({
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {data.revenueOpportunities.map((opp, i) => {
                 const impactColor = opp.impact === "high" ? RED : opp.impact === "medium" ? AMBER : MUTED;
-                const impactBg    = opp.impact === "high" ? "rgba(220,38,38,0.08)" : opp.impact === "medium" ? "rgba(196,135,74,0.08)" : "rgba(44,26,14,0.05)";
+                const impactBg    = opp.impact === "high" ? "rgba(220,38,38,0.08)" : opp.impact === "medium" ? "rgba(196,135,74,0.08)" : "rgba(255,255,255,0.05)";
                 return (
                   <div key={i} style={{ ...CARD, padding: "14px" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "10px" }}>
@@ -1340,7 +1340,7 @@ function OpportunitiesTab({
                       <p style={{ fontSize: "11px", color: AMBER, fontWeight: 600 }}>
                         <span style={{ fontWeight: 700 }}>→ This Week:</span> {opp.action}
                       </p>
-                      <span style={{ fontSize: "9px", color: MUTED, background: "rgba(44,26,14,0.06)", padding: "2px 8px", borderRadius: "20px", flexShrink: 0 }}>
+                      <span style={{ fontSize: "9px", color: MUTED, background: "rgba(255,255,255,0.07)", padding: "2px 8px", borderRadius: "20px", flexShrink: 0 }}>
                         {opp.timeToImpact}
                       </span>
                     </div>
@@ -1359,7 +1359,7 @@ function OpportunitiesTab({
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {data.competitorGaps.map((gap, i) => {
                   const urgencyColor = gap.urgency === "act now" ? RED : gap.urgency === "this month" ? AMBER : MUTED;
-                  const urgencyBg    = gap.urgency === "act now" ? "rgba(220,38,38,0.08)" : gap.urgency === "this month" ? "rgba(196,135,74,0.08)" : "rgba(44,26,14,0.05)";
+                  const urgencyBg    = gap.urgency === "act now" ? "rgba(220,38,38,0.08)" : gap.urgency === "this month" ? "rgba(196,135,74,0.08)" : "rgba(255,255,255,0.05)";
                   return (
                     <div key={i} style={{ ...CARD, padding: "14px", borderLeft: `3px solid ${AMBER}` }}>
                       <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: TEAL, marginBottom: "4px" }}>{gap.competitor}</p>
@@ -1393,14 +1393,14 @@ function OpportunitiesTab({
                   const effortColor = win.effort === "low" ? TEAL  : win.effort === "high" ? RED   : AMBER;
                   const effortBg    = win.effort === "low" ? "rgba(45,155,138,0.1)" : win.effort === "high" ? "rgba(220,38,38,0.08)" : "rgba(196,135,74,0.08)";
                   const impactColor = win.impact === "high" ? TEAL : win.impact === "low" ? MUTED : AMBER;
-                  const impactBg    = win.impact === "high" ? "rgba(45,155,138,0.1)" : win.impact === "low" ? "rgba(44,26,14,0.05)" : "rgba(196,135,74,0.08)";
+                  const impactBg    = win.impact === "high" ? "rgba(45,155,138,0.1)" : win.impact === "low" ? "rgba(255,255,255,0.05)" : "rgba(196,135,74,0.08)";
                   return (
                     <div
                       key={i}
                       style={{
                         paddingTop: i === 0 ? 0 : "13px",
                         paddingBottom: i < data.quickWins.length - 1 ? "13px" : 0,
-                        borderBottom: i < data.quickWins.length - 1 ? "1px solid rgba(44,26,14,0.07)" : "none",
+                        borderBottom: i < data.quickWins.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
                       }}
                     >
                       <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
