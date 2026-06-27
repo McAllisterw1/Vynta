@@ -37,29 +37,29 @@ interface Props {
 }
 
 const CARD: React.CSSProperties = {
-  background: "#E8DCC8",
+  background: "rgba(255,255,255,0.05)",
   borderRadius: "16px",
-  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+  border: "1px solid rgba(255,255,255,0.07)",
 };
 
 const FIELD: React.CSSProperties = {
-  background: "white",
+  background: "rgba(255,255,255,0.07)",
   borderRadius: "10px",
-  border: "none",
-  boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
+  border: "1px solid rgba(45,155,138,0.2)",
   padding: "11px 14px",
   fontSize: "13px",
-  color: "#2C1A0E",
+  color: "rgba(255,255,255,0.9)",
   outline: "none",
   width: "100%",
   boxSizing: "border-box" as const,
+  colorScheme: "dark" as const,
 };
 
 const LABEL: React.CSSProperties = {
   fontSize: "10px",
   textTransform: "uppercase",
   letterSpacing: "0.1em",
-  color: "#A0856A",
+  color: "rgba(255,255,255,0.35)",
   fontWeight: 600,
   display: "block",
   marginBottom: "6px",
@@ -69,14 +69,14 @@ const SECTION_TITLE: React.CSSProperties = {
   fontSize: "10px",
   textTransform: "uppercase",
   letterSpacing: "0.14em",
-  color: "#2C1A0E",
+  color: "rgba(45,155,138,0.85)",
   fontWeight: 700,
   marginBottom: "10px",
 };
 
 const DIVIDER: React.CSSProperties = {
   height: "1px",
-  background: "rgba(44,26,14,0.06)",
+  background: "rgba(255,255,255,0.07)",
 };
 
 const TONES = [
@@ -108,7 +108,7 @@ function SaveButton({ onSave, saving, saved, disabled }: { onSave: () => void; s
       onClick={onSave}
       disabled={disabled || saving}
       style={{
-        background: saved ? "#2D9B8A" : "#2C1A0E",
+        background: saved ? "#2D9B8A" : "rgba(255,255,255,0.1)",
         color: "white",
         borderRadius: "10px",
         padding: "10px 20px",
@@ -520,18 +520,18 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
   }
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 0" }}>
+    <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 0", background: "#120804" }}>
 
-      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "20px" }}>Settings</h1>
+      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "white", marginBottom: "20px" }}>Settings</h1>
 
       {/* ── Upgrade banner ── */}
       {plan !== "agency" && (
         <div style={{ borderRadius: "14px", border: "1.5px solid #C4874A", padding: "14px 18px", marginBottom: "20px", background: "rgba(196,135,74,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
           <div>
-            <p className="font-display" style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>
+            <p className="font-display" style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>
               {plan ? `You're on the ${planData?.name ?? plan} plan` : "No active plan"}
             </p>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Unlock more features by upgrading</p>
+            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>Unlock more features by upgrading</p>
           </div>
           <a href="/#pricing" style={{ background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, textDecoration: "none", flexShrink: 0 }}>
             Upgrade
@@ -545,19 +545,19 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
       <p style={SECTION_TITLE}>Account</p>
       <div style={{ ...CARD, padding: "20px", marginBottom: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "12px" }}>
-          <span style={{ fontSize: "12px", color: "#A0856A" }}>Name</span>
-          <span style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>{name || "—"}</span>
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>Name</span>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{name || "—"}</span>
         </div>
         <div style={DIVIDER} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0" }}>
-          <span style={{ fontSize: "12px", color: "#A0856A" }}>Email</span>
-          <span style={{ fontSize: "13px", fontWeight: 500, color: "#2C1A0E", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{email || "—"}</span>
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>Email</span>
+          <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.9)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{email || "—"}</span>
         </div>
         <div style={DIVIDER} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px" }}>
-          <span style={{ fontSize: "12px", color: "#A0856A" }}>Plan</span>
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>Plan</span>
           {planData && isActive ? (
-            <span style={{ background: "#E8DCC8", color: "#C4874A", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <span style={{ background: "rgba(255,255,255,0.1)", color: "#C4874A", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
               {planData.name}
             </span>
           ) : (
@@ -609,8 +609,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           {googleRating !== null && (
             <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "3px" }}>Your Google Rating</p>
-                <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.4 }}>Pulled from Google via Outscraper. Updates on each review sync.</p>
+                <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", fontWeight: 600, marginBottom: "3px" }}>Your Google Rating</p>
+                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.4 }}>Pulled from Google via Outscraper. Updates on each review sync.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
                 <span style={{ fontSize: "1.4rem", fontWeight: 700, color: "#2D9B8A" }}>{googleRating.toFixed(1)}</span>
@@ -646,8 +646,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
                 <div>
-                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>Revenue at Risk</p>
-                  <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Based on your business profile and current rating</p>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Revenue at Risk</p>
+                  <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>Based on your business profile and current rating</p>
                 </div>
                 <span style={{ fontSize: "9px", fontWeight: 700, padding: "3px 9px", borderRadius: "20px", background: est.confidence === "high" ? "rgba(45,155,138,0.1)" : "rgba(196,135,74,0.1)", color: est.confidence === "high" ? "#2D9B8A" : "#C4874A", letterSpacing: "0.06em" }}>
                   {est.confidence === "high" ? "Higher confidence" : "Directional"}
@@ -656,13 +656,13 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
                 <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
-                  <p style={{ fontSize: "9px", color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Monthly at Risk</p>
+                  <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Monthly at Risk</p>
                   <p style={{ fontSize: "1rem", fontWeight: 800, color: "#DC2626" }}>
                     {formatCurrency(est.monthlyLow)}–{formatCurrency(est.monthlyHigh)}
                   </p>
                 </div>
                 <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
-                  <p style={{ fontSize: "9px", color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Annual at Risk</p>
+                  <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Annual at Risk</p>
                   <p style={{ fontSize: "1rem", fontWeight: 800, color: "#DC2626" }}>
                     {formatCurrency(est.annualLow)}–{formatCurrency(est.annualHigh)}
                   </p>
@@ -671,14 +671,14 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
 
               {est.profitMonthlyLow != null && est.profitMonthlyHigh != null && (
                 <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.15)", borderRadius: "8px", padding: "8px 12px", marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontSize: "11px", color: "#A0856A" }}>Profit at risk / month</p>
+                  <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Profit at risk / month</p>
                   <p style={{ fontSize: "12px", fontWeight: 700, color: "#C4874A" }}>
                     {formatCurrency(est.profitMonthlyLow)}–{formatCurrency(est.profitMonthlyHigh)}
                   </p>
                 </div>
               )}
 
-              <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.6, marginBottom: "12px" }}>
+              <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6, marginBottom: "12px" }}>
                 ~{formatCurrency(est.reviewInfluencedMonthly)}/mo of new revenue is influenced by your online reputation.
                 {ratingGap > 0 && ` Closing your ${ratingGap.toFixed(1)}★ gap to ${revenueProfile.targetRating ?? 4.5}★ could recover this range.`}
               </p>
@@ -686,7 +686,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
               <button
                 type="button"
                 onClick={() => setShowRevenueModal(true)}
-                style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, color: "#A0856A", cursor: "pointer" }}
+                style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.45)", cursor: "pointer" }}
               >
                 Edit Profile
               </button>
@@ -694,8 +694,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           );
         })() : (
           <div>
-            <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "6px" }}>Understand Your Revenue at Risk</p>
-            <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6, marginBottom: "14px" }}>
+            <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)", marginBottom: "6px" }}>Understand Your Revenue at Risk</p>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6, marginBottom: "14px" }}>
               Enter a few business numbers and Vynta will estimate how much revenue your current rating and unresponded reviews may be costing you each month.
             </p>
             <button
@@ -752,9 +752,9 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
             <label style={LABEL}>Outbound Message Template</label>
             <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
               Default SMS/email sent when you request a review. Use{" "}
-              <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
-              <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
-              <code style={{ fontFamily: "monospace", background: "rgba(44,26,14,0.06)", borderRadius: "4px", padding: "1px 5px" }}>{"{link}"}</code>
+              <code style={{ fontFamily: "monospace", background: "rgba(255,255,255,0.07)", borderRadius: "4px", padding: "1px 5px" }}>{"{name}"}</code>{" "}
+              <code style={{ fontFamily: "monospace", background: "rgba(255,255,255,0.07)", borderRadius: "4px", padding: "1px 5px" }}>{"{business}"}</code>{" "}
+              <code style={{ fontFamily: "monospace", background: "rgba(255,255,255,0.07)", borderRadius: "4px", padding: "1px 5px" }}>{"{link}"}</code>
             </p>
             <textarea value={messageTemplate} onChange={(e) => setMessageTemplate(e.target.value)}
               rows={3}
@@ -787,23 +787,23 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           <div>
             <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "12px 14px", margin: "12px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>{inboxConfig.businessName}</p>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{inboxConfig.businessName}</p>
                 {inboxConfig.verified && (
                   <span style={{ background: "rgba(45,155,138,0.12)", color: "#2D9B8A", borderRadius: "20px", padding: "2px 8px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", flexShrink: 0 }}>
                     VERIFIED ✓
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: "11px", color: "#A0856A" }}>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
                 Zip {inboxConfig.zipCode} · Started {new Date(inboxConfig.setupDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {inboxConfig.baselineCount.toLocaleString()} reviews at setup
               </p>
             </div>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginBottom: "12px" }}>
+            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginBottom: "12px" }}>
               Last synced: {new Date(inboxConfig.lastChecked).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
             </p>
 
             {/* Place ID editor */}
-            <div style={{ borderTop: "1px solid rgba(44,26,14,0.06)", paddingTop: "12px", marginBottom: "12px" }}>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px", marginBottom: "12px" }}>
               <p style={LABEL}>Google Place ID</p>
               {editingPlaceId ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -825,22 +825,22 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                   </a>
                   <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
                     <button type="button" onClick={() => setEditingPlaceId(false)}
-                      style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                      style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>
                       Cancel
                     </button>
                     <button type="button" onClick={saveSmartInboxPlaceId} disabled={placeIdSaving}
-                      style={{ background: "#2C1A0E", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: placeIdSaving ? "not-allowed" : "pointer", opacity: placeIdSaving ? 0.6 : 1 }}>
+                      style={{ background: "#2D9B8A", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: placeIdSaving ? "not-allowed" : "pointer", opacity: placeIdSaving ? 0.6 : 1 }}>
                       {placeIdSaving ? "Saving…" : "Save"}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                  <span style={{ fontSize: "12px", color: inboxConfig.placeId ? "#2C1A0E" : "#A0856A", fontFamily: inboxConfig.placeId ? "monospace" : "inherit", wordBreak: "break-all" }}>
+                  <span style={{ fontSize: "12px", color: inboxConfig.placeId ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.35)", fontFamily: inboxConfig.placeId ? "monospace" : "inherit", wordBreak: "break-all" }}>
                     {inboxConfig.placeId ?? "Not set"}
                   </span>
                   <button type="button" onClick={() => { setPlaceIdDraft(inboxConfig.placeId ?? ""); setEditingPlaceId(true); }}
-                    style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "#A0856A", cursor: "pointer", flexShrink: 0 }}>
+                    style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "rgba(255,255,255,0.45)", cursor: "pointer", flexShrink: 0 }}>
                     {inboxConfig.placeId ? "Edit" : "Add"}
                   </button>
                 </div>
@@ -848,7 +848,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
             </div>
 
             {/* Total Review Count editor */}
-            <div style={{ borderTop: "1px solid rgba(44,26,14,0.06)", paddingTop: "12px", marginBottom: "12px" }}>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px", marginBottom: "12px" }}>
               <p style={LABEL}>Total Google Reviews</p>
               {editingReviewCount ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -861,27 +861,27 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                     style={FIELD}
                     autoFocus
                   />
-                  <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5 }}>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
                     Enter your exact Google total to fix the count shown on your Home screen.
                   </p>
                   <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
                     <button type="button" onClick={() => setEditingReviewCount(false)}
-                      style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                      style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>
                       Cancel
                     </button>
                     <button type="button" onClick={saveReviewCount} disabled={reviewCountSaving}
-                      style={{ background: "#2C1A0E", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: reviewCountSaving ? "not-allowed" : "pointer", opacity: reviewCountSaving ? 0.6 : 1 }}>
+                      style={{ background: "#2D9B8A", color: "white", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: reviewCountSaving ? "not-allowed" : "pointer", opacity: reviewCountSaving ? 0.6 : 1 }}>
                       {reviewCountSaving ? "Saving…" : "Save"}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                  <span style={{ fontSize: "12px", color: inboxConfig.lastKnownCount > 0 ? "#2C1A0E" : "#A0856A" }}>
+                  <span style={{ fontSize: "12px", color: inboxConfig.lastKnownCount > 0 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.35)" }}>
                     {inboxConfig.lastKnownCount > 0 ? inboxConfig.lastKnownCount.toLocaleString() : "Not set"}
                   </span>
                   <button type="button" onClick={() => { setReviewCountDraft(String(inboxConfig.lastKnownCount || "")); setEditingReviewCount(true); }}
-                    style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "#A0856A", cursor: "pointer", flexShrink: 0 }}>
+                    style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", color: "rgba(255,255,255,0.45)", cursor: "pointer", flexShrink: 0 }}>
                     {inboxConfig.lastKnownCount > 0 ? "Edit" : "Set"}
                   </button>
                 </div>
@@ -889,7 +889,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
             </div>
 
             <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.18)", borderRadius: "10px", padding: "11px 14px" }}>
-              <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 Need to make changes to Smart Inbox? Email{" "}
                 <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", fontWeight: 600, textDecoration: "none" }}>
                   Vynta.Wil@gmail.com
@@ -909,13 +909,13 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           /* ── Step 2: Confirm found business ── */
           <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "14px" }}>
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", fontWeight: 600, marginBottom: "8px" }}>We found this business</p>
-              <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>{lookupResult.businessName}</p>
+              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", fontWeight: 600, marginBottom: "8px" }}>We found this business</p>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "rgba(255,255,255,0.9)", marginBottom: "4px" }}>{lookupResult.businessName}</p>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 {lookupResult.starRating !== null && (
-                  <span style={{ fontSize: "12px", color: "#A0856A" }}>⭐ {lookupResult.starRating.toFixed(1)} stars</span>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>⭐ {lookupResult.starRating.toFixed(1)} stars</span>
                 )}
-                <span style={{ fontSize: "12px", color: "#A0856A" }}>Zip {inboxZip.trim()}</span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>Zip {inboxZip.trim()}</span>
               </div>
             </div>
 
@@ -929,7 +929,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                 placeholder="e.g. 3021"
                 style={FIELD}
               />
-              <p style={{ fontSize: "10px", color: "#A0856A", marginTop: "5px", lineHeight: 1.5 }}>
+              <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", marginTop: "5px", lineHeight: 1.5 }}>
                 Pre-filled from Google. Correct if wrong — Vynta uses this as your baseline.
               </p>
             </div>
@@ -942,7 +942,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                   onChange={(e) => setVerifyChecked(e.target.checked)}
                   style={{ marginTop: "2px", accentColor: "#2D9B8A", flexShrink: 0 }}
                 />
-                <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.6 }}>
                   I confirm I am the owner or authorized manager of this business and have the right to track and respond to its Google reviews.
                 </span>
               </label>
@@ -952,7 +952,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
 
             <div style={{ display: "flex", gap: "8px" }}>
               <button type="button" onClick={() => { setLookupResult(null); setVerifyChecked(false); setInboxError(""); }}
-                style={{ flex: 1, background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "10px", padding: "11px", fontSize: "13px", color: "#A0856A", cursor: "pointer" }}>
+                style={{ flex: 1, background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", padding: "11px", fontSize: "13px", color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>
                 Back
               </button>
               <button type="button" onClick={confirmAndActivate}
@@ -1015,7 +1015,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
                 </>
               ) : "Look Up Business"}
             </button>
-            <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
               Outscraper pulls exact review counts and text directly from Google using your Place ID.
             </p>
           </div>
@@ -1029,12 +1029,12 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
       <div style={{ ...CARD, padding: "20px", marginBottom: "20px" }}>
         {!inboxConfig?.placeId ? (
           <div>
-            <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "6px" }}>One-Time Review Import</p>
-            <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6, marginBottom: "12px" }}>
+            <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)", marginBottom: "6px" }}>One-Time Review Import</p>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6, marginBottom: "12px" }}>
               Import up to 500 of your most recent Google reviews. The 25 newest go to your <strong>New</strong> tab; the rest go to <strong>Seen</strong>.
             </p>
             <div style={{ background: "rgba(196,135,74,0.08)", border: "1px solid rgba(196,135,74,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
-              <p style={{ fontSize: "12px", color: "#A0856A" }}>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
                 Set up Smart Inbox with a Google Place ID first to enable review import.
               </p>
             </div>
@@ -1043,31 +1043,31 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#2D9B8A", display: "inline-block" }} />
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>Import Complete</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Import Complete</p>
             </div>
             {importResult ? (
-              <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 Imported {importResult.total} reviews — {importResult.newTab} in New, {importResult.seenTab} in Seen.
               </p>
             ) : (
-              <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 Your reviews have been imported. If you change your Google Place ID, you can re-run the import.
               </p>
             )}
-            <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "8px", fontFamily: "monospace", wordBreak: "break-all" }}>
+            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "8px", fontFamily: "monospace", wordBreak: "break-all" }}>
               {inboxConfig.placeId}
             </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "6px" }}>One-Time Review Import</p>
-              <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)", marginBottom: "6px" }}>One-Time Review Import</p>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 Pull up to 500 of your most recent Google reviews in one shot. The 25 newest go to <strong>New</strong>, everything else to <strong>Seen</strong>. Existing reviews will be recategorized.
               </p>
             </div>
             <div style={{ background: "rgba(196,135,74,0.08)", border: "1px solid rgba(196,135,74,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
-              <p style={{ fontSize: "11px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 <strong style={{ color: "#C4874A" }}>One-time per Place ID.</strong> Uses Outscraper credits. If you change your Google Place ID later, you can run it again.
               </p>
             </div>
@@ -1111,13 +1111,13 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
       <p style={SECTION_TITLE}>Data & History</p>
       <div style={{ ...CARD, padding: "16px 20px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>AI Response History</p>
-          <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>AI Response History</p>
+          <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>
             {history.length > 0 ? `${history.length} response${history.length !== 1 ? "s" : ""} saved` : "No responses yet"}
           </p>
         </div>
         <button type="button" onClick={handleClearHistory} disabled={history.length === 0}
-          style={{ background: "#E8DCC8", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer", opacity: history.length === 0 ? 0.4 : 1 }}>
+          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)", borderRadius: "10px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", opacity: history.length === 0 ? 0.4 : 1 }}>
           {cleared ? "Cleared!" : "Clear"}
         </button>
       </div>
@@ -1129,8 +1129,8 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
         <div style={{ ...CARD, padding: "16px 20px", marginBottom: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>Payment Method & Billing</p>
-              <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Update your card, view invoices, or change plan</p>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Payment Method & Billing</p>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>Update your card, view invoices, or change plan</p>
             </div>
             <ManageBillingButton />
           </div>
@@ -1143,9 +1143,9 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
       {isActive && subscriptionId && (
         <div style={{ ...CARD, padding: "16px 20px", marginBottom: "12px" }}>
           {canceledUntil ? (
-            <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
               Subscription canceled.{" "}
-              <strong style={{ color: "#2C1A0E" }}>
+              <strong style={{ color: "rgba(255,255,255,0.9)" }}>
                 You have full access through{" "}
                 {canceledUntil.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
               </strong>{" "}
@@ -1153,7 +1153,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
             </p>
           ) : cancelConfirm ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <p style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.6 }}>
                 {isTrialing ? (
                   <><strong>Cancel your free trial?</strong> Your access ends immediately and you will not be charged. You can sign up again any time.</>
                 ) : (
@@ -1162,7 +1162,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
               </p>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="button" onClick={() => setCancelConfirm(false)}
-                  style={{ flex: 1, background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "8px", fontSize: "12px", color: "#A0856A", cursor: "pointer" }}>
+                  style={{ flex: 1, background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "8px", fontSize: "12px", color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>
                   Nevermind
                 </button>
                 <button type="button" onClick={cancelSubscription} disabled={canceling}
@@ -1174,10 +1174,10 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           ) : (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E" }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
                   {isTrialing ? "Cancel Free Trial" : "Cancel Subscription"}
                 </p>
-                <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>
+                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>
                   {isTrialing ? "End your trial immediately — no charge" : "Access continues through your billing period"}
                 </p>
               </div>
@@ -1204,7 +1204,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
 
       {/* Support */}
       <div style={{ ...CARD, padding: "14px 20px", marginBottom: "12px", textAlign: "center" }}>
-        <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6 }}>
+        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
           Need help? Email the founder directly —{" "}
           <a href="mailto:Vynta.Wil@gmail.com" style={{ color: "#2D9B8A", textDecoration: "none", fontWeight: 600 }}>
             Vynta.Wil@gmail.com
