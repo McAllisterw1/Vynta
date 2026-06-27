@@ -73,6 +73,8 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [nextMovesLoading, setNextMovesLoading] = useState(true);
   const [greeting, setGreeting] = useState("");
 
+  const [showVynta, setShowVynta] = useState(false);
+
   // Consultant system prompt data
   const [consultantData, setConsultantData] = useState({
     businessName: "",
@@ -398,13 +400,42 @@ Give specific, actionable advice based on their actual numbers. Never start a re
   }
 
   return (
+    <>
     <div ref={scrollRef} style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "24px 24px 120px", display: "flex", flexDirection: "column", gap: "16px" }}>
+
+        {/* ── Page header with Vynta button ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+          <div />
+          <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
+            <button
+              type="button"
+              onClick={() => setShowVynta(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: "7px",
+                background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
+                color: "white", border: "none", borderRadius: "12px",
+                padding: "9px 14px", fontSize: "12px", fontWeight: 700,
+                letterSpacing: "0.08em", cursor: "pointer",
+                boxShadow: "0 2px 12px rgba(45,155,138,0.35)",
+              }}
+            >
+              <svg viewBox="0 0 20 20" fill="none" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
+                <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+              </svg>
+              Vynta
+              <span style={{
+                width: "5px", height: "5px", borderRadius: "50%", background: "#7EFCE1",
+                boxShadow: "0 0 0 2px rgba(126,252,225,0.25)", display: "inline-block",
+              }} />
+            </button>
+          </UpgradeTooltip>
+        </div>
 
         {/* ── Your Next Move ── */}
         <div>
           <div style={{ marginBottom: "10px" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4F46E5", marginBottom: "4px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "4px" }}>
               ⚡ Your Next Move
             </p>
             <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.5 }}>{greeting}</p>
@@ -648,114 +679,168 @@ Give specific, actionable advice based on their actual numbers. Never start a re
           </a>
         </div>
 
-        {/* ── AI Consultant — fixed-height scrollable card ── */}
-        <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
-        <div style={{ ...CARD, height: "500px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      </div>
+    </div>
 
-          {/* Chat header */}
-          <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid rgba(44,26,14,0.07)", flexShrink: 0 }}>
-            <p className="font-display" style={{ fontSize: "14px", fontWeight: 700, color: "#2C1A0E" }}>Ask Vynta</p>
-            <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Your reputation strategist. Ask anything — she&apos;ll tell you exactly what to do.</p>
+    {/* ── Vynta modal overlay ── */}
+    {showVynta && (
+      <>
+        <div
+          onClick={() => setShowVynta(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, backdropFilter: "blur(2px)" }}
+        />
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 201,
+          background: "#120804",
+          display: "flex", flexDirection: "column",
+        }}>
+
+          {/* Header */}
+          <div style={{
+            padding: "20px 20px 16px",
+            borderBottom: "1px solid rgba(45,155,138,0.15)",
+            flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{
+                width: "32px", height: "32px", borderRadius: "10px",
+                background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <svg viewBox="0 0 20 20" fill="none" style={{ width: "18px", height: "18px" }}>
+                  <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#2D9B8A", textTransform: "uppercase" }}>
+                    VYNTA
+                  </span>
+                  <span style={{
+                    width: "6px", height: "6px", borderRadius: "50%",
+                    background: "#2D9B8A", display: "inline-block",
+                    boxShadow: "0 0 0 2px rgba(45,155,138,0.25)",
+                    animation: "pulse 2s infinite",
+                  }} />
+                </div>
+                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", margin: 0, marginTop: "1px" }}>
+                  Reputation strategist · Always on
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVynta(false)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: "22px", lineHeight: 1, padding: "4px" }}
+            >
+              ×
+            </button>
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            {messages.length === 0 && (
-              <p style={{ fontSize: "12px", color: "#A0856A", textAlign: "center", alignSelf: "center", marginTop: "16px" }}>
-                Ask for advice on your goals or reputation strategy.
-              </p>
+          <div style={{
+            flex: 1, overflowY: "auto", padding: "20px 16px",
+            display: "flex", flexDirection: "column", gap: "14px",
+            scrollbarWidth: "thin", scrollbarColor: "rgba(45,155,138,0.2) transparent",
+          }}>
+            {messages.length === 0 && !loading && (
+              <div style={{ margin: "auto 0", paddingTop: "16px" }}>
+                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, textAlign: "center" }}>
+                  Ask anything about your goals or reputation —<br />strategy, reviews, responses, timing.
+                </p>
+              </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                <span style={{
+                  fontSize: "10px", fontWeight: 600,
+                  color: m.role === "user" ? "rgba(45,155,138,0.7)" : "rgba(255,255,255,0.3)",
+                  marginBottom: "4px", letterSpacing: "0.08em", textTransform: "uppercase",
+                }}>
+                  {m.role === "user" ? "You" : "Vynta"}
+                </span>
                 <div style={{
-                  maxWidth: "85%",
-                  borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                  padding: "10px 14px",
-                  fontSize: "13px",
-                  lineHeight: 1.5,
-                  background: m.role === "user" ? "#2C1A0E" : "#E8DCC8",
-                  color: m.role === "user" ? "white" : "#2C1A0E",
-                  boxShadow: "0 1px 4px rgba(44,26,14,0.1)",
+                  maxWidth: "90%",
+                  borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                  padding: "10px 14px", fontSize: "13px", lineHeight: 1.65,
+                  background: m.role === "user" ? "linear-gradient(135deg, #2D9B8A, #1e7a6c)" : "rgba(255,255,255,0.07)",
+                  color: m.role === "user" ? "white" : "rgba(255,255,255,0.88)",
+                  border: m.role === "user" ? "none" : "1px solid rgba(255,255,255,0.08)",
                 }}>
                   {m.role === "user" ? m.content : <MarkdownContent>{m.content}</MarkdownContent>}
                 </div>
               </div>
             ))}
             {loading && (
-              <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                <div style={{ background: "#FAF5E8", borderRadius: "18px 18px 18px 4px", padding: "10px 16px", boxShadow: "0 1px 4px rgba(44,26,14,0.1)" }}>
-                  <span style={{ display: "flex", gap: "4px" }}>
-                    {[0, 150, 300].map((d) => (
-                      <span key={d} className="animate-bounce" style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#A0856A", display: "inline-block", animationDelay: `${d}ms` }} />
-                    ))}
-                  </span>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                <span style={{ fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: "4px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Vynta
+                </span>
+                <div style={{
+                  borderRadius: "16px 16px 16px 4px", padding: "12px 16px",
+                  background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)",
+                  display: "flex", gap: "5px", alignItems: "center",
+                }}>
+                  {[0, 150, 300].map((d) => (
+                    <span key={d} className="animate-bounce" style={{
+                      width: "6px", height: "6px", borderRadius: "50%",
+                      background: "#2D9B8A", display: "inline-block", animationDelay: `${d}ms`,
+                    }} />
+                  ))}
                 </div>
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          {/* Suggested prompts */}
-          {messages.length === 0 && (
-            <div style={{ padding: "8px 14px 0", display: "flex", gap: "6px", overflowX: "auto", flexShrink: 0, scrollbarWidth: "none" } as React.CSSProperties}>
-              {[
-                "How do I get more 5-star reviews?",
-                "What should I do about a bad review?",
-                "What is hurting my reputation?",
-                "Analyze my current review stats",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => sendPrompt(prompt)}
-                  disabled={loading}
-                  style={{
-                    flexShrink: 0,
-                    background: "#E8DCC8",
-                    color: "#2C1A0E",
-                    border: "none",
-                    borderRadius: "20px",
-                    padding: "6px 12px",
-                    fontSize: "11px",
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    opacity: loading ? 0.4 : 1,
-                  }}
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Input bar */}
-          <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(44,26,14,0.07)", flexShrink: 0 }}>
-            <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Vynta…"
-                disabled={loading}
-                style={{ flex: 1, background: "white", borderRadius: "99px", border: "none", boxShadow: "0 2px 8px rgba(44,26,14,0.1)", padding: "11px 18px", fontSize: "13px", color: "#2C1A0E", outline: "none" }}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#2C1A0E", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: !input.trim() || loading ? 0.4 : 1 }}
-                aria-label="Send"
-              >
-                <svg viewBox="0 0 16 16" fill="white" style={{ width: "15px", height: "15px" }}>
-                  <path d="M2.75 3.587A1 1 0 0 1 3.917 2.5l9.666 4.833a1 1 0 0 1 0 1.334L3.917 13.5A1 1 0 0 1 2.75 12.413V9.25l5.5-1.25-5.5-1.25V3.587Z" />
-                </svg>
-              </button>
-            </form>
+          <div style={{
+            borderTop: "1px solid rgba(45,155,138,0.12)",
+            padding: "12px 14px 28px",
+            display: "flex", gap: "10px", alignItems: "center",
+            background: "rgba(0,0,0,0.3)", flexShrink: 0,
+          }}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              placeholder="Ask me anything..."
+              disabled={loading}
+              autoFocus
+              style={{
+                flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: "12px",
+                border: "1px solid rgba(45,155,138,0.2)", padding: "10px 14px",
+                fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={!input.trim() || loading}
+              aria-label="Send"
+              style={{
+                width: "38px", height: "38px", borderRadius: "10px",
+                background: "#2D9B8A", border: "none",
+                cursor: !input.trim() || loading ? "not-allowed" : "pointer",
+                opacity: !input.trim() || loading ? 0.35 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, transition: "opacity 150ms",
+              }}
+            >
+              <svg viewBox="0 0 16 16" fill="white" style={{ width: "14px", height: "14px" }}>
+                <path d="M2.75 3.587A1 1 0 0 1 3.917 2.5l9.666 4.833a1 1 0 0 1 0 1.334L3.917 13.5A1 1 0 0 1 2.75 12.413V9.25l5.5-1.25-5.5-1.25V3.587Z" />
+              </svg>
+            </button>
           </div>
         </div>
-        </UpgradeTooltip>
-
-      </div>
-    </div>
+        <style>{`
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+          input[placeholder="Ask me anything..."]::placeholder { color: rgba(255,255,255,0.25) !important; }
+        `}</style>
+      </>
+    )}
+    </>
   );
 }

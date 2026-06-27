@@ -1448,12 +1448,42 @@ export default function IntelligenceScreen() {
   const [refreshKey,  setRefreshKey]  = useState(0);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
 
+  // Intel cache snapshots for PDF enrichment
+  const [intelPriorities,    setIntelPriorities]    = useState<string[] | null>(null);
+  const [intelWarnings,      setIntelWarnings]      = useState<Warning[] | null>(null);
+  const [intelSummary,       setIntelSummary]       = useState<string | null>(null);
+  const [intelThreat,        setIntelThreat]        = useState<ThreatAnalysis | null>(null);
+  const [intelMarket,        setIntelMarket]        = useState<MarketIntel | null>(null);
+  const [intelOpportunities, setIntelOpportunities] = useState<OpportunitiesData | null>(null);
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("vynta_intel_last_refresh");
       if (stored) setLastRefresh(parseInt(stored, 10));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    function syncIntelCaches() {
+      try {
+        const prio = lsGet<string[]>("vynta_priority_actions", Infinity);
+        if (prio) setIntelPriorities(prio);
+        const warn = lsGet<EarlyWarningsResponse>("vynta_early_warnings", Infinity);
+        if (warn?.warnings) setIntelWarnings(warn.warnings);
+        const summ = lsGet<string>("vynta_business_summary", Infinity);
+        if (summ) setIntelSummary(summ);
+        const threat = lsGet<ThreatAnalysis>("vynta_threat_analysis", Infinity);
+        if (threat) setIntelThreat(threat);
+        const market = lsGet<MarketIntel>("vynta_market_intelligence", Infinity);
+        if (market) setIntelMarket(market);
+        const opps = lsGet<OpportunitiesData>("vynta_opportunities", Infinity);
+        if (opps) setIntelOpportunities(opps);
+      } catch {}
+    }
+    syncIntelCaches();
+    const t = setTimeout(syncIntelCaches, 3500);
+    return () => clearTimeout(t);
+  }, [refreshKey]);
 
   function refreshAll() {
     INTEL_CACHE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch {} });
@@ -1535,6 +1565,16 @@ export default function IntelligenceScreen() {
                   competitors: competitors.slice(0, 5).map(c => ({ name: c.name, rating: c.rating, reviewCount: c.reviewCount })),
                   isProspect: false,
                   generatedDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                  businessSummary:       intelSummary       ?? undefined,
+                  priorityActions:       intelPriorities    ?? undefined,
+                  earlyWarnings:         intelWarnings      ?? undefined,
+                  threatAnalysis:        intelThreat        ?? undefined,
+                  marketIntel:           intelMarket        ?? undefined,
+                  revenueOpportunities:  intelOpportunities?.revenueOpportunities,
+                  competitorGaps:        intelOpportunities?.competitorGaps,
+                  quickWins:             intelOpportunities?.quickWins,
+                  risks:                 sentimentData.risks,
+                  operationalRecs:       sentimentData.operationalRecommendations,
                 } satisfies PDFReportData}
                 label="↓ Download Report"
                 style={{ fontSize: "12px", padding: "8px 14px" }}

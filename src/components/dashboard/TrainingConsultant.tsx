@@ -375,7 +375,7 @@ export default function TrainingConsultant() {
                 fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em",
                 color: "#2D9B8A", textTransform: "uppercase",
               }}>
-                VYNTA COACH
+                VYNTA
               </span>
               {/* Live dot */}
               <span style={{
