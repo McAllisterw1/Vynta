@@ -30,7 +30,7 @@ interface NextMove {
   title: string;
   description: string;
   action_label: string;
-  action_tab: "requests" | "reviews" | "training" | "home" | "stats";
+  action_tab: "requests" | "reviews" | "home" | "stats";
 }
 
 const TAB_INDEX: Record<string, number> = {
@@ -203,8 +203,9 @@ Each item in the array must have exactly these keys:
 - emoji: a single relevant emoji
 - title: 5 words max, punchy
 - description: 1 sentence, specific to their data
-- action_label: 2-3 words (e.g. "Send Request", "Reply Now", "Start Training")
-- action_tab: exactly one of "requests", "reviews", "training", "home", "stats"`;
+- action_label: 2-3 words (e.g. "Send Request", "Reply Now", "View Stats")
+- action_tab: exactly one of "requests", "reviews", "home", "stats"
+- NEVER suggest "training" as an action_tab — training has its own dedicated button`;
 
       const userMessage = `User data:
 - Total logged reviews: ${totalReviews}
@@ -345,10 +346,6 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
   }
 
   function handleNextMoveAction(tab: string) {
-    if (tab === "training") {
-      window.location.href = "/dashboard/training";
-      return;
-    }
     const idx = TAB_INDEX[tab];
     if (idx !== undefined && onNavigate) onNavigate(idx);
   }
@@ -404,32 +401,24 @@ Give specific, actionable advice based on their actual numbers. Never start a re
     <div ref={scrollRef} style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "24px 24px 120px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
-        {/* ── Page header with Vynta button ── */}
+        {/* ── Page header with Training button ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
           <div />
-          <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
-            <button
-              type="button"
-              onClick={() => setShowVynta(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: "7px",
-                background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
-                color: "white", border: "none", borderRadius: "12px",
-                padding: "9px 14px", fontSize: "12px", fontWeight: 700,
-                letterSpacing: "0.08em", cursor: "pointer",
-                boxShadow: "0 2px 12px rgba(45,155,138,0.35)",
-              }}
-            >
-              <svg viewBox="0 0 20 20" fill="none" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
-                <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
-              </svg>
-              Vynta
-              <span style={{
-                width: "5px", height: "5px", borderRadius: "50%", background: "#7EFCE1",
-                boxShadow: "0 0 0 2px rgba(126,252,225,0.25)", display: "inline-block",
-              }} />
-            </button>
-          </UpgradeTooltip>
+          <a
+            href="/dashboard/training"
+            style={{
+              display: "flex", alignItems: "center", gap: "7px",
+              background: "#2C1A0E", color: "white", borderRadius: "12px",
+              padding: "9px 14px", fontSize: "12px", fontWeight: 700,
+              letterSpacing: "0.04em", textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(44,26,14,0.2)",
+            }}
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="white" strokeWidth="1.6" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 2L3 6v5c0 4 3 6.5 7 7 4-.5 7-3 7-7V6L10 2z" />
+            </svg>
+            Training
+          </a>
         </div>
 
         {/* ── Your Next Move ── */}
@@ -681,6 +670,32 @@ Give specific, actionable advice based on their actual numbers. Never start a re
 
       </div>
     </div>
+
+    {/* ── Vynta floating button ── */}
+    <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
+      <button
+        type="button"
+        onClick={() => setShowVynta(true)}
+        style={{
+          position: "fixed", bottom: "88px", right: "18px", zIndex: 50,
+          display: "flex", alignItems: "center", gap: "7px",
+          background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
+          color: "white", border: "none", borderRadius: "50px",
+          padding: "11px 16px", fontSize: "12px", fontWeight: 700,
+          letterSpacing: "0.08em", cursor: "pointer",
+          boxShadow: "0 4px 20px rgba(45,155,138,0.45)",
+        }}
+      >
+        <svg viewBox="0 0 20 20" fill="none" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
+          <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+        </svg>
+        Vynta
+        <span style={{
+          width: "5px", height: "5px", borderRadius: "50%", background: "#7EFCE1",
+          boxShadow: "0 0 0 2px rgba(126,252,225,0.25)", display: "inline-block",
+        }} />
+      </button>
+    </UpgradeTooltip>
 
     {/* ── Vynta modal overlay ── */}
     {showVynta && (
