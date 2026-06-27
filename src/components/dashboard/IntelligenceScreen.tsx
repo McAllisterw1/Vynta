@@ -1545,10 +1545,10 @@ export default function IntelligenceScreen() {
         {/* Header */}
         <div style={{ marginBottom: "16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
           <div>
-            <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: DARK, lineHeight: 1.1 }}>
+            <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1.1 }}>
               Intelligence
             </h1>
-            <p style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>Your reputation command center</p>
+            <p style={{ fontSize: "13px", color: "#A0856A", marginTop: "4px" }}>Your reputation command center</p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
             {!loading && sentimentData && businessName && (

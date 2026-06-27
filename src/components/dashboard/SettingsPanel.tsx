@@ -522,7 +522,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
   return (
     <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 0" }}>
 
-      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "white", marginBottom: "20px" }}>Settings</h1>
+      <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "20px" }}>Settings</h1>
 
       {/* ── Upgrade banner ── */}
       {plan !== "agency" && (

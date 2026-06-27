@@ -29,7 +29,7 @@ const LABEL: React.CSSProperties = {
   fontSize: "10px",
   textTransform: "uppercase",
   letterSpacing: "0.1em",
-  color: "rgba(255,255,255,0.35)",
+  color: "#A0856A",
   display: "block",
   marginBottom: "6px",
   fontWeight: 600,
@@ -159,7 +159,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
     <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
       {/* Styled tab bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid rgba(255,255,255,0.07)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
         {(["send", "history"] as const).map((t) => {
           const active = tab === t;
           return (
@@ -176,7 +176,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
                 background: "none",
                 cursor: "pointer",
                 borderBottom: `3px solid ${active ? "#2D9B8A" : "transparent"}`,
-                color: active ? "white" : "rgba(255,255,255,0.4)",
+                color: active ? "#2C1A0E" : "#A0856A",
                 marginBottom: "-2px",
                 transition: "color 150ms, border-color 150ms",
               }}
@@ -232,9 +232,12 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
             </div>
           </div>
 
+          {/* Form body */}
+          <div style={{ background: "#120804", borderRadius: "16px", border: "1px solid rgba(45,155,138,0.12)", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", flexShrink: 0, marginBottom: "14px" }}>
+
           {/* Business name */}
-          <div style={{ marginBottom: "12px", flexShrink: 0 }}>
-            <label style={LABEL}>Business Name</label>
+          <div>
+            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Business Name</label>
             <input
               type="text"
               value={businessName}
@@ -245,8 +248,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
           </div>
 
           {/* Customer list */}
-          <div style={{ flexShrink: 0, marginBottom: "12px" }}>
-            <label style={LABEL}>Customers</label>
+          <div>
+            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Customers</label>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {contacts.map((c) => (
                 <div key={c.id} style={{ ...CARD, padding: "12px" }}>
@@ -293,8 +296,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
           </div>
 
           {/* Message */}
-          <div style={{ flexShrink: 0, marginBottom: "12px" }}>
-            <label style={LABEL}>Message</label>
+          <div>
+            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Message</label>
             <textarea
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
@@ -303,8 +306,8 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
             />
           </div>
 
-          {/* Send button — rounded with horizontal margin */}
-          <div style={{ paddingBottom: "120px", paddingLeft: "4px", paddingRight: "4px", flexShrink: 0 }}>
+          {/* Send button */}
+          <div>
             {sendError && (
               <p style={{ fontSize: "12px", color: "#C0392B", marginBottom: "8px", textAlign: "center" }}>{sendError}</p>
             )}
@@ -331,6 +334,9 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
                 : "Send Campaign"}
             </button>
           </div>
+
+          </div>{/* end form body card */}
+          <div style={{ paddingBottom: "120px" }} />
         </div>
         </UpgradeTooltip>
       )}
