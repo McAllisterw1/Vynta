@@ -393,6 +393,8 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
       <style>{`
         @keyframes crisis-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .responder-input::placeholder { color: rgba(255,255,255,0.25) !important; }
         .crisis-md p, .crisis-md li, .crisis-md h1, .crisis-md h2, .crisis-md h3, .crisis-md h4, .crisis-md strong, .crisis-md em { color: rgba(255,255,255,0.88) !important; }
         .crisis-md ul, .crisis-md ol { padding-left: 18px; margin: 6px 0; }
         .crisis-md li { margin-bottom: 4px; }
@@ -615,146 +617,146 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
         </div>
 
         {/* ── Vynta AI Responder ── */}
-        <div style={{ ...CARD, padding: "20px", marginBottom: "16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E" }}>
-              Vynta AI Responder
-            </h2>
-            <span style={{ fontSize: "10px", color: "#A0856A" }}>{usageLabel}</span>
-          </div>
+        <div style={{ borderRadius: "16px", overflow: "hidden", marginBottom: "16px", background: "#120804", boxShadow: "0 2px 20px rgba(0,0,0,0.35)" }}>
 
-          <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Business name"
-              style={{ ...FIELD, flex: 1, width: "auto" }}
-              className="focus:outline-none focus:ring-2 focus:ring-[#C4874A]/30"
-            />
-            <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <button key={s} type="button" onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
-                  <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#C4874A" : "#C8B49A" }} fill="currentColor">
-                    <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
+          {/* Header */}
+          <div style={{ padding: "16px 18px 14px", borderBottom: "1px solid rgba(45,155,138,0.15)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "30px", height: "30px", borderRadius: "9px", background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg viewBox="0 0 20 20" fill="none" style={{ width: "16px", height: "16px" }}>
+                    <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
                   </svg>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <input
-            type="text"
-            value={reviewerName}
-            onChange={(e) => setReviewerName(e.target.value)}
-            placeholder="Reviewer's name"
-            style={{ ...FIELD, marginBottom: "10px" }}
-            className="focus:outline-none focus:ring-2 focus:ring-[#C4874A]/30"
-          />
-
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={4}
-            placeholder="Paste the customer's review here…"
-            style={{ ...FIELD, resize: "none", marginBottom: "12px" }}
-            className="focus:outline-none focus:ring-2 focus:ring-[#C4874A]/30"
-          />
-
-          <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px", marginBottom: "14px", scrollbarWidth: "none" } as React.CSSProperties}>
-            {TONES.map(({ value, emoji, name }) => {
-              const FREE_TONES = new Set(["professional", "friendly", "apologetic", "savage"]);
-              const toneLocked = !canAccess(plan, "toneOptions") && !FREE_TONES.has(value);
-              return (
-                <UpgradeTooltip key={value} locked={toneLocked} requiredPlan="Pro">
-                  <button
-                    type="button"
-                    onClick={() => setTone(value)}
-                    style={{
-                      flexShrink: 0,
-                      borderRadius: "20px",
-                      padding: "6px 12px",
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      background: tone === value ? "#2C1A0E" : "#E8DCC8",
-                      color: tone === value ? "white" : "#A0856A",
-                      border: "none",
-                      boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
-                      cursor: "pointer",
-                      transition: "background 150ms, color 150ms",
-                    }}
-                  >
-                    {emoji} {name}
-                  </button>
-                </UpgradeTooltip>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => { setResponse(""); fetchDraft(); }}
-            disabled={!canSubmit || loading}
-            style={{
-              width: "100%",
-              background: canSubmit && !loading ? "#2C1A0E" : "#A0856A",
-              color: "white",
-              borderRadius: "12px",
-              padding: "14px",
-              fontSize: "14px",
-              fontWeight: 600,
-              border: "none",
-              cursor: canSubmit && !loading ? "pointer" : "not-allowed",
-              opacity: canSubmit && !loading ? 1 : 0.6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "background 150ms, opacity 150ms",
-            }}
-          >
-            {loading && !response ? (
-              <>
-                <svg style={{ width: "14px", height: "14px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
-                  <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                  <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
-                </svg>
-                Generating…
-              </>
-            ) : "Generate AI Response"}
-          </button>
-
-          {atLimit && <p style={{ marginTop: "12px", fontSize: "12px", color: "#D97706" }}>Monthly limit reached. <a href="/#pricing" style={{ textDecoration: "underline" }}>Upgrade</a> for more.</p>}
-          {error && <p style={{ marginTop: "12px", fontSize: "12px", color: "#EF4444" }}>{error}</p>}
-
-          {response && (
-            <div style={{ marginTop: "14px", background: "white", borderRadius: "12px", padding: "16px", boxShadow: "0 1px 4px rgba(44,26,14,0.08)" }}>
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "8px" }}>Draft Response</p>
-              {loading ? (
-                <p style={{ fontSize: "13px", color: "#A0856A" }}>Regenerating…</p>
-              ) : (
-                <p style={{ fontSize: "13px", lineHeight: 1.6, color: "#5C3A1E" }}>{response}</p>
-              )}
-              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button
-                  type="button"
-                  onClick={() => { navigator.clipboard.writeText(response); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  disabled={loading}
-                  style={{ background: "#2D9B8A", color: "white", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchDraft}
-                  disabled={loading || (atLimit && tone !== "savage")}
-                  style={{ background: "white", color: "#A0856A", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 500, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer" }}
-                >
-                  Regenerate
-                </button>
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#2D9B8A", textTransform: "uppercase" }}>VYNTA</span>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2D9B8A", display: "inline-block", boxShadow: "0 0 0 2px rgba(45,155,138,0.25)", animation: "pulse 2s infinite" }} />
+                  </div>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)", margin: 0, marginTop: "1px" }}>AI Review Responder · {usageLabel}</p>
+                </div>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Form body */}
+          <div style={{ padding: "16px 18px 18px" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Business name"
+                style={{ flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: "10px", border: "1px solid rgba(45,155,138,0.2)", padding: "10px 14px", fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none", width: "auto" }}
+              />
+              <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button key={s} type="button" onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
+                    <svg viewBox="0 0 16 16" style={{ width: "20px", height: "20px", color: s <= rating ? "#2D9B8A" : "rgba(255,255,255,0.15)" }} fill="currentColor">
+                      <path d="M7.657 1.077a.4.4 0 0 1 .686 0l1.832 3.436 3.889.521a.4.4 0 0 1 .224.69L11.64 8.4l.656 3.796a.4.4 0 0 1-.587.418L8 10.863l-3.71 1.75a.4.4 0 0 1-.586-.418l.656-3.796L1.712 5.724a.4.4 0 0 1 .224-.69l3.89-.521 1.831-3.436Z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input
+              type="text"
+              value={reviewerName}
+              onChange={(e) => setReviewerName(e.target.value)}
+              placeholder="Reviewer's name"
+              style={{ background: "rgba(255,255,255,0.07)", borderRadius: "10px", border: "1px solid rgba(45,155,138,0.2)", padding: "10px 14px", fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none", width: "100%", marginBottom: "10px", boxSizing: "border-box" }}
+            />
+
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={4}
+              placeholder="Paste the customer's review here…"
+              style={{ background: "rgba(255,255,255,0.07)", borderRadius: "10px", border: "1px solid rgba(45,155,138,0.2)", padding: "10px 14px", fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none", width: "100%", resize: "none", marginBottom: "12px", boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: "7px", overflowX: "auto", paddingBottom: "4px", marginBottom: "14px", scrollbarWidth: "none" } as React.CSSProperties}>
+              {TONES.map(({ value, emoji, name }) => {
+                const FREE_TONES = new Set(["professional", "friendly", "apologetic", "savage"]);
+                const toneLocked = !canAccess(plan, "toneOptions") && !FREE_TONES.has(value);
+                return (
+                  <UpgradeTooltip key={value} locked={toneLocked} requiredPlan="Pro">
+                    <button
+                      type="button"
+                      onClick={() => setTone(value)}
+                      style={{
+                        flexShrink: 0, borderRadius: "20px", padding: "5px 11px",
+                        fontSize: "11px", fontWeight: 500, border: "none", cursor: "pointer",
+                        transition: "background 150ms, color 150ms",
+                        background: tone === value ? "#2D9B8A" : "rgba(255,255,255,0.07)",
+                        color: tone === value ? "white" : "rgba(255,255,255,0.5)",
+                      }}
+                    >
+                      {emoji} {name}
+                    </button>
+                  </UpgradeTooltip>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { setResponse(""); fetchDraft(); }}
+              disabled={!canSubmit || loading}
+              style={{
+                width: "100%", background: canSubmit && !loading ? "#2D9B8A" : "rgba(45,155,138,0.2)",
+                color: "white", borderRadius: "12px", padding: "13px",
+                fontSize: "14px", fontWeight: 700, border: "none",
+                cursor: canSubmit && !loading ? "pointer" : "not-allowed",
+                opacity: canSubmit && !loading ? 1 : 0.5,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                transition: "background 150ms, opacity 150ms",
+              }}
+            >
+              {loading && !response ? (
+                <>
+                  <svg style={{ width: "14px", height: "14px", animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                  </svg>
+                  Generating…
+                </>
+              ) : "Generate AI Response"}
+            </button>
+
+            {atLimit && <p style={{ marginTop: "10px", fontSize: "12px", color: "rgba(255,180,0,0.8)" }}>Monthly limit reached. <a href="/#pricing" style={{ textDecoration: "underline", color: "#2D9B8A" }}>Upgrade</a> for more.</p>}
+            {error && <p style={{ marginTop: "10px", fontSize: "12px", color: "#EF4444" }}>{error}</p>}
+
+            {response && (
+              <div style={{ marginTop: "14px", background: "rgba(255,255,255,0.07)", borderRadius: "12px", padding: "14px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(45,155,138,0.7)", marginBottom: "8px", fontWeight: 700 }}>Draft Response</p>
+                {loading ? (
+                  <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>Regenerating…</p>
+                ) : (
+                  <p style={{ fontSize: "13px", lineHeight: 1.65, color: "rgba(255,255,255,0.88)" }}>{response}</p>
+                )}
+                <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                  <button
+                    type="button"
+                    onClick={() => { navigator.clipboard.writeText(response); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    disabled={loading}
+                    style={{ background: "#2D9B8A", color: "white", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchDraft}
+                    disabled={loading || (atLimit && tone !== "savage")}
+                    style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.5)", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 500, border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Response History ── */}

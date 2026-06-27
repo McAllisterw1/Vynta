@@ -327,34 +327,30 @@ export default function DashboardShell({
 
       {/* ── Global brand bar ── */}
       <div style={{
-        height: "42px", flexShrink: 0,
+        height: "44px", flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 20px",
-        background: "#FAF5E8",
-        borderBottom: "1px solid rgba(44,26,14,0.07)",
+        background: "#120804",
+        borderBottom: "1px solid rgba(45,155,138,0.12)",
         zIndex: 20,
       }}>
         {/* Vynta logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-          <svg viewBox="0 0 62 19" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: "16px", width: "auto" }}>
-            <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
-              stroke="#C4874A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="5"  cy="3" r="2" fill="#C4874A" />
-            <circle cx="17" cy="3" r="2" fill="#C4874A" />
-            <circle cx="29" cy="3" r="2" fill="#C4874A" />
-            <circle cx="41" cy="3" r="2" fill="#C4874A" />
-            <circle cx="53" cy="3" r="2" fill="#C4874A" />
-          </svg>
-          <span className="font-display" style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ width: "24px", height: "24px", borderRadius: "7px", background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg viewBox="0 0 20 20" fill="none" style={{ width: "14px", height: "14px" }}>
+              <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+            </svg>
+          </div>
+          <span className="font-display" style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: "white" }}>
             Vynta
           </span>
         </div>
 
         {/* Client business name */}
         {clientBusiness && (
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <span style={{ fontSize: "10px", color: "rgba(44,26,14,0.25)", fontWeight: 400 }}>×</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#2D9B8A", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", fontWeight: 400 }}>·</span>
+            <span style={{ fontSize: "11px", fontWeight: 500, color: "rgba(255,255,255,0.5)", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {clientBusiness}
             </span>
           </div>
