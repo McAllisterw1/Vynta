@@ -1622,7 +1622,7 @@ export default function IntelligenceScreen() {
         <EarlyWarningSystem key={`ews-${refreshKey}`} />
 
         {/* Tab bar */}
-        <div style={{ display: "flex", borderBottom: "1px solid rgba(44,26,14,0.1)", marginBottom: "16px" }}>
+        <div style={{ background: "#120804", borderRadius: "14px", padding: "5px", marginBottom: "16px", display: "flex", gap: "3px", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}>
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -1630,16 +1630,16 @@ export default function IntelligenceScreen() {
               onClick={() => setActiveTab(tab.key)}
               style={{
                 flex: 1,
-                background: "none",
+                background: activeTab === tab.key ? "#2D9B8A" : "transparent",
                 border: "none",
                 cursor: "pointer",
-                padding: "8px 0 10px",
-                fontSize: "12px",
+                borderRadius: "10px",
+                padding: "8px 4px",
+                fontSize: "11px",
                 fontWeight: activeTab === tab.key ? 700 : 500,
-                color: activeTab === tab.key ? DARK : MUTED,
-                borderBottom: `2px solid ${activeTab === tab.key ? TEAL : "transparent"}`,
-                transition: "color 150ms, border-color 150ms",
-                marginBottom: "-1px",
+                color: activeTab === tab.key ? "white" : "rgba(255,255,255,0.4)",
+                transition: "background 150ms, color 150ms",
+                letterSpacing: activeTab === tab.key ? "0.01em" : "normal",
               }}
             >
               {tab.label}
