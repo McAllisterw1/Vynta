@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import MarkdownContent from "@/components/ui/MarkdownContent";
+import { calculateRevenueAtRisk, formatCurrency } from "@/lib/revenueCalc";
 
 interface Message {
   role: "user" | "assistant";
@@ -65,11 +66,44 @@ async function buildSystemPrompt(): Promise<string> {
   let businessType = "local business";
   let googleRating: number | null = null;
 
+  let revenueBlock = "";
   if (settingsRes.status === "fulfilled" && settingsRes.value.ok) {
-    const s = await settingsRes.value.json() as { businessName?: string; businessType?: string; googleRating?: number };
+    const s = await settingsRes.value.json() as {
+      businessName?: string; businessType?: string; googleRating?: number;
+      avgCustomerValue?: number | null; monthlyNewCustomers?: number | null;
+      googleTrafficPercent?: number | null; targetRating?: number | null;
+      repeatCustomersPerYear?: number | null; grossMarginPercent?: number | null;
+    };
     businessName = s.businessName || "this business";
     businessType  = s.businessType  || "local business";
     if (s.googleRating && s.googleRating > 0) googleRating = s.googleRating;
+
+    if (s.avgCustomerValue && s.monthlyNewCustomers && s.googleTrafficPercent) {
+      const est = calculateRevenueAtRisk({
+        avgCustomerValue:       s.avgCustomerValue,
+        monthlyNewCustomers:    s.monthlyNewCustomers,
+        googleTrafficPercent:   s.googleTrafficPercent,
+        targetRating:           s.targetRating ?? 4.5,
+        currentRating:          s.googleRating && s.googleRating > 0 ? s.googleRating : 4.0,
+        repeatCustomersPerYear: s.repeatCustomersPerYear ?? undefined,
+        grossMarginPercent:     s.grossMarginPercent ?? undefined,
+      });
+      const parts = [
+        `Average customer value: ${formatCurrency(s.avgCustomerValue)}`,
+        `Monthly new customers: ~${s.monthlyNewCustomers}`,
+        `${s.googleTrafficPercent}% of new customers come from Google/reviews`,
+        `Review-influenced monthly revenue: ~${formatCurrency(est.reviewInfluencedMonthly)}`,
+        `Estimated monthly revenue at risk: ${formatCurrency(est.monthlyLow)}–${formatCurrency(est.monthlyHigh)}`,
+        `Estimated annual revenue at risk: ${formatCurrency(est.annualLow)}–${formatCurrency(est.annualHigh)}`,
+        `Target rating: ${s.targetRating ?? 4.5}★ (current gap: ${est.ratingGap.toFixed(1)}★)`,
+        `Confidence: ${est.confidence}`,
+      ];
+      if (est.profitMonthlyLow != null && est.profitMonthlyHigh != null) {
+        parts.push(`Estimated monthly profit at risk: ${formatCurrency(est.profitMonthlyLow)}–${formatCurrency(est.profitMonthlyHigh)}`);
+      }
+      if (est.ltv) parts.push(`Customer lifetime value: ~${formatCurrency(est.ltv)}`);
+      revenueBlock = parts.join("\n");
+    }
   }
 
   // ── Review stats (slim) ────────────────────────────────────────────────────
@@ -226,7 +260,7 @@ Reviews: ${reviewCountLine}
 Unresponded reviews: ${unresponded}
 Low-rated reviews in last 30 days: ${recentNeg}
 
-━━ SENTIMENT INTELLIGENCE (latest weekly analysis) ━━
+${revenueBlock ? `━━ REVENUE PROFILE ━━\n${revenueBlock}\n\n` : ""}━━ SENTIMENT INTELLIGENCE (latest weekly analysis) ━━
 ${sentimentBlock}
 
 ━━ COMPETITORS ━━
@@ -241,7 +275,8 @@ Use this section to give TLDRs of threat analysis, market intel, opportunities, 
 ${intelBlock}
 
 ━━ HOW TO RESPOND ━━
-- Reference actual numbers, competitor names, complaint themes, and review quotes when answering
+- Reference actual numbers, revenue estimates, competitor names, complaint themes, and review quotes when answering
+- When discussing problems (unresponded reviews, low rating, complaint themes), tie them back to the revenue at risk numbers when available
 - For TLDR requests: summarize the relevant section concisely in 3-5 bullet points
 - For breakdown requests: organize by theme or category with specific examples from the data
 - Be direct and specific — no hedging, no filler

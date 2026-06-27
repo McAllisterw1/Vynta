@@ -5,6 +5,8 @@ import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useResponseHistory } from "@/lib/useResponseHistory";
 import { getPlan } from "@/lib/plans";
+import RevenueCalculator, { type RevenueProfile } from "@/components/dashboard/RevenueCalculator";
+import { calculateRevenueAtRisk, formatCurrency } from "@/lib/revenueCalc";
 
 interface SmartInboxConfig {
   businessName: string;
@@ -212,6 +214,11 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
   const [canceling, setCanceling] = useState(false);
   const [canceledUntil, setCanceledUntil] = useState<Date | null>(null);
 
+  // ── Revenue Calculator ──
+  const [revenueProfile,    setRevenueProfile]    = useState<RevenueProfile>({ avgCustomerValue: null, monthlyNewCustomers: null, googleTrafficPercent: null, targetRating: null, repeatCustomersPerYear: null, grossMarginPercent: null });
+  const [showRevenueModal,  setShowRevenueModal]  = useState(false);
+  const [unrespondedCount,  setUnrespondedCount]  = useState(0);
+
   // ── Import ──
   const [initialImportPlaceId, setInitialImportPlaceId] = useState<string | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -227,6 +234,9 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
         businessUrl?: string; businessPhone?: string; googleReviewUrl?: string;
         defaultTone?: string; messageTemplate?: string; initialImportPlaceId?: string | null;
         googleRating?: number;
+        avgCustomerValue?: number | null; monthlyNewCustomers?: number | null;
+        googleTrafficPercent?: number | null; targetRating?: number | null;
+        repeatCustomersPerYear?: number | null; grossMarginPercent?: number | null;
       }) => {
         if (data.businessName)    setBusinessName(data.businessName);
         if (data.businessType)    setBusinessType(data.businessType);
@@ -238,6 +248,22 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
         if (data.messageTemplate) setMessageTemplate(data.messageTemplate);
         if (data.initialImportPlaceId !== undefined) setInitialImportPlaceId(data.initialImportPlaceId ?? null);
         if (data.googleRating && data.googleRating > 0) setGoogleRating(data.googleRating);
+        setRevenueProfile({
+          avgCustomerValue:       data.avgCustomerValue       ?? null,
+          monthlyNewCustomers:    data.monthlyNewCustomers    ?? null,
+          googleTrafficPercent:   data.googleTrafficPercent   ?? null,
+          targetRating:           data.targetRating           ?? null,
+          repeatCustomersPerYear: data.repeatCustomersPerYear ?? null,
+          grossMarginPercent:     data.grossMarginPercent     ?? null,
+        });
+      })
+      .catch(() => {});
+
+    // Load unresponded review count for revenue calculator
+    fetch("/api/user/reviews?slim=true")
+      .then(r => r.json())
+      .then((revs: Array<{ responded: boolean }>) => {
+        if (Array.isArray(revs)) setUnrespondedCount(revs.filter(r => !r.responded).length);
       })
       .catch(() => {});
 
@@ -598,6 +624,104 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           </div>
         </div>
       </div>
+
+      {/* ════════════════════════════════════
+          SECTION 2b — Revenue Profile
+      ════════════════════════════════════ */}
+      <p style={SECTION_TITLE}>Revenue Profile</p>
+      <div style={{ ...CARD, padding: "20px", marginBottom: "20px" }}>
+        {revenueProfile.avgCustomerValue ? (() => {
+          const est = calculateRevenueAtRisk({
+            avgCustomerValue:       revenueProfile.avgCustomerValue,
+            monthlyNewCustomers:    revenueProfile.monthlyNewCustomers ?? 0,
+            googleTrafficPercent:   revenueProfile.googleTrafficPercent ?? 60,
+            targetRating:           revenueProfile.targetRating ?? 4.5,
+            currentRating:          googleRating ?? 4.0,
+            repeatCustomersPerYear: revenueProfile.repeatCustomersPerYear ?? undefined,
+            grossMarginPercent:     revenueProfile.grossMarginPercent ?? undefined,
+            unrespondedCount,
+          });
+          const ratingGap = Math.max(0, (revenueProfile.targetRating ?? 4.5) - (googleRating ?? 4.0));
+          return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                <div>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>Revenue at Risk</p>
+                  <p style={{ fontSize: "11px", color: "#A0856A", marginTop: "2px" }}>Based on your business profile and current rating</p>
+                </div>
+                <span style={{ fontSize: "9px", fontWeight: 700, padding: "3px 9px", borderRadius: "20px", background: est.confidence === "high" ? "rgba(45,155,138,0.1)" : "rgba(196,135,74,0.1)", color: est.confidence === "high" ? "#2D9B8A" : "#C4874A", letterSpacing: "0.06em" }}>
+                  {est.confidence === "high" ? "Higher confidence" : "Directional"}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+                <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+                  <p style={{ fontSize: "9px", color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Monthly at Risk</p>
+                  <p style={{ fontSize: "1rem", fontWeight: 800, color: "#DC2626" }}>
+                    {formatCurrency(est.monthlyLow)}–{formatCurrency(est.monthlyHigh)}
+                  </p>
+                </div>
+                <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+                  <p style={{ fontSize: "9px", color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Annual at Risk</p>
+                  <p style={{ fontSize: "1rem", fontWeight: 800, color: "#DC2626" }}>
+                    {formatCurrency(est.annualLow)}–{formatCurrency(est.annualHigh)}
+                  </p>
+                </div>
+              </div>
+
+              {est.profitMonthlyLow != null && est.profitMonthlyHigh != null && (
+                <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.15)", borderRadius: "8px", padding: "8px 12px", marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <p style={{ fontSize: "11px", color: "#A0856A" }}>Profit at risk / month</p>
+                  <p style={{ fontSize: "12px", fontWeight: 700, color: "#C4874A" }}>
+                    {formatCurrency(est.profitMonthlyLow)}–{formatCurrency(est.profitMonthlyHigh)}
+                  </p>
+                </div>
+              )}
+
+              <p style={{ fontSize: "10px", color: "#A0856A", lineHeight: 1.6, marginBottom: "12px" }}>
+                ~{formatCurrency(est.reviewInfluencedMonthly)}/mo of new revenue is influenced by your online reputation.
+                {ratingGap > 0 && ` Closing your ${ratingGap.toFixed(1)}★ gap to ${revenueProfile.targetRating ?? 4.5}★ could recover this range.`}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowRevenueModal(true)}
+                style={{ background: "none", border: "1px solid rgba(44,26,14,0.15)", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, color: "#A0856A", cursor: "pointer" }}
+              >
+                Edit Profile
+              </button>
+            </div>
+          );
+        })() : (
+          <div>
+            <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", marginBottom: "6px" }}>Understand Your Revenue at Risk</p>
+            <p style={{ fontSize: "12px", color: "#A0856A", lineHeight: 1.6, marginBottom: "14px" }}>
+              Enter a few business numbers and Vynta will estimate how much revenue your current rating and unresponded reviews may be costing you each month.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRevenueModal(true)}
+              style={{
+                background: "#2D9B8A", color: "white", borderRadius: "10px",
+                padding: "11px 20px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer",
+              }}
+            >
+              Set Up Revenue Profile
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Revenue Calculator Modal */}
+      {showRevenueModal && (
+        <RevenueCalculator
+          currentRating={googleRating}
+          unrespondedCount={unrespondedCount}
+          initialProfile={revenueProfile}
+          onSave={(profile) => setRevenueProfile(profile)}
+          onClose={() => setShowRevenueModal(false)}
+        />
+      )}
 
       {/* ════════════════════════════════════
           SECTION 3 — Review Tools

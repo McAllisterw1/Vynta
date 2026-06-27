@@ -32,6 +32,12 @@ export async function PUT(request: NextRequest) {
     messageTemplate: string;
     onboardingComplete: boolean;
     googleRating: number;
+    avgCustomerValue: number;
+    monthlyNewCustomers: number;
+    googleTrafficPercent: number;
+    targetRating: number;
+    repeatCustomersPerYear: number;
+    grossMarginPercent: number;
   }>;
 
   const settings = await prisma.userSettings.upsert({
