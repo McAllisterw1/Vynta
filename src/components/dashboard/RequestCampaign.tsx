@@ -156,7 +156,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
   }
 
   return (
-    <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column", background: "#120804" }}>
+    <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
       {/* Styled tab bar */}
       <div style={{ display: "flex", borderBottom: "2px solid rgba(255,255,255,0.07)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>

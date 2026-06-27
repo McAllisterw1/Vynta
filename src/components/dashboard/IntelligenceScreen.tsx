@@ -1534,7 +1534,7 @@ export default function IntelligenceScreen() {
   ];
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", background: "#120804" }}>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <style>{`
         @keyframes spin  { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
