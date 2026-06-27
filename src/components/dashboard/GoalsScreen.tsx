@@ -73,9 +73,7 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [nextMovesLoading, setNextMovesLoading] = useState(true);
   const [greeting, setGreeting] = useState("");
 
-  const [showVynta, setShowVynta] = useState(false);
-
-  // Consultant system prompt data
+// Consultant system prompt data
   const [consultantData, setConsultantData] = useState({
     businessName: "",
     goalsText: "No goals set yet.",
@@ -397,7 +395,6 @@ Give specific, actionable advice based on their actual numbers. Never start a re
   }
 
   return (
-    <>
     <div ref={scrollRef} style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "24px 24px 120px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
@@ -668,194 +665,94 @@ Give specific, actionable advice based on their actual numbers. Never start a re
           </a>
         </div>
 
-      </div>
-    </div>
+        {/* ── Vynta inline chat ── */}
+        <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
+          <div style={{ borderRadius: "16px", overflow: "hidden", height: "500px", display: "flex", flexDirection: "column", background: "#120804", boxShadow: "0 2px 20px rgba(0,0,0,0.35)" }}>
 
-    {/* ── Vynta floating button ── */}
-    <UpgradeTooltip locked={!canAccess(plan, "aiConsultant")} requiredPlan="Pro">
-      <button
-        type="button"
-        onClick={() => setShowVynta(true)}
-        style={{
-          position: "fixed", bottom: "88px", right: "18px", zIndex: 50,
-          display: "flex", alignItems: "center", gap: "7px",
-          background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
-          color: "white", border: "none", borderRadius: "50px",
-          padding: "11px 16px", fontSize: "12px", fontWeight: 700,
-          letterSpacing: "0.08em", cursor: "pointer",
-          boxShadow: "0 4px 20px rgba(45,155,138,0.45)",
-        }}
-      >
-        <svg viewBox="0 0 20 20" fill="none" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
-          <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
-        </svg>
-        Vynta
-        <span style={{
-          width: "5px", height: "5px", borderRadius: "50%", background: "#7EFCE1",
-          boxShadow: "0 0 0 2px rgba(126,252,225,0.25)", display: "inline-block",
-        }} />
-      </button>
-    </UpgradeTooltip>
-
-    {/* ── Vynta modal overlay ── */}
-    {showVynta && (
-      <>
-        <div
-          onClick={() => setShowVynta(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, backdropFilter: "blur(2px)" }}
-        />
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 201,
-          background: "#120804",
-          display: "flex", flexDirection: "column",
-        }}>
-
-          {/* Header */}
-          <div style={{
-            padding: "20px 20px 16px",
-            borderBottom: "1px solid rgba(45,155,138,0.15)",
-            flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{
-                width: "32px", height: "32px", borderRadius: "10px",
-                background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <svg viewBox="0 0 20 20" fill="none" style={{ width: "18px", height: "18px" }}>
-                  <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
-                </svg>
-              </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#2D9B8A", textTransform: "uppercase" }}>
-                    VYNTA
-                  </span>
-                  <span style={{
-                    width: "6px", height: "6px", borderRadius: "50%",
-                    background: "#2D9B8A", display: "inline-block",
-                    boxShadow: "0 0 0 2px rgba(45,155,138,0.25)",
-                    animation: "pulse 2s infinite",
-                  }} />
+            {/* Header */}
+            <div style={{ padding: "16px 18px 14px", borderBottom: "1px solid rgba(45,155,138,0.15)", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "30px", height: "30px", borderRadius: "9px", background: "linear-gradient(135deg, #2D9B8A 0%, #1a6b5e 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg viewBox="0 0 20 20" fill="none" style={{ width: "16px", height: "16px" }}>
+                    <path d="M2 12 C4 8, 6 14, 8 10 S12 6, 14 10 S17 14, 18 8" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+                  </svg>
                 </div>
-                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", margin: 0, marginTop: "1px" }}>
-                  Reputation strategist · Always on
-                </p>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#2D9B8A", textTransform: "uppercase" }}>VYNTA</span>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2D9B8A", display: "inline-block", boxShadow: "0 0 0 2px rgba(45,155,138,0.25)", animation: "pulse 2s infinite" }} />
+                  </div>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)", margin: 0, marginTop: "1px" }}>Reputation strategist · Always on</p>
+                </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowVynta(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: "22px", lineHeight: 1, padding: "4px" }}
-            >
-              ×
-            </button>
-          </div>
 
-          {/* Messages */}
-          <div style={{
-            flex: 1, overflowY: "auto", padding: "20px 16px",
-            display: "flex", flexDirection: "column", gap: "14px",
-            scrollbarWidth: "thin", scrollbarColor: "rgba(45,155,138,0.2) transparent",
-          }}>
-            {messages.length === 0 && !loading && (
-              <div style={{ margin: "auto 0", paddingTop: "16px" }}>
-                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, textAlign: "center" }}>
-                  Ask anything about your goals or reputation —<br />strategy, reviews, responses, timing.
-                </p>
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-                <span style={{
-                  fontSize: "10px", fontWeight: 600,
-                  color: m.role === "user" ? "rgba(45,155,138,0.7)" : "rgba(255,255,255,0.3)",
-                  marginBottom: "4px", letterSpacing: "0.08em", textTransform: "uppercase",
-                }}>
-                  {m.role === "user" ? "You" : "Vynta"}
-                </span>
-                <div style={{
-                  maxWidth: "90%",
-                  borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                  padding: "10px 14px", fontSize: "13px", lineHeight: 1.65,
-                  background: m.role === "user" ? "linear-gradient(135deg, #2D9B8A, #1e7a6c)" : "rgba(255,255,255,0.07)",
-                  color: m.role === "user" ? "white" : "rgba(255,255,255,0.88)",
-                  border: m.role === "user" ? "none" : "1px solid rgba(255,255,255,0.08)",
-                }}>
-                  {m.role === "user" ? m.content : <MarkdownContent>{m.content}</MarkdownContent>}
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin", scrollbarColor: "rgba(45,155,138,0.2) transparent" }}>
+              {messages.length === 0 && !loading && (
+                <div style={{ margin: "auto 0" }}>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.28)", lineHeight: 1.6, textAlign: "center" }}>
+                    Ask anything about your goals<br />or reputation strategy.
+                  </p>
                 </div>
-              </div>
-            ))}
-            {loading && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                <span style={{ fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: "4px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                  Vynta
-                </span>
-                <div style={{
-                  borderRadius: "16px 16px 16px 4px", padding: "12px 16px",
-                  background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)",
-                  display: "flex", gap: "5px", alignItems: "center",
-                }}>
-                  {[0, 150, 300].map((d) => (
-                    <span key={d} className="animate-bounce" style={{
-                      width: "6px", height: "6px", borderRadius: "50%",
-                      background: "#2D9B8A", display: "inline-block", animationDelay: `${d}ms`,
-                    }} />
-                  ))}
+              )}
+              {messages.map((m, i) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                  <span style={{ fontSize: "9px", fontWeight: 600, color: m.role === "user" ? "rgba(45,155,138,0.7)" : "rgba(255,255,255,0.28)", marginBottom: "3px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    {m.role === "user" ? "You" : "Vynta"}
+                  </span>
+                  <div style={{
+                    maxWidth: "90%", borderRadius: m.role === "user" ? "14px 14px 3px 14px" : "14px 14px 14px 3px",
+                    padding: "9px 13px", fontSize: "13px", lineHeight: 1.6,
+                    background: m.role === "user" ? "linear-gradient(135deg, #2D9B8A, #1e7a6c)" : "rgba(255,255,255,0.07)",
+                    color: m.role === "user" ? "white" : "rgba(255,255,255,0.88)",
+                    border: m.role === "user" ? "none" : "1px solid rgba(255,255,255,0.08)",
+                  }}>
+                    {m.role === "user" ? m.content : <MarkdownContent>{m.content}</MarkdownContent>}
+                  </div>
                 </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+              ))}
+              {loading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: "9px", fontWeight: 600, color: "rgba(255,255,255,0.28)", marginBottom: "3px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Vynta</span>
+                  <div style={{ borderRadius: "14px 14px 14px 3px", padding: "10px 14px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: "5px", alignItems: "center" }}>
+                    {[0, 150, 300].map((d) => (
+                      <span key={d} className="animate-bounce" style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2D9B8A", display: "inline-block", animationDelay: `${d}ms` }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
 
-          {/* Input bar */}
-          <div style={{
-            borderTop: "1px solid rgba(45,155,138,0.12)",
-            padding: "12px 14px 28px",
-            display: "flex", gap: "10px", alignItems: "center",
-            background: "rgba(0,0,0,0.3)", flexShrink: 0,
-          }}>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask me anything..."
-              disabled={loading}
-              autoFocus
-              style={{
-                flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: "12px",
-                border: "1px solid rgba(45,155,138,0.2)", padding: "10px 14px",
-                fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none",
-              }}
-            />
-            <button
-              type="button"
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              aria-label="Send"
-              style={{
-                width: "38px", height: "38px", borderRadius: "10px",
-                background: "#2D9B8A", border: "none",
-                cursor: !input.trim() || loading ? "not-allowed" : "pointer",
-                opacity: !input.trim() || loading ? 0.35 : 1,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, transition: "opacity 150ms",
-              }}
-            >
-              <svg viewBox="0 0 16 16" fill="white" style={{ width: "14px", height: "14px" }}>
-                <path d="M2.75 3.587A1 1 0 0 1 3.917 2.5l9.666 4.833a1 1 0 0 1 0 1.334L3.917 13.5A1 1 0 0 1 2.75 12.413V9.25l5.5-1.25-5.5-1.25V3.587Z" />
-              </svg>
-            </button>
+            {/* Input */}
+            <div style={{ borderTop: "1px solid rgba(45,155,138,0.12)", padding: "10px 12px", display: "flex", gap: "8px", alignItems: "center", background: "rgba(0,0,0,0.25)", flexShrink: 0 }}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder="Ask me anything..."
+                disabled={loading}
+                style={{ flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: "10px", border: "1px solid rgba(45,155,138,0.2)", padding: "9px 13px", fontSize: "13px", color: "rgba(255,255,255,0.9)", outline: "none" }}
+              />
+              <button
+                type="button"
+                onClick={sendMessage}
+                disabled={!input.trim() || loading}
+                aria-label="Send"
+                style={{ width: "36px", height: "36px", borderRadius: "9px", background: "#2D9B8A", border: "none", cursor: !input.trim() || loading ? "not-allowed" : "pointer", opacity: !input.trim() || loading ? 0.35 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "opacity 150ms" }}
+              >
+                <svg viewBox="0 0 16 16" fill="white" style={{ width: "13px", height: "13px" }}>
+                  <path d="M2.75 3.587A1 1 0 0 1 3.917 2.5l9.666 4.833a1 1 0 0 1 0 1.334L3.917 13.5A1 1 0 0 1 2.75 12.413V9.25l5.5-1.25-5.5-1.25V3.587Z" />
+                </svg>
+              </button>
+            </div>
+            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} } input[placeholder="Ask me anything..."]::placeholder{color:rgba(255,255,255,0.22)!important}`}</style>
           </div>
-        </div>
-        <style>{`
-          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-          input[placeholder="Ask me anything..."]::placeholder { color: rgba(255,255,255,0.25) !important; }
-        `}</style>
-      </>
-    )}
-    </>
+        </UpgradeTooltip>
+
+      </div>
+    </div>
   );
 }
