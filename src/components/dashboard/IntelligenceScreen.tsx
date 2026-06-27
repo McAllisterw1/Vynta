@@ -294,17 +294,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RefreshBtn({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: "10px", fontWeight: 600, padding: "2px 6px" }}
-    >
-      Refresh
-    </button>
-  );
-}
+const INTEL_CACHE_KEYS = [
+  "vynta_early_warnings",
+  "vynta_priority_actions",
+  "vynta_business_summary",
+  "vynta_threat_analysis",
+  "vynta_market_intelligence",
+  "vynta_search_intelligence",
+  "vynta_opportunities",
+] as const;
 
 // ── Early Warning System ──────────────────────────────────────────────────────
 
@@ -318,7 +316,7 @@ function EarlyWarningSystem() {
   const [error,   setError]   = useState(false);
 
   useEffect(() => {
-    const cached = lsGet<EarlyWarningsResponse>("vynta_early_warnings", TTL_6H);
+    const cached = lsGet<EarlyWarningsResponse>("vynta_early_warnings", Infinity);
     if (cached) { setData(cached); setLoading(false); return; }
     runFetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,16 +347,6 @@ function EarlyWarningSystem() {
         <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK, flex: 1 }}>
           Early Warning System
         </p>
-        {!loading && (
-          <button
-            type="button"
-            onClick={runFetch}
-            style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: "10px", fontWeight: 600, padding: "2px 6px" }}
-          >
-            Refresh
-          </button>
-        )}
-        <span style={{ fontSize: "9px", color: MUTED }}>6h cache</span>
       </div>
 
       {loading ? (
@@ -436,7 +424,7 @@ function PriorityActions({
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const cached = lsGet<string[]>("vynta_priority_actions");
+    const cached = lsGet<string[]>("vynta_priority_actions", Infinity);
     if (cached) { setActions(cached); setLoading(false); return; }
     if (reviews.length === 0) { setLoading(false); return; }
 
@@ -491,7 +479,7 @@ Return a JSON array of exactly 3 short, specific, actionable priority actions ra
         <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK }}>
           This Week&apos;s Priorities
         </p>
-        <span style={{ marginLeft: "auto", fontSize: "9px", color: MUTED }}>AI · refreshes daily</span>
+        <span style={{ marginLeft: "auto", fontSize: "9px", color: MUTED }}>AI</span>
       </div>
 
       {loading ? (
@@ -535,7 +523,7 @@ function MyBusinessTab({
   const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
-    const cached = lsGet<string>("vynta_business_summary");
+    const cached = lsGet<string>("vynta_business_summary", Infinity);
     if (cached) { setSummary(cached); setSummaryLoading(false); return; }
     if (reviews.length === 0) { setSummaryLoading(false); return; }
 
@@ -705,7 +693,6 @@ function MyBusinessTab({
           <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL }}>
             AI Business Summary
           </p>
-          <span style={{ marginLeft: "auto", fontSize: "9px", color: MUTED }}>24h cache</span>
         </div>
         {summaryLoading ? (
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
@@ -736,7 +723,7 @@ function CompetitorsTab({
   const [threatError, setThreatError] = useState(false);
 
   useEffect(() => {
-    const cached = lsGet<ThreatAnalysis>("vynta_threat_analysis");
+    const cached = lsGet<ThreatAnalysis>("vynta_threat_analysis", Infinity);
     if (cached) { setThreat(cached); return; }
     if (competitors.length > 0) runThreat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -837,9 +824,8 @@ Return exactly this JSON:
 
       {/* Threat Analysis */}
       <div style={{ ...CARD, padding: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+        <div style={{ marginBottom: "12px" }}>
           <SectionLabel>Threat Analysis</SectionLabel>
-          {!threatLoading && <RefreshBtn onClick={runThreat} />}
         </div>
 
         {threatLoading ? (
@@ -919,14 +905,14 @@ function MarketTab({
   const [searchError, setSearchError] = useState(false);
 
   useEffect(() => {
-    const cached = lsGet<MarketIntel>("vynta_market_intelligence");
+    const cached = lsGet<MarketIntel>("vynta_market_intelligence", Infinity);
     if (cached) { setIntel(cached); return; }
     if (competitors.length > 0) runIntel();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitors.length]);
 
   useEffect(() => {
-    const cached = lsGet<SearchIntelligence>("vynta_search_intelligence");
+    const cached = lsGet<SearchIntelligence>("vynta_search_intelligence", Infinity);
     if (cached) { setSearchIntel(cached); return; }
     if (businessAddress && competitors.length > 0) runSearch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1064,9 +1050,8 @@ Return exactly this JSON:
 
       {/* Market Intelligence */}
       <div style={{ ...CARD, padding: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+        <div style={{ marginBottom: "12px" }}>
           <SectionLabel>Market Intelligence</SectionLabel>
-          {!intelLoading && intel && <RefreshBtn onClick={runIntel} />}
         </div>
         {intelLoading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1106,16 +1091,13 @@ Return exactly this JSON:
 
       {/* ── Search Intelligence ───────────────────────────────────────────────── */}
       <div style={{ ...CARD, padding: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <svg viewBox="0 0 20 20" fill={TEAL} style={{ width: 14, height: 14 }}>
-              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
-            </svg>
-            <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK }}>
-              Search Intelligence
-            </p>
-          </div>
-          {!searchLoading && searchIntel && <RefreshBtn onClick={runSearch} />}
+        <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px" }}>
+          <svg viewBox="0 0 20 20" fill={TEAL} style={{ width: 14, height: 14 }}>
+            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+          </svg>
+          <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK }}>
+            Search Intelligence
+          </p>
         </div>
 
         {searchLoading ? (
@@ -1242,7 +1224,7 @@ function OpportunitiesTab({
   const [error,   setError]   = useState(false);
 
   useEffect(() => {
-    const cached = lsGet<OpportunitiesData>("vynta_opportunities", TTL_12H);
+    const cached = lsGet<OpportunitiesData>("vynta_opportunities", Infinity);
     if (cached) { setData(cached); setLoading(false); return; }
     if (reviews.length === 0) { setLoading(false); return; }
     runFetch();
@@ -1308,16 +1290,6 @@ function OpportunitiesTab({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
-      {/* Meta row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <p style={{ fontSize: "10px", color: MUTED }}>AI-powered · 12h cache</p>
-        {!loading && data && (
-          <RefreshBtn onClick={() => {
-            try { localStorage.removeItem("vynta_opportunities"); } catch {}
-            runFetch();
-          }} />
-        )}
-      </div>
 
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1457,6 +1429,8 @@ function OpportunitiesTab({
 
 type IntelTab = "business" | "competitors" | "market" | "opportunities";
 
+const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+
 export default function IntelligenceScreen() {
   const [activeTab, setActiveTab] = useState<IntelTab>("business");
 
@@ -1470,6 +1444,29 @@ export default function IntelligenceScreen() {
   const [userTotalReviews, setUserTotalReviews] = useState<number | null>(null);
   const [googleRating,     setGoogleRating]     = useState<number | null>(null);
   const [loading,          setLoading]          = useState(true);
+
+  const [refreshKey,  setRefreshKey]  = useState(0);
+  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("vynta_intel_last_refresh");
+      if (stored) setLastRefresh(parseInt(stored, 10));
+    } catch {}
+  }, []);
+
+  function refreshAll() {
+    INTEL_CACHE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+    const now = Date.now();
+    try { localStorage.setItem("vynta_intel_last_refresh", String(now)); } catch {}
+    setLastRefresh(now);
+    setRefreshKey(k => k + 1);
+  }
+
+  const refreshAvailable = !lastRefresh || Date.now() - lastRefresh > SEVEN_DAYS;
+  const nextRefreshDate  = lastRefresh
+    ? new Date(lastRefresh + SEVEN_DAYS).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
 
   useEffect(() => {
     Promise.all([
@@ -1523,29 +1520,57 @@ export default function IntelligenceScreen() {
             </h1>
             <p style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>Your reputation command center</p>
           </div>
-          {!loading && sentimentData && businessName && (
-            <DownloadReportButton
-              data={{
-                businessName,
-                rating: userRating,
-                totalReviews: userTotalReviews,
-                positive: sentimentData.positive,
-                trending: sentimentData.trending,
-                praiseThemes: sentimentData.praiseThemes,
-                complaintThemes: sentimentData.complaintThemes,
-                topAction: null,
-                competitors: competitors.slice(0, 5).map(c => ({ name: c.name, rating: c.rating, reviewCount: c.reviewCount })),
-                isProspect: false,
-                generatedDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-              } satisfies PDFReportData}
-              label="↓ Download Report"
-              style={{ fontSize: "12px", padding: "8px 14px" }}
-            />
-          )}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
+            {!loading && sentimentData && businessName && (
+              <DownloadReportButton
+                data={{
+                  businessName,
+                  rating: userRating,
+                  totalReviews: userTotalReviews,
+                  positive: sentimentData.positive,
+                  trending: sentimentData.trending,
+                  praiseThemes: sentimentData.praiseThemes,
+                  complaintThemes: sentimentData.complaintThemes,
+                  topAction: null,
+                  competitors: competitors.slice(0, 5).map(c => ({ name: c.name, rating: c.rating, reviewCount: c.reviewCount })),
+                  isProspect: false,
+                  generatedDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                } satisfies PDFReportData}
+                label="↓ Download Report"
+                style={{ fontSize: "12px", padding: "8px 14px" }}
+              />
+            )}
+            {!loading && (
+              refreshAvailable ? (
+                <button
+                  type="button"
+                  onClick={refreshAll}
+                  style={{
+                    background: "rgba(45,155,138,0.12)",
+                    color: TEAL,
+                    border: "1px solid rgba(45,155,138,0.25)",
+                    borderRadius: "10px",
+                    padding: "7px 13px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ↺ Refresh Intelligence
+                </button>
+              ) : (
+                <p style={{ fontSize: "10px", color: MUTED, textAlign: "right" }}>
+                  Next refresh {nextRefreshDate}
+                </p>
+              )
+            )}
+          </div>
         </div>
 
         {/* Priority Actions — always visible */}
         <PriorityActions
+          key={`pa-${refreshKey}`}
           reviews={reviews}
           sentimentData={sentimentData}
           competitors={competitors}
@@ -1554,7 +1579,7 @@ export default function IntelligenceScreen() {
         />
 
         {/* Early Warning System — always visible */}
-        <EarlyWarningSystem />
+        <EarlyWarningSystem key={`ews-${refreshKey}`} />
 
         {/* Tab bar */}
         <div style={{ display: "flex", borderBottom: "1px solid rgba(44,26,14,0.1)", marginBottom: "16px" }}>
@@ -1593,6 +1618,7 @@ export default function IntelligenceScreen() {
           <>
             {activeTab === "business" && (
               <MyBusinessTab
+                key={`biz-${refreshKey}`}
                 reviews={reviews}
                 sentimentHistory={sentimentHistory}
                 sentimentData={sentimentData}
@@ -1601,6 +1627,7 @@ export default function IntelligenceScreen() {
             )}
             {activeTab === "competitors" && (
               <CompetitorsTab
+                key={`comp-${refreshKey}`}
                 competitors={competitors}
                 userRating={userRating}
                 userReviewCount={userTotalReviews ?? reviews.length}
@@ -1608,6 +1635,7 @@ export default function IntelligenceScreen() {
             )}
             {activeTab === "market" && (
               <MarketTab
+                key={`mkt-${refreshKey}`}
                 competitors={competitors}
                 userRating={userRating}
                 sentimentData={sentimentData}
@@ -1618,6 +1646,7 @@ export default function IntelligenceScreen() {
             )}
             {activeTab === "opportunities" && (
               <OpportunitiesTab
+                key={`opp-${refreshKey}`}
                 reviews={reviews}
                 competitors={competitors}
                 userRating={userRating}
