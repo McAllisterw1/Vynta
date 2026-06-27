@@ -8,11 +8,14 @@ export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const slim = new URL(request.url).searchParams.get("slim") === "true";
+  const params = new URL(request.url).searchParams;
+  const slim  = params.get("slim") === "true";
+  const limit = parseInt(params.get("limit") ?? "0", 10) || undefined;
 
   const reviews = await prisma.review.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    ...(limit ? { take: limit } : {}),
     ...(slim ? { select: { id: true, rating: true, date: true, responded: true, seen: true, smartInbox: true, externalId: true } } : {}),
   });
 

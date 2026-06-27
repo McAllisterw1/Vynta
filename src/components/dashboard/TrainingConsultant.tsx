@@ -25,6 +25,7 @@ const MODULE_NAMES = [
 ];
 
 interface SlimReview { rating: number; responded: boolean; date: string; }
+interface FullReview { rating: number; date: string; text: string; reviewerName: string; responded: boolean; }
 interface SentimentCache {
   data?: {
     positive?: number; neutral?: number; negative?: number; trending?: string;
@@ -41,9 +42,18 @@ interface CompetitorRaw {
   trend?: string | null; velocity?: string | null;
 }
 
+function lsReadIntel<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return (JSON.parse(raw) as { data: T }).data;
+  } catch { return null; }
+}
+
 async function buildSystemPrompt(): Promise<string> {
-  const [settingsRes, reviewsRes, competitorsRes, sentimentRes, inboxRes] = await Promise.allSettled([
+  const [settingsRes, reviewsRes, slimRes, competitorsRes, sentimentRes, inboxRes] = await Promise.allSettled([
     fetch("/api/user/settings"),
+    fetch("/api/user/reviews?limit=30"),
     fetch("/api/user/reviews?slim=true"),
     fetch("/api/user/competitors"),
     fetch("/api/user/sentiment-cache"),
@@ -62,20 +72,34 @@ async function buildSystemPrompt(): Promise<string> {
     if (s.googleRating && s.googleRating > 0) googleRating = s.googleRating;
   }
 
-  // ── Reviews ────────────────────────────────────────────────────────────────
+  // ── Review stats (slim) ────────────────────────────────────────────────────
   let importedCount = 0;
   let avgImported: number | null = null;
   let unresponded = 0;
   let recentNeg = 0;
 
-  if (reviewsRes.status === "fulfilled" && reviewsRes.value.ok) {
-    const reviews = await reviewsRes.value.json() as SlimReview[];
+  if (slimRes.status === "fulfilled" && slimRes.value.ok) {
+    const reviews = await slimRes.value.json() as SlimReview[];
     importedCount = reviews.length;
     if (reviews.length > 0) {
       avgImported = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10;
       unresponded  = reviews.filter(r => !r.responded).length;
       const cutoff = Date.now() - 30 * 86400000;
       recentNeg    = reviews.filter(r => r.rating <= 3 && new Date(r.date).getTime() >= cutoff).length;
+    }
+  }
+
+  // ── Review text (30 most recent, for TLDR / breakdown requests) ───────────
+  let reviewTextBlock = "(No reviews imported yet)";
+  if (reviewsRes.status === "fulfilled" && reviewsRes.value.ok) {
+    const reviews = await reviewsRes.value.json() as FullReview[];
+    if (reviews.length > 0) {
+      reviewTextBlock = reviews.map((r, i) => {
+        const date = new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const snippet = (r.text ?? "").trim().slice(0, 220);
+        const ellipsis = (r.text ?? "").length > 220 ? "…" : "";
+        return `#${i + 1} · ${"★".repeat(r.rating)} · ${date} · ${r.reviewerName ?? "Anonymous"}${r.responded ? " [responded]" : ""}\n"${snippet}${ellipsis}"`;
+      }).join("\n\n");
     }
   }
 
@@ -120,9 +144,10 @@ async function buildSystemPrompt(): Promise<string> {
       competitorBlock = comps.map(c => {
         const lines = [`${c.name} — ${c.rating}★, ${c.reviewCount.toLocaleString()} reviews, trend: ${c.trend ?? "unknown"}, velocity: ${c.velocity ?? "unknown"}`];
         try {
-          const a = JSON.parse(c.analysisText ?? "{}") as { weaknesses?: string[]; strengths?: string[] };
+          const a = JSON.parse(c.analysisText ?? "{}") as { weaknesses?: string[]; strengths?: string[]; summary?: string };
           if (a.weaknesses?.length) lines.push(`  Weaknesses: ${a.weaknesses.join("; ")}`);
           if (a.strengths?.length)  lines.push(`  Strengths: ${a.strengths.join("; ")}`);
+          if (a.summary)            lines.push(`  Summary: ${a.summary}`);
         } catch {}
         try {
           const s = JSON.parse(c.sentiment ?? "{}") as { positive?: number; negative?: number };
@@ -132,6 +157,53 @@ async function buildSystemPrompt(): Promise<string> {
       }).join("\n\n");
     }
   }
+
+  // ── Intel page outputs (from localStorage) ─────────────────────────────────
+  const priorityActions = lsReadIntel<string[]>("vynta_priority_actions");
+  const earlyWarnings   = lsReadIntel<{ warnings: Array<{ title: string; detail: string; action: string; severity: string; type: string }> }>("vynta_early_warnings");
+  const threatAnalysis  = lsReadIntel<{ biggestThreat: string; beatingUser: string; userBeating: string; actions: string[] }>("vynta_threat_analysis");
+  const marketIntel     = lsReadIntel<{ emergingThemes: string[]; opportunityGap: string; whatTopBusinessesDo: string }>("vynta_market_intelligence");
+  const opportunities   = lsReadIntel<{ revenueOpportunities: Array<{ title: string; estimatedValue: string; detail: string; action: string }>; competitorGaps: Array<{ title: string; competitor: string; opportunity: string }>; quickWins: Array<{ action: string; why: string }> }>("vynta_opportunities");
+
+  const intelParts: string[] = [];
+
+  if (priorityActions?.length) {
+    intelParts.push(`THIS WEEK'S PRIORITIES:\n${priorityActions.map((a, i) => `${i + 1}. ${a}`).join("\n")}`);
+  }
+  if (earlyWarnings?.warnings?.length) {
+    intelParts.push(`EARLY WARNINGS:\n${earlyWarnings.warnings.map(w => `[${w.severity.toUpperCase()}] ${w.title}: ${w.detail} → ${w.action}`).join("\n")}`);
+  }
+  if (threatAnalysis) {
+    intelParts.push([
+      "THREAT ANALYSIS:",
+      `Biggest threat: ${threatAnalysis.biggestThreat}`,
+      `Where competitors beat you: ${threatAnalysis.beatingUser}`,
+      `Where you win: ${threatAnalysis.userBeating}`,
+      `Actions: ${threatAnalysis.actions?.join("; ")}`,
+    ].join("\n"));
+  }
+  if (marketIntel) {
+    intelParts.push([
+      "MARKET INTELLIGENCE:",
+      `Emerging themes: ${marketIntel.emergingThemes?.join(", ")}`,
+      `Opportunity gap: ${marketIntel.opportunityGap}`,
+      `What top businesses do: ${marketIntel.whatTopBusinessesDo}`,
+    ].join("\n"));
+  }
+  if (opportunities) {
+    const revOpp = opportunities.revenueOpportunities?.map(o => `• ${o.title} (${o.estimatedValue}): ${o.detail} → ${o.action}`).join("\n") ?? "";
+    const gaps   = opportunities.competitorGaps?.map(g => `• ${g.competitor} — ${g.title}: ${g.opportunity}`).join("\n") ?? "";
+    const wins   = opportunities.quickWins?.map(w => `• ${w.action}: ${w.why}`).join("\n") ?? "";
+    const parts  = [];
+    if (revOpp) parts.push(`Revenue opportunities:\n${revOpp}`);
+    if (gaps)   parts.push(`Competitor gaps:\n${gaps}`);
+    if (wins)   parts.push(`Quick wins:\n${wins}`);
+    if (parts.length) intelParts.push(`OPPORTUNITIES:\n${parts.join("\n\n")}`);
+  }
+
+  const intelBlock = intelParts.length
+    ? intelParts.join("\n\n")
+    : "(Intel page not yet generated — advise user to visit the Intelligence tab first)";
 
   // ── Final prompt ───────────────────────────────────────────────────────────
   const ratingLine = googleRating != null
@@ -160,10 +232,19 @@ ${sentimentBlock}
 ━━ COMPETITORS ━━
 ${competitorBlock}
 
+━━ RECENT REVIEWS — 30 most recent, actual customer words ━━
+Use this section to answer TLDR requests, breakdowns by topic, specific review lookups, or questions about what customers are actually saying.
+${reviewTextBlock}
+
+━━ INTEL ANALYSIS — AI-generated outputs from Intelligence tab ━━
+Use this section to give TLDRs of threat analysis, market intel, opportunities, early warnings, and weekly priorities.
+${intelBlock}
+
 ━━ HOW TO RESPOND ━━
-- Reference actual numbers, competitor names, and complaint themes when answering
+- Reference actual numbers, competitor names, complaint themes, and review quotes when answering
+- For TLDR requests: summarize the relevant section concisely in 3-5 bullet points
+- For breakdown requests: organize by theme or category with specific examples from the data
 - Be direct and specific — no hedging, no filler
-- 2-4 sentences max unless a step-by-step answer is genuinely needed
 - Never open with "Great question" or any filler
 - If asked about something not in the data above, say so clearly rather than guessing`;
 }
