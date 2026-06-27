@@ -8,9 +8,9 @@ const FALLBACK_TEMPLATE =
   "Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}";
 
 const CARD: React.CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
+  background: "#120804",
   borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.07)",
+  border: "1px solid rgba(45,155,138,0.12)",
 };
 
 const FIELD: React.CSSProperties = {
@@ -219,7 +219,7 @@ export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?:
           )}
 
           {/* Branded identity pill */}
-          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0, border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ background: "#120804", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0, border: "1px solid rgba(45,155,138,0.12)" }}>
             <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#C4874A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg viewBox="0 0 62 19" fill="none" style={{ width: "20px", height: "auto" }}>
                 <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"

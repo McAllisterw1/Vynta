@@ -156,9 +156,9 @@ interface OpportunitiesData {
 // ── Style constants ───────────────────────────────────────────────────────────
 
 const CARD: React.CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
+  background: "#120804",
   borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.07)",
+  border: "1px solid rgba(45,155,138,0.12)",
 };
 
 const TEAL  = "#2D9B8A";
