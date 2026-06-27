@@ -681,7 +681,7 @@ function MyBusinessTab({
 
       {/* AI Business Summary */}
       <div style={{
-        background: "rgba(45,155,138,0.06)",
+        background: "#120804",
         border: "1px solid rgba(45,155,138,0.16)",
         borderRadius: "16px",
         padding: "16px",
@@ -1315,7 +1315,7 @@ function OpportunitiesTab({
         <>
           {/* ── SECTION 1: Revenue Opportunities ─────────────────────────── */}
           <div>
-            <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK, marginBottom: "10px" }}>
+            <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E", marginBottom: "10px" }}>
               💰 Revenue Opportunities
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1353,7 +1353,7 @@ function OpportunitiesTab({
           {/* ── SECTION 2: Competitor Gaps ────────────────────────────────── */}
           {data.competitorGaps.length > 0 && (
             <div>
-              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK, marginBottom: "10px" }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E", marginBottom: "10px" }}>
                 ⚔️ Competitor Gaps
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1371,7 +1371,7 @@ function OpportunitiesTab({
                           textTransform: "uppercase", letterSpacing: "0.08em",
                         }}>{gap.urgency}</span>
                       </div>
-                      <p style={{ fontSize: "12px", color: "#5C3D1E", lineHeight: 1.6, marginBottom: "10px" }}>{gap.detail}</p>
+                      <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginBottom: "10px" }}>{gap.detail}</p>
                       <div style={{ background: "rgba(45,155,138,0.07)", border: "1px solid rgba(45,155,138,0.15)", borderRadius: "8px", padding: "9px 12px" }}>
                         <p style={{ fontSize: "11px", color: TEAL, fontWeight: 600, lineHeight: 1.5 }}>{gap.opportunity}</p>
                       </div>
@@ -1385,7 +1385,7 @@ function OpportunitiesTab({
           {/* ── SECTION 3: Quick Wins ─────────────────────────────────────── */}
           {data.quickWins.length > 0 && (
             <div>
-              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK, marginBottom: "10px" }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2C1A0E", marginBottom: "10px" }}>
                 ⚡ Quick Wins
               </p>
               <div style={{ ...CARD, padding: "14px 16px", display: "flex", flexDirection: "column", gap: "0" }}>
