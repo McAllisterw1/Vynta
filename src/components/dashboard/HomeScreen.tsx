@@ -759,18 +759,6 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
           </div>
         </div>
 
-        {/* ── Response History ── */}
-        {history.length > 0 && (
-          <div style={{ ...CARD, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 12px" }}>
-              <h3 className="font-display" style={{ fontSize: "1rem", fontWeight: 700, color: "#2C1A0E" }}>Response History</h3>
-              <span style={{ fontSize: "10px", color: "#A0856A" }}>{history.length} total</span>
-            </div>
-            {history.slice(0, 10).map((entry) => (
-              <CompactReviewCard key={entry.id} entry={entry} />
-            ))}
-          </div>
-        )}
 
       </div>
     </div>
