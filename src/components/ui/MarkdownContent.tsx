@@ -14,13 +14,13 @@ const md: Components = {
     <em style={{ fontStyle: "italic", color: "inherit" }}>{children}</em>
   ),
   h1: ({ children }) => (
-    <h1 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", margin: "8px 0 4px" }}>{children}</h1>
+    <h1 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "inherit", margin: "8px 0 4px" }}>{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="font-display" style={{ fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", margin: "6px 0 4px" }}>{children}</h2>
+    <h2 className="font-display" style={{ fontSize: "1rem", fontWeight: 700, color: "inherit", margin: "6px 0 4px" }}>{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="font-display" style={{ fontSize: "0.9rem", fontWeight: 600, color: "#2C1A0E", margin: "4px 0 2px" }}>{children}</h3>
+    <h3 className="font-display" style={{ fontSize: "0.9rem", fontWeight: 600, color: "inherit", margin: "4px 0 2px" }}>{children}</h3>
   ),
   ul: ({ children }) => (
     <ul style={{ paddingLeft: "18px", margin: "4px 0" }}>{children}</ul>

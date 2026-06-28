@@ -51,9 +51,9 @@ interface Competitor {
 }
 
 const CARD: React.CSSProperties = {
-  background: "#E8DCC8",
+  background: "#120804",
   borderRadius: "16px",
-  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
+  border: "1px solid rgba(45,155,138,0.12)",
 };
 
 function SpinIcon({ size = 14 }: { size?: number }) {
@@ -71,7 +71,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       viewBox="0 0 16 16"
       fill="currentColor"
       style={{
-        width: "14px", height: "14px", color: "#A0856A", flexShrink: 0,
+        width: "14px", height: "14px", color: "rgba(255,255,255,0.45)", flexShrink: 0,
         transform: open ? "rotate(90deg)" : "rotate(0deg)",
         transition: "transform 200ms",
       }}
@@ -388,7 +388,7 @@ ${reviewsText}`;
         .join(", ");
 
       const system =
-        "You are Vynta's AI reporting engine for local businesses. Write comprehensive, data-driven monthly business intelligence reports in clear markdown.";
+        "You are Vynta's AI reporting engine for local businesses. Write comprehensive, data-driven monthly business intelligence reports in clear markdown. Use bullet points liberally — every narrative section should contain bullet points rather than pure prose paragraphs. Be concise, direct, and actionable.";
       const prompt = `Synthesize these ${weeks.length} weekly sentiment analyses into a monthly business intelligence report.
 
 ${dataGapNote ? dataGapNote + "\n\n" : ""}${weeksText}
@@ -398,20 +398,30 @@ ${competitorText}
 
 Recurring complaint themes this month: ${recurringComplaints || "none"}
 
-Write a comprehensive monthly report in markdown with EXACTLY these sections in this order:
+Write a monthly report in markdown with EXACTLY these sections in this order:
+
 ## Month in Review
+(2-3 sentence overview, then bullet points covering: what improved, what declined, notable events or patterns)
+
 ## Sentiment Trend
-(include a markdown table comparing metrics week-over-week)
+(include a markdown table comparing positive/neutral/negative % and trending week-over-week, then 2-3 bullet points interpreting the trend)
+
 ## Recurring Themes
+(bullet points — one per recurring theme, each with: the theme, how many weeks it appeared, and what it means for the business)
+
 ## Risk Assessment
+(bullet points only — each risk on its own line with severity indicator: 🔴 High / 🟡 Medium / 🟢 Low)
+
 ## Strategic Recommendations
+(bullet points — 3-5 specific, actionable recommendations the owner can act on this month)
+
 ## Attack List
 (This is the most important action section. Write 6-8 numbered, specific action items the business owner should execute this month. Mix two types:
   - OWN REVIEWS: Items that directly address recurring complaint themes from their own reviews — be specific about the exact issue and what to do
   - COMPETITOR GAPS: Items where competitors are getting complaints or underperforming — phrase as "Your competitors are getting complaints about [X]. Win those customers by doing [specific action]."
 Label each item with [OWN] or [COMPETITOR GAP]. Rank by urgency.)
 
-Be specific, compare week-over-week changes where data exists, and keep every recommendation actionable.`;
+Keep every section tight and scannable. No long prose paragraphs — use bullets everywhere possible.`;
 
       const res = await fetch("/api/consultant", {
         method: "POST",
@@ -522,7 +532,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
           {/* Empty state */}
           {savedReports.length === 0 && (
             <div style={{ ...CARD, padding: "28px", textAlign: "center" }}>
-              <p style={{ fontSize: "13px", color: "#A0856A", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
                 {sentimentHistory.length < 2
                   ? "Run at least 2 weekly sentiment analyses to unlock monthly report generation."
                   : `Hit "Generate ${currentMonthLabel.split(" ")[0]}" above to create your first monthly report.`}
@@ -553,22 +563,21 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                     display: "flex",
                     alignItems: "center",
                     width: "100%",
-                    background: "#E8DCC8",
+                    background: "#120804",
                     borderRadius: isOpen ? "16px 16px 0 0" : "16px",
                     border: "none",
-                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(44,26,14,0.15)"}`,
+                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(255,255,255,0.12)"}`,
                     padding: "13px 16px",
                     cursor: "pointer",
-                    boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
                     transition: "border-radius 200ms",
                     textAlign: "left",
                   }}
                 >
                   <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: "6px" }}>
-                    <span style={{ fontSize: "15px", fontWeight: 700, color: "#2C1A0E" }}>{monthName}</span>
-                    <span style={{ fontSize: "12px", color: "#A0856A" }}>{year}</span>
+                    <span style={{ fontSize: "15px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>{monthName}</span>
+                    <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>{year}</span>
                   </div>
-                  <span style={{ fontSize: "11px", color: "#A0856A", marginRight: "10px", flexShrink: 0 }}>
+                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginRight: "10px", flexShrink: 0 }}>
                     {generatedDate}
                   </span>
                   <ChevronIcon open={isOpen} />
@@ -576,14 +585,13 @@ Be specific, compare week-over-week changes where data exists, and keep every re
 
                 {isOpen && (
                   <div style={{
-                    background: "#E8DCC8",
+                    background: "#120804",
                     borderRadius: "0 0 16px 16px",
-                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(44,26,14,0.15)"}`,
+                    borderLeft: `3px solid ${isNewest ? "#2D9B8A" : "rgba(255,255,255,0.12)"}`,
                     padding: "0 18px 18px",
-                    boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
                   }}>
-                    <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "16px" }} />
-                    <div style={{ fontSize: "13px", color: "#2C1A0E", lineHeight: 1.75 }}>
+                    <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", marginBottom: "16px" }} />
+                    <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.9)", lineHeight: 1.75 }}>
                       <MarkdownContent>{report.content}</MarkdownContent>
                     </div>
                   </div>
@@ -639,13 +647,13 @@ Be specific, compare week-over-week changes where data exists, and keep every re
 
           {ourReviews.length < 3 ? (
             <div style={{ ...CARD, padding: "28px", textAlign: "center" }}>
-              <p style={{ fontSize: "13px", color: "#A0856A" }}>
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)" }}>
                 Log at least 3 reviews to unlock sentiment intelligence.
               </p>
             </div>
           ) : !sentimentData ? (
             <div style={{ ...CARD, padding: "18px" }}>
-              <p style={{ fontSize: "12px", color: "#7B5E45", marginBottom: "12px", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.55)", marginBottom: "12px", lineHeight: 1.6 }}>
                 Generate your weekly sentiment report — complaint themes, risk flags, executive summary, and operational recommendations. Refreshes every Monday.
               </p>
               <button
@@ -653,7 +661,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                 onClick={analyzeSentiment}
                 disabled={sentimentLoading}
                 style={{
-                  width: "100%", background: sentimentLoading ? "#A0856A" : "#2C1A0E",
+                  width: "100%", background: sentimentLoading ? "rgba(255,255,255,0.1)" : "#2D9B8A",
                   color: "white", borderRadius: "10px", padding: "10px",
                   fontSize: "13px", fontWeight: 600, border: "none",
                   cursor: sentimentLoading ? "not-allowed" : "pointer",
@@ -671,7 +679,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", marginBottom: "6px" }}>
                     New Week Available
                   </p>
-                  <p style={{ fontSize: "12px", color: "#7B5E45", marginBottom: "12px", lineHeight: 1.6 }}>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.55)", marginBottom: "12px", lineHeight: 1.6 }}>
                     Your weekly sentiment report is ready to generate. Results below are from last week.
                   </p>
                   <button
@@ -699,24 +707,23 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   display: "flex",
                   alignItems: "center",
                   width: "100%",
-                  background: "#E8DCC8",
+                  background: "#120804",
                   borderRadius: weeklyOpen ? "16px 16px 0 0" : "16px",
                   border: "none",
                   borderLeft: "3px solid rgba(45,155,138,0.4)",
                   padding: "12px 16px",
                   cursor: "pointer",
-                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
                   marginBottom: weeklyOpen ? 0 : "10px",
                   textAlign: "left",
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#2C1A0E" }}>This Week&apos;s Sentiment Detail</span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>This Week&apos;s Sentiment Detail</span>
                   <span style={{
                     marginLeft: "10px",
                     fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px",
-                    background: sentimentData.trending === "improving" ? "rgba(45,155,138,0.12)" : sentimentData.trending === "declining" ? "rgba(192,57,43,0.1)" : "rgba(44,26,14,0.06)",
-                    color: sentimentData.trending === "improving" ? "#2D9B8A" : sentimentData.trending === "declining" ? "#C0392B" : "#7B5E45",
+                    background: sentimentData.trending === "improving" ? "rgba(45,155,138,0.12)" : sentimentData.trending === "declining" ? "rgba(192,57,43,0.1)" : "rgba(255,255,255,0.07)",
+                    color: sentimentData.trending === "improving" ? "#2D9B8A" : sentimentData.trending === "declining" ? "#C0392B" : "rgba(255,255,255,0.55)",
                   }}>
                     {sentimentData.positive}% positive · {sentimentData.trending === "improving" ? "↑ Improving" : sentimentData.trending === "declining" ? "↓ Declining" : "→ Stable"}
                   </span>
@@ -726,14 +733,13 @@ Be specific, compare week-over-week changes where data exists, and keep every re
 
               {weeklyOpen && (
                 <div style={{
-                  background: "#E8DCC8",
+                  background: "#120804",
                   borderRadius: "0 0 16px 16px",
                   borderLeft: "3px solid rgba(45,155,138,0.4)",
                   padding: "0 14px 14px",
-                  boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
                   marginBottom: "10px",
                 }}>
-                  <div style={{ height: "1px", background: "rgba(44,26,14,0.08)", marginBottom: "14px" }} />
+                  <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", marginBottom: "14px" }} />
 
                   {/* 1. Sentiment Breakdown */}
                   <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
@@ -744,21 +750,21 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                         { label: "Negative", value: sentimentData.negative, color: "#C0392B" },
                       ] as const).map(({ label, value, color }) => (
                         <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span style={{ fontSize: "11px", fontWeight: 600, color: "#7B5E45", width: "54px", flexShrink: 0 }}>{label}</span>
-                          <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(44,26,14,0.08)", overflow: "hidden" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.55)", width: "54px", flexShrink: 0 }}>{label}</span>
+                          <div style={{ flex: 1, height: "8px", borderRadius: "99px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                             <div style={{ height: "100%", borderRadius: "99px", background: color, width: `${value}%`, transition: "width 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)" }} />
                           </div>
-                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#2C1A0E", width: "32px", textAlign: "right", flexShrink: 0 }}>{value}%</span>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.9)", width: "32px", textAlign: "right", flexShrink: 0 }}>{value}%</span>
                         </div>
                       ))}
                     </div>
-                    <p style={{ fontSize: "12px", color: "#7B5E45", lineHeight: 1.6, margin: 0 }}>{sentimentData.summary}</p>
+                    <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", lineHeight: 1.6, margin: 0 }}>{sentimentData.summary}</p>
                   </div>
 
                   {/* 2. Executive Summary */}
                   {sentimentData.executiveSummary && (
                     <div style={{ ...CARD, padding: "16px", marginBottom: "10px" }}>
-                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#A0856A", marginBottom: "12px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.45)", marginBottom: "12px" }}>
                         Executive Summary
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
@@ -771,16 +777,16 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                           <div key={label} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                             <span style={{ fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
                             <div style={{ minWidth: 0 }}>
-                              <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#A0856A" }}>{label} </span>
-                              <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{value}</span>
+                              <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>{label} </span>
+                              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.5 }}>{value}</span>
                             </div>
                           </div>
                         ))}
-                        <div style={{ paddingTop: "10px", borderTop: "1px solid rgba(44,26,14,0.08)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                        <div style={{ paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
                           <span style={{ fontSize: "13px", flexShrink: 0 }}>→</span>
                           <div>
                             <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#2D9B8A" }}>Recommended Action </span>
-                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#2C1A0E" }}>{sentimentData.executiveSummary.recommendedAction}</span>
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{sentimentData.executiveSummary.recommendedAction}</span>
                           </div>
                         </div>
                       </div>
@@ -795,16 +801,16 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                           Top Complaints
                         </p>
                         {(sentimentData.complaintThemes ?? []).length === 0 ? (
-                          <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                          <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>None detected</p>
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                             {(sentimentData.complaintThemes ?? []).map((t) => (
                               <div key={t.theme} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-                                <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
+                                <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.9)", fontWeight: 500, lineHeight: 1.3 }}>{t.theme}</span>
                                 <span style={{
                                   fontSize: "9px", fontWeight: 700, padding: "2px 6px", borderRadius: "20px", flexShrink: 0,
-                                  background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(44,26,14,0.06)",
-                                  color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? "#C4874A" : "#7B5E45",
+                                  background: t.severity === "high" ? "rgba(192,57,43,0.1)" : t.severity === "medium" ? "rgba(196,135,74,0.1)" : "rgba(255,255,255,0.07)",
+                                  color: t.severity === "high" ? "#C0392B" : t.severity === "medium" ? "#C4874A" : "rgba(255,255,255,0.55)",
                                 }}>
                                   {t.severity.toUpperCase()}
                                 </span>
@@ -818,13 +824,13 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                           Top Praise
                         </p>
                         {(sentimentData.praiseThemes ?? []).length === 0 ? (
-                          <p style={{ fontSize: "11px", color: "#A0856A" }}>None detected</p>
+                          <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>None detected</p>
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                             {(sentimentData.praiseThemes ?? []).map((t) => (
                               <div key={t} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                                 <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#2D9B8A", flexShrink: 0 }} />
-                                <span style={{ fontSize: "11px", color: "#2C1A0E", fontWeight: 500 }}>{t}</span>
+                                <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.9)", fontWeight: 500 }}>{t}</span>
                               </div>
                             ))}
                           </div>
@@ -849,7 +855,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                             }}>
                               {r.severity.toUpperCase()}
                             </span>
-                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{r.description}</span>
+                            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.5 }}>{r.description}</span>
                           </div>
                         ))}
                       </div>
@@ -859,7 +865,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   {/* 5. Actionable Insights */}
                   {(sentimentData.actionableInsights ?? []).length > 0 && (
                     <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
-                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: "10px" }}>
                         Actionable Insights
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -871,7 +877,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                             }}>
                               <span style={{ fontSize: "9px", color: "#2D9B8A", fontWeight: 700 }}>→</span>
                             </span>
-                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{insight}</span>
+                            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.5 }}>{insight}</span>
                           </div>
                         ))}
                       </div>
@@ -881,20 +887,20 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   {/* 6. Operational Recommendations */}
                   {(sentimentData.operationalRecommendations ?? []).length > 0 && (
                     <div style={{ ...CARD, padding: "14px", marginBottom: "10px" }}>
-                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "10px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: "10px" }}>
                         Operational Recommendations
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {(sentimentData.operationalRecommendations ?? []).map((rec, i) => (
                           <div key={rec} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                             <span style={{
-                              width: "18px", height: "18px", borderRadius: "50%", background: "#2C1A0E",
+                              width: "18px", height: "18px", borderRadius: "50%", background: "#2D9B8A",
                               display: "flex", alignItems: "center", justifyContent: "center",
                               flexShrink: 0, marginTop: "1px", fontSize: "9px", color: "white", fontWeight: 700,
                             }}>
                               {i + 1}
                             </span>
-                            <span style={{ fontSize: "12px", color: "#2C1A0E", lineHeight: 1.5 }}>{rec}</span>
+                            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", lineHeight: 1.5 }}>{rec}</span>
                           </div>
                         ))}
                       </div>
@@ -910,9 +916,9 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                         {(sentimentData.competitorOpportunities ?? []).map((opp) => (
                           <div key={opp.competitor} style={{ borderLeft: "2px solid rgba(45,155,138,0.3)", paddingLeft: "10px" }}>
-                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#A0856A", marginBottom: "3px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{opp.competitor}</p>
-                            <p style={{ fontSize: "11px", color: "#7B5E45", marginBottom: "4px" }}>Weak on: {opp.weakness}</p>
-                            <p style={{ fontSize: "12px", color: "#2C1A0E", fontWeight: 500 }}>→ {opp.opportunity}</p>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.45)", marginBottom: "3px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{opp.competitor}</p>
+                            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "4px" }}>Weak on: {opp.weakness}</p>
+                            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", fontWeight: 500 }}>→ {opp.opportunity}</p>
                           </div>
                         ))}
                       </div>
@@ -923,7 +929,7 @@ Be specific, compare week-over-week changes where data exists, and keep every re
                   {(sentimentData.keywords ?? []).length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                       {(sentimentData.keywords ?? []).map((kw) => (
-                        <span key={kw} style={{ background: "rgba(44,26,14,0.08)", color: "#7B5E45", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600 }}>
+                        <span key={kw} style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.55)", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 600 }}>
                           {kw}
                         </span>
                       ))}
