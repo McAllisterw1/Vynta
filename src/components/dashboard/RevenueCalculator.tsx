@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { calculateRevenueAtRisk, formatCurrency, type RevenueInputs, type RevenueEstimate } from "@/lib/revenueCalc";
+import { calculateRevenueAtRisk, formatCurrency, getIndustryMultiplier, type RevenueInputs, type RevenueEstimate } from "@/lib/revenueCalc";
 
 const TEAL  = "#2D9B8A";
 const DARK  = "#2C1A0E";
@@ -79,59 +79,108 @@ function NumericInput({
   );
 }
 
-function LiveEstimate({ estimate, ratingGap }: { estimate: RevenueEstimate | null; ratingGap: number }) {
+function LiveEstimate({ estimate, ratingGap, businessType }: { estimate: RevenueEstimate | null; ratingGap: number; businessType?: string }) {
   if (!estimate || (estimate.monthlyLow === 0 && estimate.monthlyHigh === 0)) return null;
 
   const confColor = estimate.confidence === "high" ? TEAL : AMBER;
   const confLabel = estimate.confidence === "high" ? "Higher confidence" : "Directional estimate";
+  const multiplier = estimate.industryMultiplier;
+  const showMultiplier = businessType && multiplier !== 1.0;
 
   return (
-    <div style={{
-      background: "rgba(220,38,38,0.04)",
-      border: "1px solid rgba(220,38,38,0.15)",
-      borderRadius: "12px",
-      padding: "16px",
-      marginTop: "4px",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-        <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: RED }}>
-          Estimated Revenue at Risk
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+
+      {/* At Risk */}
+      <div style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: "12px", padding: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+          <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: RED }}>
+            Revenue at Risk
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {showMultiplier && (
+              <span style={{ fontSize: "9px", fontWeight: 700, padding: "2px 8px", borderRadius: "20px", background: "rgba(196,135,74,0.12)", color: AMBER, letterSpacing: "0.06em" }}>
+                {multiplier > 1 ? `+${Math.round((multiplier - 1) * 100)}% industry` : `-${Math.round((1 - multiplier) * 100)}% industry`}
+              </span>
+            )}
+            <span style={{ fontSize: "9px", fontWeight: 700, padding: "2px 8px", borderRadius: "20px", background: `${confColor}18`, color: confColor, letterSpacing: "0.06em" }}>
+              {confLabel}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+          <div style={{ background: "white", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+            <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Monthly</p>
+            <p style={{ fontSize: "1.1rem", fontWeight: 800, color: RED, lineHeight: 1 }}>
+              {formatCurrency(estimate.monthlyLow)}–{formatCurrency(estimate.monthlyHigh)}
+            </p>
+          </div>
+          <div style={{ background: "white", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+            <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Annual</p>
+            <p style={{ fontSize: "1.1rem", fontWeight: 800, color: RED, lineHeight: 1 }}>
+              {formatCurrency(estimate.annualLow)}–{formatCurrency(estimate.annualHigh)}
+            </p>
+          </div>
+        </div>
+
+        {/* Breakdown */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: estimate.profitMonthlyLow != null ? "10px" : "0" }}>
+          {ratingGap > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ fontSize: "10px", color: MUTED }}>★ Rating gap ({ratingGap.toFixed(1)}★ below target)</p>
+              <p style={{ fontSize: "11px", fontWeight: 600, color: RED }}>
+                {formatCurrency(estimate.ratingGapMonthlyLow)}–{formatCurrency(estimate.ratingGapMonthlyHigh)}/mo
+              </p>
+            </div>
+          )}
+          {estimate.unrespondedMonthlyHigh > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ fontSize: "10px", color: MUTED }}>Unresponded reviews</p>
+              <p style={{ fontSize: "11px", fontWeight: 600, color: AMBER }}>
+                {formatCurrency(estimate.unrespondedMonthlyLow)}–{formatCurrency(estimate.unrespondedMonthlyHigh)}/mo
+              </p>
+            </div>
+          )}
+        </div>
+
+        {estimate.profitMonthlyLow != null && estimate.profitMonthlyHigh != null && (
+          <div style={{ background: "white", borderRadius: "10px", padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <p style={{ fontSize: "11px", color: MUTED }}>Profit at risk / month</p>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: AMBER }}>
+              {formatCurrency(estimate.profitMonthlyLow)}–{formatCurrency(estimate.profitMonthlyHigh)}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Recovery Potential */}
+      <div style={{ background: "rgba(45,155,138,0.04)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "12px", padding: "14px" }}>
+        <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL, marginBottom: "10px" }}>
+          Recovery Potential
         </p>
-        <span style={{ fontSize: "9px", fontWeight: 700, padding: "2px 8px", borderRadius: "20px", background: `${confColor}18`, color: confColor, letterSpacing: "0.06em" }}>
-          {confLabel}
-        </span>
+        <p style={{ fontSize: "12px", color: DARK, lineHeight: 1.6, marginBottom: "8px" }}>
+          Close your rating gap + respond to all reviews and you could recover:
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+          <div style={{ background: "white", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+            <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Per Month</p>
+            <p style={{ fontSize: "1rem", fontWeight: 800, color: TEAL, lineHeight: 1 }}>
+              +{formatCurrency(estimate.recoveryMonthlyLow)}–{formatCurrency(estimate.recoveryMonthlyHigh)}
+            </p>
+          </div>
+          <div style={{ background: "white", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+            <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Per Year</p>
+            <p style={{ fontSize: "1rem", fontWeight: 800, color: TEAL, lineHeight: 1 }}>
+              +{formatCurrency(estimate.recoveryAnnualLow)}–{formatCurrency(estimate.recoveryAnnualHigh)}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
-        <div style={{ background: "white", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
-          <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Monthly</p>
-          <p style={{ fontSize: "1.1rem", fontWeight: 800, color: RED, lineHeight: 1 }}>
-            {formatCurrency(estimate.monthlyLow)}–{formatCurrency(estimate.monthlyHigh)}
-          </p>
-        </div>
-        <div style={{ background: "white", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
-          <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Annual</p>
-          <p style={{ fontSize: "1.1rem", fontWeight: 800, color: RED, lineHeight: 1 }}>
-            {formatCurrency(estimate.annualLow)}–{formatCurrency(estimate.annualHigh)}
-          </p>
-        </div>
-      </div>
-
-      {estimate.profitMonthlyLow != null && estimate.profitMonthlyHigh != null && (
-        <div style={{ background: "white", borderRadius: "10px", padding: "10px 12px", marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ fontSize: "11px", color: MUTED }}>Profit at risk / month</p>
-          <p style={{ fontSize: "13px", fontWeight: 700, color: AMBER }}>
-            {formatCurrency(estimate.profitMonthlyLow)}–{formatCurrency(estimate.profitMonthlyHigh)}
-          </p>
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+      {/* Context */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
         <p style={{ fontSize: "10px", color: MUTED, lineHeight: 1.5 }}>
           <span style={{ color: DARK, fontWeight: 600 }}>~{formatCurrency(estimate.reviewInfluencedMonthly)}/mo</span> of your new revenue is influenced by online reviews.
-          {ratingGap > 0 && (
-            <> Bridging your <span style={{ color: DARK, fontWeight: 600 }}>{ratingGap.toFixed(1)}★ rating gap</span> to {estimate.ratingGap > 0 ? "your target" : ""} could recover this range.</>
-          )}
         </p>
         {estimate.ltv && (
           <p style={{ fontSize: "10px", color: MUTED }}>
@@ -147,11 +196,12 @@ interface Props {
   currentRating: number | null;
   unrespondedCount: number;
   initialProfile: RevenueProfile;
+  businessType?: string | null;
   onSave: (profile: RevenueProfile) => void;
   onClose: () => void;
 }
 
-export default function RevenueCalculator({ currentRating, unrespondedCount, initialProfile, onSave, onClose }: Props) {
+export default function RevenueCalculator({ currentRating, unrespondedCount, initialProfile, businessType, onSave, onClose }: Props) {
   const [acv,       setAcv]       = useState(initialProfile.avgCustomerValue?.toString() ?? "");
   const [mnc,       setMnc]       = useState(initialProfile.monthlyNewCustomers?.toString() ?? "");
   const [gtp,       setGtp]       = useState(initialProfile.googleTrafficPercent?.toString() ?? "60");
@@ -181,6 +231,7 @@ export default function RevenueCalculator({ currentRating, unrespondedCount, ini
       repeatCustomersPerYear: repeat ? parseInt(repeat, 10) : undefined,
       grossMarginPercent:     margin ? parseInt(margin, 10) : undefined,
       unrespondedCount,
+      businessType,
     };
 
     setEstimate(calculateRevenueAtRisk(inputs));
@@ -320,7 +371,7 @@ export default function RevenueCalculator({ currentRating, unrespondedCount, ini
           </div>
 
           {/* Live estimate */}
-          <LiveEstimate estimate={estimate} ratingGap={ratingGap} />
+          <LiveEstimate estimate={estimate} ratingGap={ratingGap} businessType={businessType ?? undefined} />
 
           {/* Disclaimer */}
           <p style={{ fontSize: "9px", color: MUTED, lineHeight: 1.5, marginTop: "12px", marginBottom: "16px" }}>

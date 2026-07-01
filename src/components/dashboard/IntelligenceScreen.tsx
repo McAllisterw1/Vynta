@@ -8,6 +8,7 @@ const DownloadReportButton = dynamic(
   () => import("@/components/pdf/DownloadReportButton"),
   { ssr: false }
 );
+import { calculateRevenueAtRisk, formatCurrency } from "@/lib/revenueCalc";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -1448,6 +1449,14 @@ export default function IntelligenceScreen() {
   const [refreshKey,  setRefreshKey]  = useState(0);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
 
+  // Revenue profile (from settings)
+  const [revAvgValue,       setRevAvgValue]       = useState<number | null>(null);
+  const [revMonthlyNew,     setRevMonthlyNew]     = useState<number | null>(null);
+  const [revGooglePct,      setRevGooglePct]      = useState<number | null>(null);
+  const [revTargetRating,   setRevTargetRating]   = useState<number | null>(null);
+  const [revRepeat,         setRevRepeat]         = useState<number | null>(null);
+  const [revMargin,         setRevMargin]         = useState<number | null>(null);
+
   // Intel cache snapshots for PDF enrichment
   const [intelPriorities,    setIntelPriorities]    = useState<string[] | null>(null);
   const [intelWarnings,      setIntelWarnings]      = useState<Warning[] | null>(null);
@@ -1511,11 +1520,22 @@ export default function IntelligenceScreen() {
       if (Array.isArray(hist))  setSentimentHistory(hist as SentimentHistoryRecord[]);
       if (sentCache?.data)      setSentimentData(sentCache.data as SentimentAnalysis);
       if (Array.isArray(comps)) setCompetitors(comps as Competitor[]);
-      const s = settings as { businessType?: string; businessName?: string; businessAddress?: string; googleRating?: number };
+      const s = settings as {
+        businessType?: string; businessName?: string; businessAddress?: string; googleRating?: number;
+        avgCustomerValue?: number | null; monthlyNewCustomers?: number | null;
+        googleTrafficPercent?: number | null; targetRating?: number | null;
+        repeatCustomersPerYear?: number | null; grossMarginPercent?: number | null;
+      };
       if (s.businessType) setBusinessType(s.businessType);
       if (s.businessName) setBusinessName(s.businessName);
       if (s.businessAddress) setBusinessAddress(s.businessAddress);
       if (s.googleRating && s.googleRating > 0) setGoogleRating(s.googleRating);
+      if (s.avgCustomerValue)       setRevAvgValue(s.avgCustomerValue);
+      if (s.monthlyNewCustomers)    setRevMonthlyNew(s.monthlyNewCustomers);
+      if (s.googleTrafficPercent)   setRevGooglePct(s.googleTrafficPercent);
+      if (s.targetRating)           setRevTargetRating(s.targetRating);
+      if (s.repeatCustomersPerYear) setRevRepeat(s.repeatCustomersPerYear);
+      if (s.grossMarginPercent)     setRevMargin(s.grossMarginPercent);
       const inboxData = inbox as { lastKnownCount?: number } | null;
       if (inboxData?.lastKnownCount) setUserTotalReviews(inboxData.lastKnownCount);
     }).finally(() => setLoading(false));
@@ -1620,6 +1640,80 @@ export default function IntelligenceScreen() {
 
         {/* Early Warning System — always visible */}
         <EarlyWarningSystem key={`ews-${refreshKey}`} />
+
+        {/* Revenue Intelligence — always visible */}
+        {(() => {
+          const unrespondedCount = reviews.filter(r => !r.responded).length;
+          if (!revAvgValue) {
+            return (
+              <div style={{ ...CARD, padding: "14px 16px", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                <div>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: DARK, marginBottom: "2px" }}>Revenue at Risk</p>
+                  <p style={{ fontSize: "10px", color: MUTED, lineHeight: 1.5 }}>Set up your Revenue Profile in Settings to see how much your rating and unresponded reviews are costing you.</p>
+                </div>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: TEAL, flexShrink: 0, whiteSpace: "nowrap" }}>→ Settings</span>
+              </div>
+            );
+          }
+          const est = calculateRevenueAtRisk({
+            avgCustomerValue:       revAvgValue,
+            monthlyNewCustomers:    revMonthlyNew ?? 0,
+            googleTrafficPercent:   revGooglePct  ?? 60,
+            targetRating:           revTargetRating ?? 4.5,
+            currentRating:          userRating ?? 4.0,
+            repeatCustomersPerYear: revRepeat,
+            grossMarginPercent:     revMargin,
+            unrespondedCount,
+            businessType,
+          });
+          const ratingGap = Math.max(0, (revTargetRating ?? 4.5) - (userRating ?? 4.0));
+          if (est.monthlyLow === 0 && est.monthlyHigh === 0) return null;
+          return (
+            <div style={{ ...CARD, padding: "14px 16px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                <svg viewBox="0 0 20 20" fill={RED} style={{ width: 12, height: 12, flexShrink: 0 }}>
+                  <path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06A.75.75 0 1 1 6.11 5.174L5.05 4.11a.75.75 0 0 1 0-1.06Zm9.9 0a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.061l1.061-1.06a.75.75 0 0 1 1.06 0ZM3 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 3 8Zm11 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 14 8Zm-6.828 2.828a.75.75 0 0 1 0 1.061L6.11 12.95a.75.75 0 0 1-1.06-1.06l1.06-1.062a.75.75 0 0 1 1.061 0Zm3.594-3.317a.75.75 0 0 1 1.06 0l1.062 1.06a.75.75 0 0 1-1.061 1.062l-1.06-1.061a.75.75 0 0 1 0-1.06ZM10 14a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 14Z" clipRule="evenodd"/>
+                </svg>
+                <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK, flex: 1 }}>
+                  Revenue Intelligence
+                </p>
+                <span style={{ fontSize: "9px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px", background: est.confidence === "high" ? "rgba(45,155,138,0.1)" : "rgba(196,135,74,0.1)", color: est.confidence === "high" ? TEAL : AMBER }}>
+                  {est.confidence === "high" ? "Higher confidence" : "Directional"}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                  <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>At Risk / Month</p>
+                  <p style={{ fontSize: "0.95rem", fontWeight: 800, color: RED, lineHeight: 1 }}>
+                    {formatCurrency(est.monthlyLow)}–{formatCurrency(est.monthlyHigh)}
+                  </p>
+                </div>
+                <div style={{ background: "rgba(45,155,138,0.05)", border: "1px solid rgba(45,155,138,0.15)", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                  <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Recovery / Month</p>
+                  <p style={{ fontSize: "0.95rem", fontWeight: 800, color: TEAL, lineHeight: 1 }}>
+                    +{formatCurrency(est.recoveryMonthlyLow)}–{formatCurrency(est.recoveryMonthlyHigh)}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                {ratingGap > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <p style={{ fontSize: "10px", color: MUTED }}>★ Rating gap ({ratingGap.toFixed(1)}★ below target)</p>
+                    <p style={{ fontSize: "10px", fontWeight: 600, color: RED }}>{formatCurrency(est.ratingGapMonthlyLow)}–{formatCurrency(est.ratingGapMonthlyHigh)}/mo</p>
+                  </div>
+                )}
+                {est.unrespondedMonthlyHigh > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <p style={{ fontSize: "10px", color: MUTED }}>{unrespondedCount} unresponded review{unrespondedCount !== 1 ? "s" : ""}</p>
+                    <p style={{ fontSize: "10px", fontWeight: 600, color: AMBER }}>{formatCurrency(est.unrespondedMonthlyLow)}–{formatCurrency(est.unrespondedMonthlyHigh)}/mo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tab bar */}
         <div style={{ background: "#120804", borderRadius: "14px", padding: "5px", marginBottom: "16px", display: "flex", gap: "3px", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}>
