@@ -89,6 +89,13 @@ interface MarketIntel {
   whatTopBusinessesDo: string;
 }
 
+interface WeakpointAction {
+  weakness: string;
+  competitors: string;
+  action: string;
+  howToWin: string;
+}
+
 interface SearchIntelligence {
   searchVisibility: {
     summary: string;
@@ -303,6 +310,7 @@ const INTEL_CACHE_KEYS = [
   "vynta_market_intelligence",
   "vynta_search_intelligence",
   "vynta_opportunities",
+  "vynta_weakpoint_actions",
 ] as const;
 
 // ── Early Warning System ──────────────────────────────────────────────────────
@@ -723,10 +731,21 @@ function CompetitorsTab({
   const [threatLoading, setThreatLoading] = useState(false);
   const [threatError, setThreatError] = useState(false);
 
+  const [weakpointActions, setWeakpointActions] = useState<WeakpointAction[] | null>(null);
+  const [weakpointLoading, setWeakpointLoading] = useState(false);
+  const [weakpointError, setWeakpointError]   = useState(false);
+
   useEffect(() => {
     const cached = lsGet<ThreatAnalysis>("vynta_threat_analysis", Infinity);
     if (cached) { setThreat(cached); return; }
     if (competitors.length > 0) runThreat();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competitors.length]);
+
+  useEffect(() => {
+    const cached = lsGet<WeakpointAction[]>("vynta_weakpoint_actions", Infinity);
+    if (cached) { setWeakpointActions(cached); return; }
+    if (competitors.length > 0) runWeakpoints();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitors.length]);
 
@@ -770,6 +789,41 @@ Return exactly this JSON:
       })
       .catch(() => setThreatError(true))
       .finally(() => setThreatLoading(false));
+  }
+
+  function runWeakpoints() {
+    if (competitors.length === 0) return;
+    setWeakpointLoading(true);
+    setWeakpointError(false);
+
+    const compWeaknesses = competitors
+      .map(c => {
+        const a = parseAnalysis(c.analysisText);
+        const s = parseSentiment(c.sentiment);
+        const weaknesses = (a.weaknesses ?? []).join("; ") || "unknown";
+        return `${c.name} (${c.rating}★, ${s.negative}% negative reviews): complaints include — ${weaknesses}`;
+      })
+      .join("\n");
+
+    const system = "You are a competitive intelligence analyst for local businesses. Return ONLY a raw JSON array — no markdown, no backticks, no explanation.";
+    const msg = `These are your client's local competitors and what customers are complaining about at each one:\n\n${compWeaknesses}\n\nIdentify the 4-6 most impactful weaknesses across these competitors and for each one write a specific "take action" item the client can execute to steal those customers.\n\nReturn exactly this JSON array:\n[\n  {\n    "weakness": "<the specific thing customers are complaining about at competitors — e.g. Long wait times, Rude staff, Poor communication>",\n    "competitors": "<which competitors have this problem — names only, e.g. Rival A & Rival B>",\n    "action": "<concrete specific thing the client should do to exploit this — 1 sentence, starts with a verb>",\n    "howToWin": "<why this specific action will win those unhappy customers — 1 sentence>"\n  }\n]\n\nBe specific. Name competitors. Use real complaint themes. Do not fabricate issues not present in the data.`;
+
+    fetch("/api/consultant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
+    })
+      .then(r => r.json())
+      .then((d: { response?: string }) => {
+        const raw = (d.response ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        const match = raw.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error("no json");
+        const parsed = JSON.parse(match[0]) as WeakpointAction[];
+        setWeakpointActions(parsed);
+        lsSet("vynta_weakpoint_actions", parsed);
+      })
+      .catch(() => setWeakpointError(true))
+      .finally(() => setWeakpointLoading(false));
   }
 
   if (competitors.length === 0) {
@@ -880,6 +934,150 @@ Return exactly this JSON:
             Generate Threat Analysis
           </button>
         )}
+      </div>
+
+      {/* ── Competitor Weakpoints ── */}
+      <div style={{ ...CARD, padding: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+          <svg viewBox="0 0 20 20" fill={RED} style={{ width: 13, height: 13, flexShrink: 0 }}>
+            <path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06A.75.75 0 1 1 6.11 5.174L5.05 4.11a.75.75 0 0 1 0-1.06Zm9.9 0a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.061l1.061-1.06a.75.75 0 0 1 1.06 0ZM3 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 3 8Zm11 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 14 8ZM5.05 11.05a.75.75 0 0 1 1.06 1.061L5.049 13.172a.75.75 0 0 1-1.06-1.06l1.06-1.062Zm9.9 0l1.06 1.061a.75.75 0 1 1-1.06 1.062l-1.062-1.06a.75.75 0 0 1 1.061-1.063ZM10 14a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 14Z" clipRule="evenodd" />
+          </svg>
+          <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: DARK }}>
+            Competitor Weakpoints
+          </p>
+        </div>
+
+        {/* Weakness cards per competitor */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+          {competitors.map((comp, i) => {
+            const a = parseAnalysis(comp.analysisText);
+            const s = parseSentiment(comp.sentiment);
+            const weaknesses = a.weaknesses ?? [];
+            if (weaknesses.length === 0) return null;
+            return (
+              <div key={comp.id} style={{
+                background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.12)",
+                borderRadius: "12px", padding: "12px 14px",
+                borderLeft: `3px solid ${COMP_COLORS[i % COMP_COLORS.length]}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: DARK }}>{comp.name}</span>
+                    <span style={{ fontSize: "11px", color: MUTED }}>{comp.rating}★</span>
+                  </div>
+                  {s.negative > 0 && (
+                    <span style={{
+                      fontSize: "9px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px",
+                      background: s.negative >= 20 ? "rgba(220,38,38,0.12)" : "rgba(196,135,74,0.1)",
+                      color: s.negative >= 20 ? RED : AMBER,
+                    }}>
+                      {s.negative}% negative
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                  {weaknesses.slice(0, 4).map((w, wi) => (
+                    <div key={wi} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                      <span style={{ color: RED, fontSize: "10px", marginTop: "2px", flexShrink: 0 }}>✕</span>
+                      <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.75)", lineHeight: 1.4 }}>{w}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Common complaints across competitors */}
+        {(() => {
+          const allWeaknesses = competitors.flatMap(c => parseAnalysis(c.analysisText).weaknesses ?? []);
+          const freq: Record<string, number> = {};
+          for (const w of allWeaknesses) {
+            const key = w.toLowerCase().trim();
+            freq[key] = (freq[key] ?? 0) + 1;
+          }
+          const recurring = Object.entries(freq)
+            .filter(([, count]) => count >= 2)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+          if (recurring.length === 0) return null;
+          return (
+            <div style={{ background: "rgba(196,135,74,0.06)", border: "1px solid rgba(196,135,74,0.15)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px" }}>
+              <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: AMBER, marginBottom: "10px" }}>
+                🎯 Market-Wide Complaints
+              </p>
+              <p style={{ fontSize: "10px", color: MUTED, marginBottom: "10px", lineHeight: 1.5 }}>
+                These issues appear at {recurring[0][1]}+ competitors — the biggest opportunities for you to stand out:
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {recurring.map(([weakness, count]) => (
+                  <div key={weakness} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "20px", background: "rgba(196,135,74,0.12)", color: AMBER, flexShrink: 0 }}>
+                      {count} rivals
+                    </span>
+                    <span style={{ fontSize: "11px", color: DARK, lineHeight: 1.4, textTransform: "capitalize" }}>{weakness}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Take Action */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "14px" }}>
+          <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL, marginBottom: "12px" }}>
+            Take Action
+          </p>
+
+          {weakpointLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <Skeleton height={60} />
+              <Skeleton height={60} />
+              <Skeleton height={60} />
+            </div>
+          ) : weakpointError ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <ErrorMsg msg="Unable to generate action items — try refreshing" />
+              <button type="button" onClick={runWeakpoints}
+                style={{ background: "none", border: "1px solid rgba(45,155,138,0.3)", borderRadius: "8px", padding: "8px", fontSize: "12px", color: TEAL, cursor: "pointer" }}>
+                Retry
+              </button>
+            </div>
+          ) : weakpointActions && weakpointActions.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {weakpointActions.map((item, i) => (
+                <div key={i} style={{ background: "rgba(45,155,138,0.05)", border: "1px solid rgba(45,155,138,0.15)", borderRadius: "12px", padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "6px" }}>
+                    <span style={{
+                      width: "18px", height: "18px", borderRadius: "50%", background: TEAL,
+                      color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0, fontSize: "9px", fontWeight: 700, marginTop: "1px",
+                    }}>{i + 1}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: RED }}>{item.weakness}</span>
+                        <span style={{ fontSize: "9px", color: MUTED }}>@ {item.competitors}</span>
+                      </div>
+                      <p style={{ fontSize: "12px", fontWeight: 600, color: DARK, lineHeight: 1.5, marginBottom: "4px" }}>{item.action}</p>
+                      <p style={{ fontSize: "10px", color: MUTED, lineHeight: 1.5 }}>→ {item.howToWin}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={runWeakpoints}
+              style={{
+                width: "100%", background: TEAL, color: "white", borderRadius: "10px",
+                padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer",
+              }}
+            >
+              Generate Action Plan
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
