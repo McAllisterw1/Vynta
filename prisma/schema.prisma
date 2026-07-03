@@ -129,15 +129,17 @@ model Competitor {
 }
 
 model Goal {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  target    Int
-  current   Int      @default(0)
-  deadline  String   @default("")
-  completed Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  target       Int      @default(0)
+  current      Int      @default(0)
+  deadline     String   @default("")
+  completed    Boolean  @default(false)
+  rawText      String?
+  parsedIntent String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([userId])
 }

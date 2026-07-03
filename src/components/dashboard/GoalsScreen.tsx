@@ -11,6 +11,16 @@ const CARD: React.CSSProperties = {
   boxShadow: "0 2px 12px rgba(44,26,14,0.08)",
 };
 
+interface ParsedIntent {
+  type: string;
+  summary: string;
+  targetValue: number | null;
+  targetUnit: string | null;
+  timeframe: string | null;
+  competitor: string | null;
+  quantifiable: boolean;
+}
+
 interface Goal {
   id: string;
   title: string;
@@ -18,6 +28,8 @@ interface Goal {
   current: number;
   deadline: string;
   completed: boolean;
+  rawText?: string | null;
+  parsedIntent?: string | null;
 }
 
 interface Message {
@@ -40,16 +52,6 @@ const TAB_INDEX: Record<string, number> = {
   home: 3,
 };
 
-const BLANK = { title: "", target: "", current: "", deadline: "" };
-
-const TEMPLATES = [
-  { id: "reviews",  emoji: "⭐", label: "Grow review count",   desc: "Get to a target number of Google reviews" },
-  { id: "rating",   emoji: "📈", label: "Improve rating",       desc: "Aim for a higher star average" },
-  { id: "requests", emoji: "📨", label: "Send more requests",   desc: "Track outbound review requests this month" },
-  { id: "training", emoji: "🎓", label: "Complete training",    desc: "Finish your reputation training modules" },
-  { id: "custom",   emoji: "✏️",  label: "Custom goal",          desc: "Set your own title and target" },
-] as const;
-type TemplateId = typeof TEMPLATES[number]["id"];
 
 interface Props {
   onNavigate?: (tab: number) => void;
@@ -59,8 +61,8 @@ interface Props {
 export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(BLANK);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId | null>(null);
+  const [goalInput, setGoalInput] = useState("");
+  const [goalSaving, setGoalSaving] = useState(false);
   const [trainingCompleted, setTrainingCompleted] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -169,7 +171,7 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
       setConsultantData({
         businessName,
         goalsText: goalsForConsultant.length > 0
-          ? goalsForConsultant.map((g) => `"${g.title}" — ${g.current}/${g.target} (${g.completed ? "done" : "in progress"})`).join("; ")
+          ? goalsForConsultant.map((g) => `"${g.rawText || g.title}"`).join("; ")
           : "No goals set yet.",
         historyCount: responseHistoryCount,
         totalLoggedReviews: totalReviews,
@@ -247,77 +249,33 @@ Generate 3 specific, coach-style next steps. Where relevant, reference how this 
   }, [messages, loading]);
 
   async function addGoal() {
-    if (!form.title.trim() || !form.target) return;
-    const payload = {
-      title: form.title.trim(),
-      target: Math.max(1, Number(form.target) || 1),
-      current: Math.max(0, Number(form.current) || 0),
-      deadline: form.deadline,
-      completed: false,
-    };
-    // Optimistic update with temp id
+    const text = goalInput.trim();
+    if (!text || goalSaving) return;
+    setGoalSaving(true);
+    // Optimistic placeholder
     const tempId = `temp-${Date.now()}`;
-    setGoals((prev) => [...prev, { ...payload, id: tempId }]);
-    setForm(BLANK);
+    const optimistic: Goal = { id: tempId, title: text, target: 0, current: 0, deadline: "", completed: false, rawText: text, parsedIntent: null };
+    setGoals((prev) => [...prev, optimistic]);
+    setGoalInput("");
     setShowForm(false);
     try {
       const res = await fetch("/api/user/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ rawText: text }),
       });
       if (res.ok) {
         const created = await res.json() as Goal;
         setGoals((prev) => prev.map((g) => g.id === tempId ? created : g));
       }
-    } catch {}
-  }
-
-  function selectTemplate(id: TemplateId) {
-    const googleCount = consultantData.googleReviewCount ?? consultantData.totalLoggedReviews;
-    const currentRating = consultantData.avgRating !== "N/A" ? Math.round(parseFloat(consultantData.avgRating)) : 4;
-
-    let title = "";
-    let target = "";
-    let current = "0";
-
-    switch (id) {
-      case "reviews": {
-        const suggested = googleCount < 25 ? 25 : googleCount < 50 ? 50 : googleCount < 100 ? 100 : Math.ceil(googleCount * 1.5 / 25) * 25;
-        title = `Get to ${suggested} Google reviews`;
-        target = String(suggested);
-        current = String(googleCount);
-        break;
-      }
-      case "rating":
-        title = "Hit a 5-star average";
-        target = "5";
-        current = String(currentRating);
-        break;
-      case "requests":
-        title = "Send 20 review requests this month";
-        target = "20";
-        current = "0";
-        break;
-      case "training":
-        title = "Complete all 5 training modules";
-        target = "5";
-        current = String(trainingCompleted);
-        break;
-      case "custom":
-        title = "";
-        target = "";
-        current = "0";
-        break;
+    } catch {} finally {
+      setGoalSaving(false);
     }
-    setForm({ title, target, current, deadline: "" });
-    setSelectedTemplate(id);
   }
 
   function cancelGoalForm() {
     setShowForm(false);
-    setSelectedTemplate(null);
-    setForm(BLANK);
+    setGoalInput("");
   }
 
   async function toggleComplete(id: string) {
@@ -500,143 +458,137 @@ Give specific, actionable advice based on their actual numbers. Never start a re
 
         {/* ── Goals section ── */}
         <UpgradeTooltip locked={!canAccess(plan, "goals")} requiredPlan="Agency">
-        <div>
+        <div style={{ background: "#120804", borderRadius: "16px", border: "1px solid rgba(45,155,138,0.12)", padding: "18px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-            <h2 className="font-display" style={{ fontSize: "1.25rem", fontWeight: 700, color: "#2C1A0E" }}>Goals</h2>
+            <div>
+              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#2D9B8A", marginBottom: "2px" }}>Goals</p>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>Your intentions shape every recommendation</p>
+            </div>
             <button
               type="button"
-              onClick={() => {
-                const next = !showForm;
-                setShowForm(next);
-                if (next) { setSelectedTemplate(null); setForm(BLANK); }
-              }}
-              style={{ background: "#2D9B8A", color: "white", borderRadius: "20px", padding: "6px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
+              onClick={() => { setShowForm(!showForm); if (showForm) setGoalInput(""); }}
+              style={{ background: showForm ? "rgba(255,255,255,0.08)" : "#2D9B8A", color: "white", borderRadius: "20px", padding: "6px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
             >
-              {showForm ? "✕" : "+ Add"}
+              {showForm ? "✕" : "+ Add Goal"}
             </button>
           </div>
 
           {showForm && (
-            <div style={{ ...CARD, padding: "16px", marginBottom: "12px" }}>
-              {selectedTemplate === null ? (
-                /* ── Step 1: template picker ── */
-                <div>
-                  <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#A0856A", marginBottom: "12px" }}>
-                    What do you want to achieve?
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {TEMPLATES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => selectTemplate(t.id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "12px",
-                          background: "white", border: "none", borderRadius: "10px",
-                          padding: "11px 14px", cursor: "pointer", textAlign: "left",
-                          boxShadow: "0 1px 4px rgba(44,26,14,0.08)",
-                        }}
-                      >
-                        <span style={{ fontSize: "20px", lineHeight: 1, flexShrink: 0 }}>{t.emoji}</span>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C1A0E", margin: 0 }}>{t.label}</p>
-                          <p style={{ fontSize: "11px", color: "#A0856A", margin: 0, marginTop: "2px" }}>{t.desc}</p>
-                        </div>
-                        <svg viewBox="0 0 16 16" fill="none" stroke="#A0856A" strokeWidth="1.5" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 3l5 5-5 5" />
-                        </svg>
-                      </button>
-                    ))}
-                  </div>
-                  <button type="button" onClick={cancelGoalForm}
-                    style={{ marginTop: "10px", background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", padding: "4px 0" }}>
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                /* ── Step 2: pre-filled form ── */
-                <div>
-                  <button type="button" onClick={() => setSelectedTemplate(null)}
-                    style={{ background: "none", border: "none", fontSize: "12px", color: "#A0856A", cursor: "pointer", padding: "0 0 12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: "12px", height: "12px" }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 13L5 8l5-5" />
-                    </svg>
-                    Back
-                  </button>
-                  <input
-                    type="text"
-                    value={form.title}
-                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                    placeholder="Goal title"
-                    style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", width: "100%", outline: "none", marginBottom: "8px", boxSizing: "border-box" }}
-                  />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
-                    <div>
-                      <p style={{ fontSize: "10px", fontWeight: 600, color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Target</p>
-                      <input
-                        type="number"
-                        value={form.target}
-                        onChange={(e) => setForm((f) => ({ ...f, target: e.target.value }))}
-                        placeholder="e.g. 100"
-                        min={1}
-                        autoFocus={selectedTemplate === "custom"}
-                        style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" }}
-                      />
-                    </div>
-                    <div>
-                      <p style={{ fontSize: "10px", fontWeight: 600, color: "#A0856A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Current</p>
-                      <input
-                        type="number"
-                        value={form.current}
-                        onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))}
-                        placeholder="e.g. 0"
-                        min={0}
-                        style={{ background: "white", borderRadius: "10px", border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", padding: "10px 14px", fontSize: "14px", color: "#2C1A0E", outline: "none", width: "100%", boxSizing: "border-box" }}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button type="button" onClick={addGoal} disabled={!form.title.trim() || !form.target}
-                      style={{ background: "#2C1A0E", color: "white", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer", opacity: (!form.title.trim() || !form.target) ? 0.4 : 1 }}>
-                      Add Goal
-                    </button>
-                    <button type="button" onClick={cancelGoalForm}
-                      style={{ background: "white", color: "#A0856A", borderRadius: "10px", padding: "8px 16px", fontSize: "13px", fontWeight: 500, border: "none", boxShadow: "0 1px 4px rgba(44,26,14,0.08)", cursor: "pointer" }}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div style={{ marginBottom: "14px" }}>
+              <textarea
+                autoFocus
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void addGoal(); } }}
+                placeholder={`Describe your goal in plain English...\n\ne.g. "I want to reach 4.8 stars by the end of the year"\n     "Beat Riverside Auto in review count by Q3"\n     "Respond to every review within 24 hours"`}
+                rows={4}
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(45,155,138,0.25)",
+                  borderRadius: "12px", padding: "12px 14px",
+                  fontSize: "13px", color: "rgba(255,255,255,0.9)",
+                  outline: "none", resize: "none", lineHeight: 1.6,
+                  colorScheme: "dark",
+                }}
+              />
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => void addGoal()}
+                  disabled={!goalInput.trim() || goalSaving}
+                  style={{ background: "#2D9B8A", color: "white", borderRadius: "10px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer", opacity: (!goalInput.trim() || goalSaving) ? 0.5 : 1 }}
+                >
+                  {goalSaving ? "Saving…" : "Save Goal"}
+                </button>
+                <button type="button" onClick={cancelGoalForm}
+                  style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.5)", borderRadius: "10px", padding: "8px 14px", fontSize: "13px", fontWeight: 500, border: "none", cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+              <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.25)", marginTop: "8px", lineHeight: 1.5 }}>
+                Our AI reads your goals and tailors every recommendation to help you hit them.
+              </p>
             </div>
           )}
 
           {goals.length === 0 ? (
-            <p style={{ fontSize: "13px", color: "#A0856A", textAlign: "center", padding: "20px 0" }}>No goals yet. Add one above to start tracking your progress.</p>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)", textAlign: "center", padding: "16px 0", lineHeight: 1.6 }}>
+              No goals yet.<br />Add one and the whole platform will work toward it.
+            </p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {goals.map((g) => {
-                const pct = Math.min(Math.round((g.current / g.target) * 100), 100);
+                const intent: ParsedIntent | null = (() => {
+                  try { return g.parsedIntent ? JSON.parse(g.parsedIntent) as ParsedIntent : null; } catch { return null; }
+                })();
+                const showProgress = intent?.quantifiable && intent.targetValue && intent.targetValue > 0;
+                const pct = showProgress ? Math.min(Math.round((g.current / g.target) * 100), 100) : 0;
+
                 return (
-                  <div key={g.id} style={{ ...CARD, padding: "12px 16px", background: g.completed ? "#E8F5F2" : "#E8DCC8" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <span style={{ flex: 1, fontSize: "13px", fontWeight: 600, color: g.completed ? "#A0856A" : "#2C1A0E", textDecoration: g.completed ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {g.title}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#A0856A", flexShrink: 0 }}>{g.current}/{g.target}</span>
-                      <button type="button" onClick={() => toggleComplete(g.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "14px", flexShrink: 0 }}>
-                        {g.completed ? "✓" : "○"}
-                      </button>
-                      <button type="button" onClick={() => deleteGoal(g.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#A0856A", flexShrink: 0 }}>
-                        <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "12px", height: "12px" }}>
-                          <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-                        </svg>
-                      </button>
+                  <div key={g.id} style={{
+                    background: g.completed ? "rgba(45,155,138,0.08)" : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${g.completed ? "rgba(45,155,138,0.2)" : "rgba(255,255,255,0.08)"}`,
+                    borderRadius: "12px", padding: "12px 14px",
+                    opacity: g.completed ? 0.65 : 1,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{
+                          fontSize: "13px", fontWeight: 600, lineHeight: 1.45,
+                          color: g.completed ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.9)",
+                          textDecoration: g.completed ? "line-through" : "none",
+                          margin: 0,
+                        }}>
+                          {g.rawText || g.title}
+                        </p>
+                        {intent && !g.completed && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "7px" }}>
+                            {intent.type && intent.type !== "general" && (
+                              <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2D9B8A", background: "rgba(45,155,138,0.1)", borderRadius: "6px", padding: "3px 7px" }}>
+                                {intent.type.replace("_", " ")}
+                              </span>
+                            )}
+                            {intent.targetValue && intent.targetUnit && (
+                              <span style={{ fontSize: "9px", fontWeight: 600, color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)", borderRadius: "6px", padding: "3px 7px" }}>
+                                target: {intent.targetValue}{intent.targetUnit === "stars" ? "★" : ` ${intent.targetUnit}`}
+                              </span>
+                            )}
+                            {intent.timeframe && (
+                              <span style={{ fontSize: "9px", fontWeight: 600, color: "rgba(196,135,74,0.8)", background: "rgba(196,135,74,0.08)", borderRadius: "6px", padding: "3px 7px" }}>
+                                {intent.timeframe}
+                              </span>
+                            )}
+                            {intent.competitor && (
+                              <span style={{ fontSize: "9px", fontWeight: 600, color: "rgba(220,38,38,0.7)", background: "rgba(220,38,38,0.06)", borderRadius: "6px", padding: "3px 7px" }}>
+                                vs. {intent.competitor}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                        <button type="button" onClick={() => toggleComplete(g.id)}
+                          title={g.completed ? "Mark active" : "Mark complete"}
+                          style={{ background: g.completed ? "rgba(45,155,138,0.2)" : "rgba(255,255,255,0.07)", border: `1px solid ${g.completed ? "rgba(45,155,138,0.3)" : "rgba(255,255,255,0.12)"}`, borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: g.completed ? "#2D9B8A" : "rgba(255,255,255,0.3)", fontSize: "13px" }}>
+                          {g.completed ? "✓" : "○"}
+                        </button>
+                        <button type="button" onClick={() => deleteGoal(g.id)}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.2)", padding: "4px", display: "flex" }}>
+                          <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "11px", height: "11px" }}>
+                            <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ marginTop: "8px", height: "6px", borderRadius: "99px", background: "rgba(44,26,14,0.1)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", borderRadius: "99px", background: g.completed ? "#2D9B8A" : "#C4874A", width: `${pct}%`, transition: "width 400ms" }} />
-                    </div>
+                    {showProgress && !g.completed && (
+                      <div style={{ marginTop: "10px" }}>
+                        <div style={{ height: "4px", borderRadius: "99px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: "99px", background: "#2D9B8A", width: `${pct}%`, transition: "width 400ms" }} />
+                        </div>
+                        <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.25)", marginTop: "4px" }}>{g.current} / {g.target}</p>
+                      </div>
+                    )}
                   </div>
                 );
               })}

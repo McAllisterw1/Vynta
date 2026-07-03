@@ -1,10 +1,26 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
+
+async function getGoalsContext(userId: string): Promise<string> {
+  try {
+    const goals = await prisma.goal.findMany({
+      where: { userId, completed: false },
+      orderBy: { createdAt: "asc" },
+      take: 10,
+    });
+    if (goals.length === 0) return "";
+    const lines = goals.map(g => `- ${g.rawText || g.title}`).join("\n");
+    return `\n\nUSER'S ACTIVE GOALS (these are the source of truth — tailor all advice to help achieve them):\n${lines}`;
+  } catch {
+    return "";
+  }
+}
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
@@ -16,10 +32,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  const goalsContext = await getGoalsContext(userId);
+  const enhancedSystem = (system || "") + goalsContext;
+
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: (typeof maxTokens === "number" && maxTokens > 0) ? maxTokens : 1000,
-    system,
+    system: enhancedSystem || undefined,
     messages,
   });
 
