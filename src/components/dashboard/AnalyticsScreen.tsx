@@ -30,7 +30,6 @@ const DIVIDER: React.CSSProperties = {
 
 interface WeeklyStats {
   reviews: number;
-  requests: number;
   responses: number;
   unresponded: number;
 }
@@ -54,15 +53,13 @@ function isThisWeek(dateStr: string): boolean {
 export default function AnalyticsScreen({ plan }: { plan?: string | null } = {}) {
   const { history } = useResponseHistory();
   const { count: monthlyUsage } = useMonthlyUsage(plan);
-  const [requestsSent, setRequestsSent] = useState(0);
-
   // Score predictor
   const [ourTotalReviews, setOurTotalReviews] = useState(0);
   const [ourAvgRating, setOurAvgRating] = useState<number | null>(null);
   const [targetRating, setTargetRating] = useState(4.5);
 
   // Weekly report
-  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({ reviews: 0, requests: 0, responses: 0, unresponded: 0 });
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({ reviews: 0, responses: 0, unresponded: 0 });
   const [weeklyTip, setWeeklyTip] = useState("");
   const [weeklyTipLoading, setWeeklyTipLoading] = useState(true);
 
@@ -85,19 +82,6 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
       })
       .catch(() => {});
 
-    // Load campaigns for requests sent and weekly requests
-    fetch("/api/user/campaigns")
-      .then((r) => r.json())
-      .then((campaigns: Array<{ createdAt: string; contacts: unknown[] }>) => {
-        if (!Array.isArray(campaigns)) return;
-        const total = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
-        setRequestsSent(total);
-        const weeklyRequests = campaigns
-          .filter((c) => isThisWeek(c.createdAt))
-          .reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
-        setWeeklyStats((prev) => ({ ...prev, requests: weeklyRequests }));
-      })
-      .catch(() => {});
   }, []);
 
   // Weekly responses stat from history (already fetched by hook)
@@ -135,7 +119,7 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
       .catch(() => {})
       .finally(() => {
         const system = "You are a reputation growth coach. Based on a business's weekly activity data, write exactly one short, specific, actionable next-step sentence (max 25 words). Be direct, coach-like, no fluff. Return plain text only — no JSON, no bullet points.";
-        const msg = `This week: ${weeklyStats.reviews} reviews logged, ${weeklyStats.requests} review requests sent, ${weeklyStats.responses} AI responses generated, ${weeklyStats.unresponded} reviews still awaiting a response.${weeklyCompetitorContext} What is the single most impactful thing they should do next?`;
+        const msg = `This week: ${weeklyStats.reviews} reviews logged, ${weeklyStats.responses} AI responses generated, ${weeklyStats.unresponded} reviews still awaiting a response.${weeklyCompetitorContext} What is the single most impactful thing they should do next?`;
 
         fetch("/api/consultant", {
           method: "POST",
@@ -202,7 +186,6 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
   const stats = [
     { label: "Total Responses", value: String(history.length),                                  badge: "All time",    desc: "AI replies generated to customer reviews" },
     { label: "Avg Rating",      value: ourAvgRating !== null ? String(ourAvgRating) : "—",      badge: "Google avg",  desc: "Business rating calculated from imported Google reviews" },
-    { label: "Requests Sent",   value: String(requestsSent),                                    badge: "none yet",    desc: "Review requests sent to customers via campaign" },
     { label: "This Month",      value: String(monthlyUsage),                                    badge: "this period", desc: "AI responses generated in the current month" },
     { label: "Top Tone",        value: topTone ? capitalize(topTone) : "—",                     badge: "Most used",   desc: "Your most-used AI reply personality" },
   ];
@@ -386,7 +369,6 @@ export default function AnalyticsScreen({ plan }: { plan?: string | null } = {})
           {/* Stat rows */}
           {[
             { label: "Reviews logged", value: weeklyStats.reviews },
-            { label: "Requests sent", value: weeklyStats.requests },
             { label: "Responses generated", value: weeklyStats.responses },
             { label: "Awaiting your reply", value: weeklyStats.unresponded },
           ].map((row, i, arr) => (

@@ -414,7 +414,7 @@ export default function OnboardingWizard({ firstName, initialSettings, hasSmartI
           <div style={{ padding: "20px 20px 24px" }}>
             <h2 className="font-display" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", margin: "14px 0 4px" }}>Review Tools</h2>
             <p style={{ fontSize: "12px", color: "#2D9B8A", marginBottom: "18px", lineHeight: 1.5 }}>
-              Set your Google review link so campaigns send customers to the right place, and pick how Vynta sounds when she responds.
+              Set your Google review link for Ask Scripts and pick how Vynta sounds when she responds to reviews.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <div>

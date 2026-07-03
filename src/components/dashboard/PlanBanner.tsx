@@ -61,8 +61,8 @@ export default function PlanBanner({ plan, subscriptionStatus }: Props) {
         {/* Limit info */}
         <span className="text-sm text-tobacco-light">
           {limit === null
-            ? 'Unlimited review requests'
-            : `${limit.toLocaleString()} review requests / mo`}
+            ? 'Unlimited AI responses'
+            : `${limit.toLocaleString()} AI responses / mo`}
         </span>
 
         {planData.maxLocations !== null && (

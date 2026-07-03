@@ -42,12 +42,12 @@ interface NextMove {
   title: string;
   description: string;
   action_label: string;
-  action_tab: "requests" | "reviews" | "home" | "stats";
+  action_tab: "growth" | "reviews" | "home" | "stats";
 }
 
 const TAB_INDEX: Record<string, number> = {
   stats: 0,
-  requests: 1,
+  growth: 1,
   reviews: 2,
   home: 3,
 };
@@ -83,9 +83,7 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
     totalLoggedReviews: 0,
     googleReviewCount: null as number | null,
     avgRating: "N/A",
-    requestsSent: 0,
     monthlyUsage: "0",
-    campaignsCount: 0,
     competitorText: "none added",
   });
 
@@ -113,7 +111,6 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
   useEffect(() => {
     let totalReviews = 0;
     let avgRating: number | null = null;
-    let requestsSent = 0;
     let unrespondedCount = 0;
     let trainingCount = 0;
     let responseHistoryCount = 0;
@@ -122,13 +119,12 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
     // Parallel fetches for all data needed
     Promise.all([
       fetch("/api/user/reviews").then((r) => r.json()).catch(() => []),
-      fetch("/api/user/campaigns").then((r) => r.json()).catch(() => []),
       fetch("/api/user/training").then((r) => r.json()).catch(() => null),
       fetch("/api/user/response-history").then((r) => r.json()).catch(() => []),
       fetch("/api/user/competitors").then((r) => r.json()).catch(() => []),
       fetch("/api/user/goals").then((r) => r.json()).catch(() => []),
       fetch("/api/user/smart-inbox").then((r) => r.json()).catch(() => null),
-    ]).then(([reviews, campaigns, training, responseHistory, competitors, goalsData, smartInbox]) => {
+    ]).then(([reviews, training, responseHistory, competitors, goalsData, smartInbox]) => {
       // Reviews
       if (Array.isArray(reviews)) {
         totalReviews = reviews.length;
@@ -136,11 +132,6 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
           ? parseFloat((reviews.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviews.length).toFixed(1))
           : null;
         unrespondedCount = (reviews as Array<{ responded: boolean }>).filter((r) => !r.responded).length;
-      }
-
-      // Campaigns
-      if (Array.isArray(campaigns)) {
-        requestsSent = campaigns.reduce((sum: number, c: { contacts: unknown[] }) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
       }
 
       // Training
@@ -177,9 +168,7 @@ export default function GoalsScreen({ onNavigate, plan }: Props = {}) {
         totalLoggedReviews: totalReviews,
         googleReviewCount,
         avgRating: avgRating !== null ? String(avgRating) : "N/A",
-        requestsSent,
         monthlyUsage: "0",
-        campaignsCount: Array.isArray(campaigns) ? campaigns.length : 0,
         competitorText: competitorContext === "No competitor data available." ? "none added" : competitorContext,
       });
 
@@ -204,13 +193,12 @@ Each item in the array must have exactly these keys:
 - title: 5 words max, punchy
 - description: 1 sentence, specific to their data
 - action_label: 2-3 words (e.g. "Send Request", "Reply Now", "View Stats")
-- action_tab: exactly one of "requests", "reviews", "home", "stats"
+- action_tab: exactly one of "growth", "reviews", "home", "stats"
 - NEVER suggest "training" as an action_tab — training has its own dedicated button`;
 
       const userMessage = `User data:
 - Total logged reviews: ${totalReviews}
 - Average rating: ${avgRating ?? "no data yet"}
-- Review requests sent: ${requestsSent}
 - Reviews with no response logged: ${unrespondedCount}
 - Training modules completed: ${trainingCount} of 5
 - AI responses generated: ${responseHistoryCount}
@@ -319,8 +307,6 @@ This user's real data:
 - Reviews: ${reviewLine}
 - Goals: ${consultantData.goalsText}
 - AI responses generated: ${consultantData.historyCount}
-- Review requests sent: ${consultantData.requestsSent}
-- Campaigns sent: ${consultantData.campaignsCount}
 - Competitors: ${consultantData.competitorText}
 
 Give specific, actionable advice based on their actual numbers. Never start a response with "Great question" or any filler opener. Get straight to the point.`;

@@ -4,7 +4,7 @@ import DashboardNav from "@/components/dashboard/DashboardNav";
 import RequestCampaign from "@/components/dashboard/RequestCampaign";
 
 export const metadata = {
-  title: "Review Requests — Vynta",
+  title: "Growth — Vynta",
 };
 
 export default async function RequestsPage() {

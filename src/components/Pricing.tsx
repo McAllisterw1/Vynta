@@ -31,7 +31,7 @@ const PLANS = [
     featured: true,
     features: [
       "Everything in Starter",
-      "SMS review request campaigns",
+      "Review Growth tab with AI ask scripts",
       "6 AI response tones + recovery mode",
       "Google review score predictor",
       "AI review consultant",

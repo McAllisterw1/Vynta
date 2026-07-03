@@ -79,7 +79,7 @@ export default function SignInPage() {
             <em className="text-sand" style={{ fontStyle: "italic" }}>on autopilot.</em>
           </p>
           <p className="mt-5 text-sm text-cream/45 leading-relaxed max-w-[280px]">
-            Automate review requests, respond with AI, and track your rating across every platform — all from one dashboard.
+            Turn reviews into intelligence. Respond with AI, track competitors, and grow your rating — all from one dashboard.
           </p>
         </div>
 

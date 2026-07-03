@@ -5,7 +5,7 @@ const faqs = [
   },
   {
     q: "How does Vynta help me get more reviews?",
-    a: "Vynta makes it fast and simple to send review requests by text or email right after a job — so happy customers actually leave reviews instead of forgetting.",
+    a: "Vynta's Growth tab shows you exactly how many 5-star reviews you need to hit your target rating and generates ready-to-use ask scripts tailored to your business — so you know what to say and customers actually leave reviews.",
   },
   {
     q: "Can I respond to bad reviews?",

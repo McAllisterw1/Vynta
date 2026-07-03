@@ -18,7 +18,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: "Vynta — Reputation Management for Local Businesses",
-  description: "Automate review requests, respond with AI, and track your reputation across every platform in one dashboard.",
+  description: "Turn customer reviews into reputation intelligence. AI-powered insights, competitor analysis, and growth tools for local businesses.",
 };
 
 export default function RootLayout({

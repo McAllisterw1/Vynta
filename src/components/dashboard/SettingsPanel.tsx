@@ -759,7 +759,7 @@ export default function SettingsPanel({ name, email, plan, subscriptionStatus, s
           <div>
             <label style={LABEL}>Google Review Link</label>
             <p style={{ fontSize: "11px", color: "#2D9B8A", marginBottom: "8px", lineHeight: 1.5 }}>
-              Paste your Google review URL so campaigns send customers to the right place. Find it in Google Business Profile → Get more reviews.
+              Paste your Google review link — it's used in your Ask Scripts so customers know exactly where to leave a review. Find it in Google Business Profile → Get more reviews.
             </p>
             <input type="url" value={googleReviewUrl} onChange={(e) => setGoogleReviewUrl(e.target.value)}
               placeholder="https://g.page/r/your-review-link" style={FIELD} />

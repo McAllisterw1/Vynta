@@ -32,7 +32,11 @@
       "Read(//mnt/c/Users/wbmac/**)",
       "Bash(git -C /c/Users/wbmac/vynta ls-files)",
       "Bash(Remove-Item \"C:\\\\Users\\\\wbmac\\\\vynta\\\\src\\\\app\\\\api\\\\admin-debug\\\\route.ts\" -Force)",
-      "Bash(Remove-Item \"C:\\\\Users\\\\wbmac\\\\vynta\\\\src\\\\app\\\\api\\\\admin-debug\" -Force -ErrorAction SilentlyContinue)"
+      "Bash(Remove-Item \"C:\\\\Users\\\\wbmac\\\\vynta\\\\src\\\\app\\\\api\\\\admin-debug\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(Get-ChildItem src/components -Filter \"*.tsx\")",
+      "Bash(Select-Object Name)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\wbmac\\\\vynta\" | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\) {\"Dir\"} else {\"File\"}}} | Format-Table)",
+      "PowerShell(cd C:\\\\Users\\\\wbmac\\\\vynta; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"error TS\" } | Select-Object -First 20)"
     ]
   }
 }

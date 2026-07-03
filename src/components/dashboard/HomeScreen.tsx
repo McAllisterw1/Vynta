@@ -130,7 +130,6 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
   const { count, limit, increment, atLimit } = useMonthlyUsage(plan);
 
   const [mounted, setMounted] = useState(false);
-  const [requestsSent, setRequestsSent] = useState(0);
   const [businessName, setBusinessName] = useState("");
   const [reviewerName, setReviewerName] = useState("");
   const [rating, setRating] = useState(0);
@@ -238,15 +237,6 @@ export default function HomeScreen({ plan, subscriptionStatus }: Props) {
       }
     }).catch(() => {});
 
-    // Campaigns for requests sent (still needed for rep score calc)
-    fetch("/api/user/campaigns")
-      .then((r) => r.json())
-      .then((campaigns: Array<{ contacts: unknown[] }>) => {
-        if (!Array.isArray(campaigns)) return;
-        const total = campaigns.reduce((sum, c) => sum + (Array.isArray(c.contacts) ? c.contacts.length : 0), 0);
-        setRequestsSent(total);
-      })
-      .catch(() => {});
 
     // Read cached weekly tip from localStorage (written by Reports screen — no API call)
     try {
@@ -355,11 +345,10 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
   const displayRating  = googleSourcedRating ?? ourAvgRating;
   const hasScoreData   = displayRating !== null && ourReviewCount !== null;
   const ratingPts      = hasScoreData ? (displayRating! / 5) * 40 : 0;
-  const volumePts      = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 25 : 0;
+  const volumePts      = hasScoreData ? Math.min(ourReviewCount! / 50, 1) * 35 : 0;
   const responseRate   = hasScoreData && ourReviewCount! > 0 ? Math.min(history.length / ourReviewCount!, 1) : 0;
-  const responsePts    = responseRate * 20;
-  const activityPts    = Math.min(requestsSent / 20, 1) * 15;
-  const repScore       = hasScoreData ? Math.round(ratingPts + volumePts + responsePts + activityPts) : null;
+  const responsePts    = responseRate * 25;
+  const repScore       = hasScoreData ? Math.round(ratingPts + volumePts + responsePts) : null;
 
   const scoreGrade = repScore === null ? null
     : repScore >= 80 ? { label: "Excellent", color: "#2D9B8A" }
@@ -368,10 +357,9 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
     :                  { label: "Needs Work", color: "#DC2626" };
 
   const scoreBreakdown = [
-    { label: "Star Rating",    pts: Math.round(ratingPts),   max: 40, detail: displayRating !== null ? `${displayRating}★ average` : "No reviews yet",          tip: "Aim for a 4.5+ average. Respond to negatives fast." },
-    { label: "Review Volume",  pts: Math.round(volumePts),   max: 25, detail: ourReviewCount !== null ? `${ourReviewCount} reviews` : "No reviews yet",          tip: "50+ reviews builds strong trust signals." },
-    { label: "Response Rate",  pts: Math.round(responsePts), max: 20, detail: `${Math.round(responseRate * 100)}% of reviews responded`,                         tip: "Responding to every review boosts your score." },
-    { label: "Review Activity",pts: Math.round(activityPts), max: 15, detail: `${requestsSent} requests sent`,                                                   tip: "Consistent outreach keeps new reviews coming." },
+    { label: "Star Rating",   pts: Math.round(ratingPts),   max: 40, detail: displayRating !== null ? `${displayRating}★ average` : "No reviews yet",   tip: "Aim for a 4.5+ average. Respond to negatives fast." },
+    { label: "Review Volume", pts: Math.round(volumePts),   max: 35, detail: ourReviewCount !== null ? `${ourReviewCount} reviews` : "No reviews yet",   tip: "50+ reviews builds strong trust signals." },
+    { label: "Response Rate", pts: Math.round(responsePts), max: 25, detail: `${Math.round(responseRate * 100)}% of reviews responded`,                  tip: "Responding to every review boosts your score." },
   ];
 
   const CIRC = 2 * Math.PI * 36; // radius 36
@@ -382,7 +370,7 @@ Format with clear headers and bullet points. Be a trusted advisor, not a corpora
     const unresponded = (dbReviewCount ?? 0) - history.length;
     if (unresponded > 3) return `You have ${unresponded} reviews without a response — replying to each one will meaningfully boost your Reputation Score.`;
     if (displayRating !== null && displayRating < 4.2) return "Your rating has room to grow. Prioritize responding to negative reviews and requesting 5-star reviews from satisfied customers.";
-    if ((ourReviewCount ?? 0) < 20) return "Volume builds trust — send a review request campaign to recent customers to grow your review count and strengthen your score.";
+    if ((ourReviewCount ?? 0) < 20) return "Volume builds trust — use the Growth tab to ask recent customers for a review and grow your review count.";
     return "Your reputation is in solid shape. Keep momentum by responding to new reviews promptly and running a weekly sentiment analysis in Reports.";
   })();
 
