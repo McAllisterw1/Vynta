@@ -1,11 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { canAccess } from "@/lib/plans";
-import UpgradeTooltip from "@/components/ui/UpgradeTooltip";
-
-const FALLBACK_TEMPLATE =
-  "Hi {name}, thanks for choosing {business}! We'd love it if you left us a quick Google review: {link}";
+import { useState, useEffect, useCallback } from "react";
 
 const CARD: React.CSSProperties = {
   background: "#120804",
@@ -13,376 +8,504 @@ const CARD: React.CSSProperties = {
   border: "1px solid rgba(45,155,138,0.12)",
 };
 
-const FIELD: React.CSSProperties = {
-  background: "rgba(255,255,255,0.07)",
-  borderRadius: "10px",
-  border: "1px solid rgba(45,155,138,0.2)",
-  padding: "11px 14px",
-  fontSize: "14px",
-  color: "rgba(255,255,255,0.9)",
-  width: "100%",
-  outline: "none",
-  colorScheme: "dark" as const,
-};
+const TEAL  = "#2D9B8A";
+const AMBER = "#C4874A";
+const RED   = "#DC2626";
+const DARK  = "rgba(255,255,255,0.9)";
+const MUTED = "rgba(255,255,255,0.45)";
 
-const LABEL: React.CSSProperties = {
-  fontSize: "10px",
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  color: "#A0856A",
-  display: "block",
-  marginBottom: "6px",
-  fontWeight: 600,
-};
-
-interface Contact {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  channel: "email" | "sms" | "both";
+interface SlimReview {
+  rating: number;
+  date: string;
+  responded: boolean;
 }
 
-interface Campaign {
-  id: string;
-  createdAt: string;
-  businessName: string;
-  contacts: Contact[];
-  messageTemplate: string;
+interface AskScript {
+  type: string;
+  label: string;
+  script: string;
 }
 
-function newContact(): Contact {
-  return { id: crypto.randomUUID(), name: "", email: "", phone: "", channel: "email" };
+function SpinIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg style={{ width: size, height: size, animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+    </svg>
+  );
 }
 
-function channelsUsed(campaign: Campaign): string {
-  const set = new Set(campaign.contacts.map((c) => c.channel));
-  return Array.from(set)
-    .map((c) => (c === "both" ? "Email & SMS" : c === "email" ? "Email" : "SMS"))
-    .join(", ");
+function lsGet<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch { return null; }
 }
 
+function lsSet(key: string, data: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+}
 
-export default function RequestCampaign({ onBack, plan, onNavigate }: { onBack?: () => void; plan?: string | null; onNavigate?: (tab: number) => void } = {}) {
-  const [tab, setTab] = useState<"send" | "history">("send");
-  const [businessName, setBusinessName] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([newContact()]);
-  const [template, setTemplate] = useState(FALLBACK_TEMPLATE);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [sent, setSent] = useState(false);
-  const [sendError, setSendError] = useState("");
+function reviewsNeeded(currentRating: number, targetRating: number, reviewCount: number): number {
+  if (targetRating <= currentRating) return 0;
+  if (targetRating >= 5) return Math.ceil(reviewCount * (5 - currentRating));
+  return Math.ceil(reviewCount * (targetRating - currentRating) / (5 - targetRating));
+}
+
+function weeksToTarget(needed: number, perWeek: number): number | null {
+  if (perWeek <= 0) return null;
+  return Math.ceil(needed / perWeek);
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      style={{
+        background: copied ? "rgba(45,155,138,0.15)" : "rgba(255,255,255,0.06)",
+        border: `1px solid ${copied ? "rgba(45,155,138,0.3)" : "rgba(255,255,255,0.1)"}`,
+        borderRadius: "8px",
+        padding: "6px 12px",
+        fontSize: "11px",
+        fontWeight: 600,
+        color: copied ? TEAL : MUTED,
+        cursor: "pointer",
+        transition: "all 150ms",
+        flexShrink: 0,
+      }}
+    >
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
+  );
+}
+
+export default function RequestCampaign({ plan, onNavigate }: { onBack?: () => void; plan?: string | null; onNavigate?: (tab: number) => void } = {}) {
+  const [currentRating,  setCurrentRating]  = useState<number | null>(null);
+  const [targetRating,   setTargetRating]   = useState<number>(4.5);
+  const [reviewCount,    setReviewCount]    = useState<number>(0);
+  const [businessName,   setBusinessName]   = useState("");
+  const [businessType,   setBusinessType]   = useState("");
+  const [defaultTone,    setDefaultTone]    = useState("professional");
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
+  const [reviews,        setReviews]        = useState<SlimReview[]>([]);
+  const [loading,        setLoading]        = useState(true);
+
+  const [scripts,        setScripts]        = useState<AskScript[] | null>(null);
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [scriptsError,   setScriptsError]   = useState(false);
+
+  const [weeklyAsks,     setWeeklyAsks]     = useState<Array<{ week: string; count: number }>>([]);
+  const [askInput,       setAskInput]       = useState("");
+  const [askLogged,      setAskLogged]      = useState(false);
+
+  const [accelTab,       setAccelTab]       = useState<3 | 5 | 10>(5);
 
   useEffect(() => {
-    // Load settings from API
-    fetch("/api/user/settings")
-      .then((r) => r.json())
-      .then((data: { businessName?: string; messageTemplate?: string; googleReviewUrl?: string }) => {
-        if (data.businessName) setBusinessName(data.businessName);
-        if (data.messageTemplate) setTemplate(data.messageTemplate);
-        if (data.googleReviewUrl) setGoogleReviewUrl(data.googleReviewUrl);
-      })
-      .catch(() => {});
+    const cachedScripts = lsGet<AskScript[]>("vynta_ask_scripts");
+    if (cachedScripts) setScripts(cachedScripts);
 
-    // Load campaigns from API
-    fetch("/api/user/campaigns")
-      .then((r) => r.json())
-      .then((data: Campaign[]) => {
-        if (Array.isArray(data)) setCampaigns(data);
-      })
-      .catch(() => {});
+    const cachedLog = lsGet<Array<{ week: string; count: number }>>("vynta_ask_log");
+    if (cachedLog) setWeeklyAsks(cachedLog);
+
+    Promise.all([
+      fetch("/api/user/settings").then(r => r.json()).catch(() => ({})),
+      fetch("/api/user/smart-inbox").then(r => r.json()).catch(() => null),
+      fetch("/api/user/reviews?slim=true").then(r => r.json()).catch(() => []),
+    ]).then(([settings, inbox, revs]) => {
+      const s = settings as {
+        googleRating?: number; targetRating?: number; businessName?: string;
+        businessType?: string; defaultTone?: string; googleReviewUrl?: string;
+      };
+      if (s.googleRating && s.googleRating > 0) setCurrentRating(s.googleRating);
+      if (s.targetRating) setTargetRating(s.targetRating);
+      if (s.businessName) setBusinessName(s.businessName);
+      if (s.businessType) setBusinessType(s.businessType);
+      if (s.defaultTone)  setDefaultTone(s.defaultTone);
+      if (s.googleReviewUrl) setGoogleReviewUrl(s.googleReviewUrl);
+
+      const ib = inbox as { lastKnownCount?: number } | null;
+      if (ib?.lastKnownCount) setReviewCount(ib.lastKnownCount);
+
+      if (Array.isArray(revs)) setReviews(revs as SlimReview[]);
+    }).finally(() => setLoading(false));
   }, []);
 
-  function updateContact(id: string, field: keyof Contact, value: string) {
-    setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
-  }
-  function removeContact(id: string) {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
-  }
+  const monthlyVelocity = (() => {
+    if (reviews.length === 0) return 0;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    return reviews.filter(r => new Date(r.date) >= cutoff).length;
+  })();
 
-  const validContacts = contacts.filter((c) => c.name || c.email || c.phone);
+  const needed = currentRating ? reviewsNeeded(currentRating, targetRating, reviewCount) : null;
+  const weeksAtCurrent = (needed !== null && monthlyVelocity > 0)
+    ? Math.ceil(needed / (monthlyVelocity / 4.3))
+    : null;
 
-  async function handleSend() {
-    if (!validContacts.length) return;
-    setSendError("");
+  const generateScripts = useCallback(async () => {
+    if (scriptsLoading) return;
+    setScriptsLoading(true);
+    setScriptsError(false);
 
-    const platformUrl = googleReviewUrl.trim() || "https://g.page/r/PLACEHOLDER/review";
-    const businessId = "placeholder-business-id";
+    const system = "You are a local business reputation coach. Generate natural, human review request scripts. Return ONLY a raw JSON array — no markdown, no backticks.";
+    const msg = `Business: ${businessName || "a local business"}. Type: ${businessType || "local business"}. Tone: ${defaultTone}.
+
+Generate exactly 3 short review request scripts a business owner can use to ask customers for a Google review.
+
+Return this exact JSON array:
+[
+  { "type": "Post-Service", "label": "After a first visit or job", "script": "..." },
+  { "type": "Loyal Customer", "label": "For a returning customer", "script": "..." },
+  { "type": "After a Fix", "label": "After resolving a complaint", "script": "..." }
+]
+
+Rules:
+- 2-4 sentences max each
+- Natural, human — not corporate or pushy
+- Include {link} where the Google review link goes
+- Match the tone: ${defaultTone}
+- Do not beg or offer incentives`;
 
     try {
-      await Promise.all(
-        validContacts.map((c) =>
-          fetch("/api/review-request/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              businessId,
-              name: c.name,
-              email: c.email,
-              phone: c.phone,
-              channel: c.channel.toUpperCase(),
-              platformUrl,
-              businessName,
-            }),
-          }).then((res) => {
-            if (!res.ok) throw new Error(`Request failed for ${c.name || c.email}`);
-          })
-        )
-      );
-
-      // POST campaign to API
-      const campaignPayload = {
-        businessName,
-        contacts: validContacts,
-        messageTemplate: template,
-      };
-      const campaignRes = await fetch("/api/user/campaigns", {
+      const res = await fetch("/api/consultant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(campaignPayload),
+        body: JSON.stringify({ system, messages: [{ role: "user", content: msg }] }),
       });
-
-      if (campaignRes.ok) {
-        const created = await campaignRes.json() as Campaign;
-        setCampaigns((prev) => [created, ...prev]);
-      }
-
-      setContacts([newContact()]);
-      setSent(true);
-      setTimeout(() => { setSent(false); setTab("history"); }, 1500);
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      const data = await res.json() as { response?: string };
+      const raw = (data.response ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("no json");
+      const parsed = JSON.parse(match[0]) as AskScript[];
+      setScripts(parsed);
+      lsSet("vynta_ask_scripts", parsed);
+    } catch {
+      setScriptsError(true);
+    } finally {
+      setScriptsLoading(false);
     }
+  }, [businessName, businessType, defaultTone, scriptsLoading]);
+
+  function logWeeklyAsks() {
+    const count = parseInt(askInput, 10);
+    if (isNaN(count) || count < 0) return;
+    const week = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const updated = [{ week, count }, ...weeklyAsks].slice(0, 8);
+    setWeeklyAsks(updated);
+    lsSet("vynta_ask_log", updated);
+    setAskInput("");
+    setAskLogged(true);
+    setTimeout(() => setAskLogged(false), 2000);
   }
 
+  const ratingGap = currentRating ? Math.max(0, targetRating - currentRating) : 0;
+  const progressPct = currentRating
+    ? Math.min(100, Math.max(0, ((currentRating - 1) / (targetRating - 1)) * 100))
+    : 0;
+
+  void plan;
+  void onNavigate;
+
   return (
-    <div style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100%", overflowY: "auto" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Styled tab bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid rgba(44,26,14,0.06)", padding: "18px 24px 0", flexShrink: 0, gap: "4px" }}>
-        {(["send", "history"] as const).map((t) => {
-          const active = tab === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              style={{
-                padding: "14px 16px 12px",
-                fontSize: "12px",
-                fontWeight: active ? 700 : 500,
-                letterSpacing: "0.06em",
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                borderBottom: `3px solid ${active ? "#2D9B8A" : "transparent"}`,
-                color: active ? "#2C1A0E" : "#A0856A",
-                marginBottom: "-2px",
-                transition: "color 150ms, border-color 150ms",
-              }}
-            >
-              {t === "send" ? "Send Campaign" : `History${campaigns.length > 0 ? ` (${campaigns.length})` : ""}`}
-            </button>
-          );
-        })}
-      </div>
+      <div style={{ padding: "28px 24px 120px" }}>
 
-      {/* Send tab */}
-      {tab === "send" && (
-        <UpgradeTooltip locked={!canAccess(plan, "smsCampaigns")} requiredPlan="Pro">
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "14px 24px 0" }}>
-
-          {/* No Google review URL warning */}
-          {!googleReviewUrl.trim() && (
-            <div style={{
-              background: "#C4874A", borderRadius: "12px",
-              padding: "12px 16px", marginBottom: "14px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: "10px", flexShrink: 0,
-            }}>
-              <p style={{ fontSize: "12px", color: "white", fontWeight: 500, lineHeight: 1.4, flex: 1 }}>
-                ⚠️ No Google review link set. Add it in Settings so customers are sent to the right place.
-              </p>
-              <button
-                type="button"
-                onClick={() => onNavigate?.(6)}
-                style={{
-                  background: "#2D9B8A", color: "white",
-                  borderRadius: "8px", padding: "7px 14px",
-                  fontSize: "12px", fontWeight: 600,
-                  border: "none", cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
-                }}
-              >
-                Go to Settings
-              </button>
-            </div>
-          )}
-
-          {/* Branded identity pill */}
-          <div style={{ background: "#120804", borderRadius: "12px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexShrink: 0, border: "1px solid rgba(45,155,138,0.12)" }}>
-            <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#C4874A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg viewBox="0 0 62 19" fill="none" style={{ width: "20px", height: "auto" }}>
-                <path d="M0 9.5 C2 9.5 3 3 5 3 C7 3 9 16 11 16 C13 16 15 3 17 3 C19 3 21 16 23 16 C25 16 27 3 29 3 C31 3 33 16 35 16 C37 16 39 3 41 3 C43 3 45 16 47 16 C49 16 51 3 53 3 C55 3 57 9.5 62 9.5"
-                  stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Vynta Reputation Management</p>
-              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "1px" }}>Review requests sent via Vynta</p>
-            </div>
-          </div>
-
-          {/* Form body */}
-          <div style={{ background: "#120804", borderRadius: "16px", border: "1px solid rgba(45,155,138,0.12)", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", flexShrink: 0, marginBottom: "14px" }}>
-
-          {/* Business name */}
-          <div>
-            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Business Name</label>
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Marcus's Barbershop"
-              style={FIELD}
-            />
-          </div>
-
-          {/* Customer list */}
-          <div>
-            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Customers</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {contacts.map((c) => (
-                <div key={c.id} style={{ ...CARD, padding: "12px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-                    <input type="text" value={c.name} onChange={(e) => updateContact(c.id, "name", e.target.value)} placeholder="Name" style={FIELD} />
-                    <input type="tel" value={c.phone} onChange={(e) => updateContact(c.id, "phone", e.target.value)} placeholder="Phone" style={FIELD} />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "8px", alignItems: "center" }}>
-                    <input type="email" value={c.email} onChange={(e) => updateContact(c.id, "email", e.target.value)} placeholder="Email (optional)" style={FIELD} />
-                    <select
-                      value={c.channel}
-                      onChange={(e) => updateContact(c.id, "channel", e.target.value)}
-                      style={{ ...FIELD, width: "auto", cursor: "pointer" }}
-                    >
-                      <option value="email">Email</option>
-                      <option value="sms">SMS</option>
-                      <option value="both">Both</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => removeContact(c.id)}
-                      disabled={contacts.length === 1}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)", opacity: contacts.length === 1 ? 0.3 : 1, padding: "4px" }}
-                      aria-label="Remove"
-                    >
-                      <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "16px", height: "16px" }}>
-                        <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setContacts((p) => [...p, newContact()])}
-              style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", cursor: "pointer", fontSize: "13px", color: "#2D9B8A", fontWeight: 600 }}
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: "14px", height: "14px" }}>
-                <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
-              </svg>
-              Add customer
-            </button>
-          </div>
-
-          {/* Message */}
-          <div>
-            <label style={{ ...LABEL, color: "rgba(255,255,255,0.35)" }}>Message</label>
-            <textarea
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              rows={4}
-              style={{ ...FIELD, resize: "none" }}
-            />
-          </div>
-
-          {/* Send button */}
-          <div>
-            {sendError && (
-              <p style={{ fontSize: "12px", color: "#C0392B", marginBottom: "8px", textAlign: "center" }}>{sendError}</p>
-            )}
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={validContacts.length === 0 || sent}
-              style={{
-                width: "100%",
-                background: "#2D9B8A",
-                color: "white",
-                borderRadius: "12px",
-                padding: "14px",
-                fontSize: "14px",
-                fontWeight: 600,
-                border: "none",
-                cursor: "pointer",
-                opacity: validContacts.length === 0 || sent ? 0.5 : 1,
-                textAlign: "center",
-              }}
-            >
-              {sent
-                ? `✓ Sent — ${validContacts.length} request${validContacts.length !== 1 ? "s" : ""} logged`
-                : "Send Campaign"}
-            </button>
-          </div>
-
-          </div>{/* end form body card */}
-          <div style={{ paddingBottom: "120px" }} />
+        {/* Header */}
+        <div style={{ marginBottom: "24px" }}>
+          <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#2C1A0E", lineHeight: 1.1 }}>
+            Review Growth
+          </h1>
+          <p style={{ fontSize: "13px", color: "#A0856A", marginTop: "5px" }}>
+            Your roadmap to a stronger rating
+          </p>
         </div>
-        </UpgradeTooltip>
-      )}
 
-      {/* History tab */}
-      {tab === "history" && (
-        <UpgradeTooltip locked={!canAccess(plan, "requestHistory")} requiredPlan="Pro">
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 120px" }}>
-          {campaigns.length === 0 ? (
-            <div style={{ ...CARD, padding: "48px 24px", textAlign: "center" }}>
-              <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.45)" }}>No campaigns sent yet.</p>
-              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "4px" }}>Add a customer above and send your first review request.</p>
-              <button type="button" onClick={() => setTab("send")} style={{ marginTop: "12px", background: "none", border: "none", cursor: "pointer", fontSize: "13px", color: "#2D9B8A", fontWeight: 600 }}>
-                Send your first campaign →
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {campaigns.map((campaign) => (
-                <div key={campaign.id} style={{ ...CARD, padding: "18px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
-                    <div>
-                      <p style={{ fontSize: "15px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{campaign.businessName || "Unnamed"}</p>
-                      <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "2px" }}>
-                        {new Date(campaign.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {[120, 100, 80].map(h => (
+              <div key={h} style={{ ...CARD, height: h, background: "rgba(18,8,4,0.6)" }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+
+            {/* ── Growth Snapshot ── */}
+            <div style={{ ...CARD, padding: "18px" }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL, marginBottom: "14px" }}>
+                Growth Snapshot
+              </p>
+
+              {!currentRating ? (
+                <div>
+                  <p style={{ fontSize: "12px", color: MUTED, lineHeight: 1.6, marginBottom: "12px" }}>
+                    Connect your Smart Inbox and set a target rating in Settings to unlock your growth roadmap.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.(7)}
+                    style={{ background: TEAL, color: "white", borderRadius: "10px", padding: "9px 18px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}
+                  >
+                    Go to Settings →
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Rating row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "14px" }}>
+                    <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                      <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Current</p>
+                      <p style={{ fontSize: "1.2rem", fontWeight: 800, color: ratingGap > 0.5 ? AMBER : TEAL, lineHeight: 1 }}>{currentRating.toFixed(1)}★</p>
+                    </div>
+                    <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                      <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Target</p>
+                      <p style={{ fontSize: "1.2rem", fontWeight: 800, color: TEAL, lineHeight: 1 }}>{targetRating.toFixed(1)}★</p>
+                    </div>
+                    <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                      <p style={{ fontSize: "9px", color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>Gap</p>
+                      <p style={{ fontSize: "1.2rem", fontWeight: 800, color: ratingGap > 0 ? RED : TEAL, lineHeight: 1 }}>
+                        {ratingGap > 0 ? `-${ratingGap.toFixed(1)}★` : "✓"}
                       </p>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{campaign.contacts.length} contact{campaign.contacts.length !== 1 ? "s" : ""}</p>
-                      <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>{channelsUsed(campaign)}</p>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ marginBottom: "14px" }}>
+                    <div style={{ height: "6px", borderRadius: "99px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: "99px", background: `linear-gradient(90deg, ${TEAL}, ${AMBER})`, width: `${progressPct}%`, transition: "width 600ms" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                      <span style={{ fontSize: "9px", color: MUTED }}>1★</span>
+                      <span style={{ fontSize: "9px", color: MUTED }}>{targetRating}★ target</span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
-                    {campaign.contacts.map((c) => (
-                      <span key={c.id} style={{ background: "rgba(255,255,255,0.08)", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", color: "rgba(255,255,255,0.8)" }}>
-                        {c.name || c.email || c.phone}
-                      </span>
-                    ))}
+
+                  {/* Key numbers */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {needed !== null && needed > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <p style={{ fontSize: "11px", color: MUTED }}>5-star reviews needed</p>
+                        <p style={{ fontSize: "13px", fontWeight: 700, color: DARK }}>{needed.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {needed === 0 && (
+                      <p style={{ fontSize: "12px", color: TEAL, fontWeight: 600 }}>You&apos;ve hit your target rating! 🎉</p>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <p style={{ fontSize: "11px", color: MUTED }}>Reviews this month</p>
+                      <p style={{ fontSize: "13px", fontWeight: 700, color: DARK }}>{monthlyVelocity}</p>
+                    </div>
+                    {reviewCount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <p style={{ fontSize: "11px", color: MUTED }}>Total Google reviews</p>
+                        <p style={{ fontSize: "13px", fontWeight: 700, color: DARK }}>{reviewCount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {weeksAtCurrent !== null && needed !== null && needed > 0 && (
+                      <div style={{ background: "rgba(196,135,74,0.08)", border: "1px solid rgba(196,135,74,0.15)", borderRadius: "8px", padding: "8px 12px", marginTop: "4px" }}>
+                        <p style={{ fontSize: "11px", color: AMBER, lineHeight: 1.5 }}>
+                          At your current pace, you&apos;ll hit {targetRating}★ in <strong>~{weeksAtCurrent} weeks</strong>.
+                        </p>
+                      </div>
+                    )}
+                    {monthlyVelocity === 0 && needed !== null && needed > 0 && (
+                      <div style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.12)", borderRadius: "8px", padding: "8px 12px", marginTop: "4px" }}>
+                        <p style={{ fontSize: "11px", color: RED, lineHeight: 1.5 }}>
+                          No new reviews detected this month — use the scripts below to start asking.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                </>
+              )}
             </div>
-          )}
-        </div>
-        </UpgradeTooltip>
-      )}
+
+            {/* ── Accelerator ── */}
+            {currentRating && needed !== null && needed > 0 && (
+              <div style={{ ...CARD, padding: "18px" }}>
+                <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL, marginBottom: "12px" }}>
+                  Accelerator
+                </p>
+                <p style={{ fontSize: "11px", color: MUTED, marginBottom: "12px" }}>
+                  If you collect this many 5-star reviews per week:
+                </p>
+                <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+                  {([3, 5, 10] as const).map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setAccelTab(n)}
+                      style={{
+                        flex: 1,
+                        background: accelTab === n ? TEAL : "rgba(255,255,255,0.06)",
+                        border: `1px solid ${accelTab === n ? TEAL : "rgba(255,255,255,0.1)"}`,
+                        borderRadius: "8px",
+                        padding: "8px",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: accelTab === n ? "white" : MUTED,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {n}/wk
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const weeks = weeksToTarget(needed, accelTab);
+                  if (!weeks) return null;
+                  const months = (weeks / 4.3).toFixed(1);
+                  return (
+                    <div style={{ background: "rgba(45,155,138,0.06)", border: "1px solid rgba(45,155,138,0.18)", borderRadius: "10px", padding: "12px 14px" }}>
+                      <p style={{ fontSize: "13px", fontWeight: 700, color: DARK, marginBottom: "3px" }}>
+                        You&apos;d hit {targetRating}★ in ~{weeks} weeks
+                      </p>
+                      <p style={{ fontSize: "11px", color: MUTED }}>
+                        That&apos;s about {months} months — asking {accelTab} customers per week for a Google review.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* ── Ask Scripts ── */}
+            <div style={{ ...CARD, padding: "18px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL }}>
+                  Ask Scripts
+                </p>
+                {scripts && (
+                  <button
+                    type="button"
+                    onClick={() => { lsSet("vynta_ask_scripts", null); setScripts(null); }}
+                    style={{ background: "none", border: "none", fontSize: "10px", color: MUTED, cursor: "pointer" }}
+                  >
+                    Regenerate
+                  </button>
+                )}
+              </div>
+
+              {scriptsLoading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "20px 0" }}>
+                  <SpinIcon size={13} />
+                  <p style={{ fontSize: "12px", color: MUTED }}>Writing scripts for your business…</p>
+                </div>
+              ) : scriptsError ? (
+                <div>
+                  <p style={{ fontSize: "12px", color: MUTED, marginBottom: "10px" }}>Couldn&apos;t generate scripts — try again.</p>
+                  <button type="button" onClick={generateScripts}
+                    style={{ background: TEAL, color: "white", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer" }}>
+                    Retry
+                  </button>
+                </div>
+              ) : scripts ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {scripts.map((s, i) => (
+                    <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <div>
+                          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: TEAL }}>{s.type}</span>
+                          <span style={{ fontSize: "10px", color: MUTED, marginLeft: "8px" }}>{s.label}</span>
+                        </div>
+                        <CopyButton text={s.script.replace("{link}", googleReviewUrl || "[your review link]")} />
+                      </div>
+                      <p style={{ fontSize: "12px", color: DARK, lineHeight: 1.65 }}>
+                        {s.script.replace("{link}", googleReviewUrl || "[your review link]")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <p style={{ fontSize: "12px", color: MUTED, lineHeight: 1.6, marginBottom: "12px" }}>
+                    Get 3 AI-written review request scripts tailored to your business type and tone — post-service, loyal customer, and after resolving a complaint.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={generateScripts}
+                    style={{ width: "100%", background: TEAL, color: "white", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}
+                  >
+                    Generate Ask Scripts
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Weekly Ask Log ── */}
+            <div style={{ ...CARD, padding: "18px" }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: TEAL, marginBottom: "12px" }}>
+                Weekly Ask Log
+              </p>
+              <p style={{ fontSize: "11px", color: MUTED, marginBottom: "12px" }}>
+                Track how many customers you asked for a review this week.
+              </p>
+              <div style={{ display: "flex", gap: "8px", marginBottom: weeklyAsks.length > 0 ? "14px" : "0" }}>
+                <input
+                  type="number"
+                  min={0}
+                  value={askInput}
+                  onChange={e => setAskInput(e.target.value)}
+                  placeholder="e.g. 7"
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(45,155,138,0.2)",
+                    borderRadius: "10px",
+                    padding: "10px 14px",
+                    fontSize: "14px",
+                    color: DARK,
+                    outline: "none",
+                    colorScheme: "dark",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={logWeeklyAsks}
+                  disabled={!askInput || isNaN(parseInt(askInput, 10))}
+                  style={{
+                    background: askLogged ? "rgba(45,155,138,0.15)" : TEAL,
+                    color: "white",
+                    borderRadius: "10px",
+                    padding: "10px 18px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    border: "none",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    transition: "background 150ms",
+                  }}
+                >
+                  {askLogged ? "Logged ✓" : "Log"}
+                </button>
+              </div>
+
+              {weeklyAsks.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {weeklyAsks.map((entry, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < weeklyAsks.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                      <span style={{ fontSize: "11px", color: MUTED }}>Week of {entry.week}</span>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: entry.count >= 5 ? TEAL : entry.count >= 3 ? AMBER : DARK }}>
+                        {entry.count} asked
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+      </div>
     </div>
   );
 }
